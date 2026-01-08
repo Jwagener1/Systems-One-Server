@@ -1,0 +1,20 @@
+- name: Ensure app directory exists
+  file:
+    path: /opt/cloudflared
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render cloudflared docker compose file
+  template:
+    src: docker-compose.cloudflared.yml.j2
+    dest: /opt/cloudflared/docker-compose.yml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Start/Update cloudflared container
+  command: docker compose up -d
+  args:
+    chdir: /opt/cloudflared

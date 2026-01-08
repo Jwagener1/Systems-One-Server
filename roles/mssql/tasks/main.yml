@@ -1,0 +1,20 @@
+- name: Ensure MSSQL directory exists
+  file:
+    path: /opt/mssql
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render MSSQL docker compose file
+  template:
+    src: docker-compose.mssql.yml.j2
+    dest: /opt/mssql/docker-compose.yml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Start/Update MSSQL container
+  command: docker compose up -d
+  args:
+    chdir: /opt/mssql

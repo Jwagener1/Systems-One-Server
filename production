@@ -1,0 +1,9 @@
+[webservers]
+sysone
+
+[dbservers]
+sysone
+
+[all:children]
+webservers
+dbservers

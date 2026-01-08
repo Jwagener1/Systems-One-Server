@@ -1,0 +1,9 @@
+[webservers]
+# Add staging web hosts here
+
+[dbservers]
+# Add staging db hosts here
+
+[all:children]
+webservers
+dbservers
