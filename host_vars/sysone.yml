@@ -1,0 +1,5 @@
+ansible_host: 192.168.1.110
+ansible_user: s1
+ansible_ssh_private_key_file: /home/jonathan/.ssh/github_ed25519
+
+cloudflare_tunnel_token: "eyJhIjoiNmFkNGZhNDI4ODQwZTA2MDBiOWU4YTEwODM0MmFlYmIiLCJ0IjoiYWIxZWY0OWItMjJmZC00YWM2LWIzMmEtY2E0OWVlODViMDU5IiwicyI6IlpEazRZamN5WXpndE9UUmxZeTAwTVRnekxXRmtNRGt0TTJKaU1UUTVNMkk0WVRBdyJ9"

@@ -1,0 +1,8 @@
+- name: Configure database tier
+  hosts: dbservers
+  become: true
+  vars_files:
+    - group_vars/vault.yml
+  roles:
+    - docker
+    - mssql

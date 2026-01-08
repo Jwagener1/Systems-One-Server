@@ -1,0 +1,8 @@
+- name: Configure web tier
+  hosts: webservers
+  become: true
+  vars_files:
+    - group_vars/vault.yml
+  roles:
+    - docker
+    - cloudflared
