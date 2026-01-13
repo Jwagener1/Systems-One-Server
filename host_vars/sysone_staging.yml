@@ -1,0 +1,40 @@
+ansible_host: 192.168.1.110
+ansible_user: s1
+ansible_ssh_private_key_file: /home/jonathan/.ssh/github_ed25519
+
+# Plaintext staging-only secrets (temporary)
+cloudflare_tunnel_token: "eyJhIjoiNmFkNGZhNDI4ODQwZTA2MDBiOWU4YTEwODM0MmFlYmIiLCJ0IjoiYWIxZWY0OWItMjJmZC00YWM2LWIzMmEtY2E0OWVlODViMDU5IiwicyI6IlpEazRZamN5WXpndE9UUmxZeTAwTVRnekxXRmtNRGt0TTJKaU1UUTVNMkk0WVRBdyJ9"
+
+mssql_sa_password: 'AZ!9Ecnq!jyCihsmK2%O%SRF'
+
+# Primary MSSQL application database name
+mssql_database_name: 'S1_Remote_Monitoring'
+
+# MSSQL bootstrap (creates Systems_One DB + SysOne login/user + tables)
+mssql_bootstrap_enabled: true
+mssql_bootstrap_database: 'Systems_One'
+mssql_app_login: 'SysOne'
+mssql_app_login_password: 'SysOne012!'
+mssql_app_login_check_policy: false
+mssql_bootstrap_set_db_owner: false
+
+grafana_admin_password: 'TPDpJWI5k%PwG-mdkXOdKu@6'
+
+grafana_mssql_database: 'S1_Remote_Monitoring'
+
+# Remote Monitoring DB bootstrap (S1_Remote_Monitoring tables + admin owner)
+mssql_rm_bootstrap_enabled: true
+mssql_rm_database: 'S1_Remote_Monitoring'
+mssql_rm_admin_login: 'admin'
+mssql_rm_admin_password: 'SysOne012!'
+
+# MQTT Broker (local)
+mqtt_username: 'admin'
+mqtt_password: 'admin'
+
+# Cloudflared
+cloudflared_network_mode: host
+
+# Node-RED (ingest)
+nodered_bind_address: '127.0.0.1'
+nodered_port: 1880

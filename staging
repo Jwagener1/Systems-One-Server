@@ -1,8 +1,8 @@
 [webservers]
-# Add staging web hosts here
+sysone_staging
 
 [dbservers]
-# Add staging db hosts here
+sysone_staging
 
 [all:children]
 webservers

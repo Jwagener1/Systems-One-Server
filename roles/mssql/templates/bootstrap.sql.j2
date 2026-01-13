@@ -1,0 +1,196 @@
+/* =========================================================
+   FULL SETUP: {{ mssql_bootstrap_database | default('Systems_One') }}
+   - Create DB
+   - Create Login/User
+   - Set DB owner
+   - Create Sequence + Tables
+   ========================================================= */
+
+-----------------------------
+-- 1) Create Database
+-----------------------------
+USE [master];
+GO
+
+IF DB_ID(N'{{ (mssql_bootstrap_database | default('Systems_One')) | replace("'","''") }}') IS NULL
+BEGIN
+    CREATE DATABASE [{{ (mssql_bootstrap_database | default('Systems_One')) | replace("]", "]]") }}];
+END
+GO
+
+-----------------------------
+-- 2) Create SQL Login
+-----------------------------
+USE [master];
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'{{ (mssql_app_login | default('SysOne')) | replace("'","''") }}')
+BEGIN
+    CREATE LOGIN [{{ (mssql_app_login | default('SysOne')) | replace("]", "]]") }}]
+        WITH PASSWORD = N'{{ (mssql_app_login_password | default('')) | replace("'","''") }}',
+             CHECK_POLICY = {{ (mssql_app_login_check_policy | default(false)) | ternary('ON', 'OFF') }},
+             CHECK_EXPIRATION = OFF;
+END
+GO
+
+-----------------------------
+-- 3) Set DB Owner
+-----------------------------
+USE [master];
+GO
+
+{% if mssql_bootstrap_set_db_owner | default(false) %}
+
+IF EXISTS (SELECT 1 FROM sys.databases WHERE name = N'{{ (mssql_bootstrap_database | default('Systems_One')) | replace("'","''") }}')
+AND SUSER_SNAME((SELECT owner_sid FROM sys.databases WHERE name = N'{{ (mssql_bootstrap_database | default('Systems_One')) | replace("'","''") }}')) <> N'{{ (mssql_app_login | default('SysOne')) | replace("'","''") }}'
+BEGIN
+    ALTER AUTHORIZATION ON DATABASE::[{{ (mssql_bootstrap_database | default('Systems_One')) | replace("]", "]]" ) }}] TO [{{ (mssql_app_login | default('SysOne')) | replace("]", "]]" ) }}];
+END
+GO
+
+{% endif %}
+
+-----------------------------
+-- 4) Create DB User + Permissions
+-----------------------------
+USE [{{ (mssql_bootstrap_database | default('Systems_One')) | replace("]", "]]" ) }}];
+GO
+
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.database_principals
+    WHERE sid = SUSER_SID(N'{{ (mssql_app_login | default('SysOne')) | replace("'","''") }}')
+)
+BEGIN
+    CREATE USER [{{ (mssql_app_login | default('SysOne')) | replace("]", "]]" ) }}] FOR LOGIN [{{ (mssql_app_login | default('SysOne')) | replace("]", "]]" ) }}] WITH DEFAULT_SCHEMA = [dbo];
+END
+GO
+
+-- Ensure db_owner role membership
+IF EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'{{ (mssql_app_login | default('SysOne')) | replace("'","''") }}')
+AND IS_ROLEMEMBER(N'db_owner', N'{{ (mssql_app_login | default('SysOne')) | replace("'","''") }}') = 0
+BEGIN
+    ALTER ROLE [db_owner] ADD MEMBER [{{ (mssql_app_login | default('SysOne')) | replace("]", "]]" ) }}];
+END
+GO
+
+-----------------------------
+-- 5) Create Objects (tables/sequence)
+-----------------------------
+USE [{{ (mssql_bootstrap_database | default('Systems_One')) | replace("]", "]]") }}];
+GO
+
+-- Ensure dbo schema exists
+IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N'dbo')
+BEGIN
+    EXEC(N'CREATE SCHEMA [dbo];');
+END
+GO
+
+-- 4.1) Sequence needed by ItemLog.LegacyId default
+IF NOT EXISTS (SELECT 1 FROM sys.sequences WHERE name = N'LegacyIdSeq' AND SCHEMA_NAME(schema_id) = N'dbo')
+BEGIN
+    EXEC(N'
+        CREATE SEQUENCE [dbo].[LegacyIdSeq]
+            AS INT
+            START WITH 1
+            INCREMENT BY 1;
+    ');
+END
+GO
+
+-- 4.2) Table: dbo.DailyStats
+IF OBJECT_ID(N'dbo.DailyStats', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[DailyStats] (
+        [StatDate]                date          NOT NULL,
+        [Shift]                   int           NOT NULL,
+        [TotalItems]              int           NULL,
+        [TotalNoWeight]           int           NULL,
+        [TotalNoDimensions]       int           NULL,
+        [SuccessfulTransactions]  int           NULL,
+        [TotalOutOfSpec]          int           NULL,
+        [TotalMoreThanOneItem]    int           NULL,
+        [LastUpdateTime]          datetime      NOT NULL
+            CONSTRAINT [DF_DailyStats_LastUpdateTime] DEFAULT (getdate())
+    );
+END
+GO
+
+-- 4.3) Table: dbo.driver_log
+IF OBJECT_ID(N'dbo.driver_log', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[driver_log] (
+        [driver_name] nvarchar(100) NOT NULL,
+        [driver_code] nvarchar(50)  NOT NULL
+    );
+END
+GO
+
+-- 4.4) Table: dbo.ItemLog
+IF OBJECT_ID(N'dbo.ItemLog', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[ItemLog] (
+        [Id]            int            IDENTITY(1,1) NOT NULL,
+        [ItemDateTime]  datetime       NOT NULL,
+        [Barcode]       nvarchar(100)  NULL,
+        [Length]        decimal(10,1)  NULL,
+        [Width]         decimal(10,1)  NULL,
+        [Height]        decimal(10,1)  NULL,
+        [Weight]        decimal(18,3)  NULL,
+        [BoxVolume]     bigint         NULL,
+        [LiquidVolume]  bigint         NULL,
+        [NoDimension]   bit            NULL,
+        [NoWeight]      bit            NULL,
+        [Sent]          bit            NULL,
+        [ImageSent]     bit            NULL,
+        [Valid]         bit            NULL,
+        [Complete]      bit            NULL,
+        [ItemSpec]      smallint       NULL,
+        [ItemCount]     smallint       NULL,
+        [LegacyId]      int            NULL
+            CONSTRAINT [DF_ItemLog_LegacyId] DEFAULT (NEXT VALUE FOR [dbo].[LegacyIdSeq]),
+        [StoreId]       nvarchar(32)   NULL,
+        [StoreName]     nvarchar(200)  NULL,
+
+        CONSTRAINT [PK_ItemLog] PRIMARY KEY CLUSTERED ([Id])
+    );
+END
+GO
+
+-- 4.5) Table: dbo.TripInfo
+IF OBJECT_ID(N'dbo.TripInfo', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[TripInfo] (
+        [TripInfoId]  int            IDENTITY(1,1) NOT NULL,
+        [ReceivedAt]  datetime2(0)   NOT NULL
+            CONSTRAINT [DF_TripInfo_ReceivedAt] DEFAULT (sysdatetime()),
+        [StoreId]     nvarchar(32)   NOT NULL,
+        [StoreName]   nvarchar(200)  NOT NULL,
+        [ExpectedQty] int            NOT NULL,
+
+        CONSTRAINT [PK_TripInfo] PRIMARY KEY CLUSTERED ([TripInfoId])
+    );
+END
+GO
+
+-----------------------------
+-- 6) Quick verification output
+-----------------------------
+USE [{{ (mssql_bootstrap_database | default('Systems_One')) | replace("]", "]]") }}];
+GO
+
+SELECT
+    DB_NAME() AS [Database],
+    SUSER_SNAME(owner_sid) AS [DbOwner]
+FROM sys.databases
+WHERE name = N'{{ (mssql_bootstrap_database | default('Systems_One')) | replace("'","''") }}';
+
+SELECT
+    s.name AS [Schema],
+    t.name AS [Table]
+FROM sys.tables t
+JOIN sys.schemas s ON s.schema_id = t.schema_id
+WHERE t.is_ms_shipped = 0
+ORDER BY s.name, t.name;
+GO

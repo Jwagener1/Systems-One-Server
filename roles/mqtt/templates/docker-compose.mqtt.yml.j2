@@ -1,0 +1,21 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    restart: unless-stopped
+    volumes:
+      - /opt/mqtt/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - /opt/mqtt/mosquitto/passwordfile:/mosquitto/config/passwordfile
+      - mosquitto_data:/mosquitto/data
+    ports:
+      - "{{ mosquitto_mqtt_port | default(1883) }}:{{ mosquitto_mqtt_port | default(1883) }}"
+      - "{{ mosquitto_ws_port | default(9001) }}:{{ mosquitto_ws_port | default(9001) }}"
+    networks:
+      - {{ docker_shared_network | default('infra') }}
+
+volumes:
+  mosquitto_data:
+
+networks:
+  {{ docker_shared_network | default('infra') }}:
+    external: true

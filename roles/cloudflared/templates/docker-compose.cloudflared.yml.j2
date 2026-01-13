@@ -6,3 +6,13 @@ services:
     command: tunnel run
     environment:
       - TUNNEL_TOKEN={{ cloudflare_tunnel_token }}
+{% if cloudflared_network_mode | default('bridge') == 'host' %}
+    network_mode: host
+{% else %}
+    networks:
+      - {{ docker_shared_network | default('infra') }}
+{% endif %}
+
+networks:
+  {{ docker_shared_network | default('infra') }}:
+    external: true

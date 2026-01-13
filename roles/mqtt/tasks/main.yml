@@ -1,0 +1,83 @@
+- name: Ensure MQTT directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /opt/mqtt
+    - /opt/mqtt/mosquitto
+
+- name: Validate required variables
+  assert:
+    that:
+      - mqtt_username is defined
+      - mqtt_username | length > 0
+      - mqtt_password is defined
+      - mqtt_password | length > 0
+    fail_msg: >-
+      Missing required MQTT variables. Provide mqtt_username, mqtt_password
+      in host_vars/group_vars or via Ansible Vault.
+
+- name: Render mosquitto config
+  template:
+    src: mosquitto.conf.j2
+    dest: /opt/mqtt/mosquitto/mosquitto.conf
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Determine MQTT credentials fingerprint
+  set_fact:
+    mqtt_creds_fingerprint: "{{ (mqtt_username ~ ':' ~ mqtt_password) | hash('sha256') }}"
+
+- name: Read existing MQTT credentials fingerprint
+  slurp:
+    src: /opt/mqtt/mosquitto/.creds.sha256
+  register: mqtt_existing_fingerprint
+  ignore_errors: true
+
+- name: Decide whether to regenerate password file
+  set_fact:
+    mqtt_regen_passwordfile: >-
+      {{ (mqtt_existing_fingerprint is failed)
+         or ((mqtt_existing_fingerprint.content | default('') | b64decode | trim) != mqtt_creds_fingerprint) }}
+
+- name: Generate Mosquitto password file (no anonymous logins)
+  shell: >-
+    docker run --rm
+    -v /opt/mqtt/mosquitto:/mosq
+    eclipse-mosquitto:2
+    sh -lc "mosquitto_passwd -b -c /mosq/passwordfile {{ mqtt_username | quote }} {{ mqtt_password | quote }}"
+  when: mqtt_regen_passwordfile
+  no_log: true
+
+- name: Ensure password file permissions
+  file:
+    path: /opt/mqtt/mosquitto/passwordfile
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Write MQTT credentials fingerprint
+  copy:
+    dest: /opt/mqtt/mosquitto/.creds.sha256
+    content: "{{ mqtt_creds_fingerprint }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+  when: mqtt_regen_passwordfile
+
+- name: Render docker compose
+  template:
+    src: docker-compose.mqtt.yml.j2
+    dest: /opt/mqtt/docker-compose.yml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Start/Update MQTT stack
+  command: docker compose up -d --remove-orphans
+  args:
+    chdir: /opt/mqtt

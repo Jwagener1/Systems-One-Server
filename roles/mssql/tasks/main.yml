@@ -18,3 +18,119 @@
   command: docker compose up -d
   args:
     chdir: /opt/mssql
+
+- name: Ensure application database exists
+  shell: >-
+    docker exec mssql /opt/mssql-tools18/bin/sqlcmd
+    -S localhost -U sa -P "{{ mssql_sa_password }}"
+    -Q "IF DB_ID('{{ mssql_database_name | default('S1_Remote_Monitoring') }}') IS NULL CREATE DATABASE [{{ mssql_database_name | default('S1_Remote_Monitoring') }}];"
+    -C
+  register: mssql_create_db
+  retries: 20
+  delay: 5
+  until: mssql_create_db.rc == 0
+  changed_when: false
+  no_log: true
+
+- name: Validate MSSQL bootstrap variables
+  assert:
+    that:
+      - mssql_app_login_password is defined
+      - mssql_app_login_password | length > 0
+    fail_msg: >-
+      MSSQL bootstrap requested but 'mssql_app_login_password' is missing.
+      Provide it in host_vars/group_vars or via Ansible Vault.
+  when: mssql_bootstrap_enabled | default(false)
+
+- name: Render MSSQL bootstrap SQL
+  template:
+    src: bootstrap.sql.j2
+    dest: /opt/mssql/bootstrap.sql
+    owner: root
+    group: root
+    mode: "0600"
+  when: mssql_bootstrap_enabled | default(false)
+
+- name: Run MSSQL bootstrap SQL
+  block:
+    - name: Execute bootstrap script (log to /opt/mssql/bootstrap.out)
+      shell: |
+        set -euo pipefail
+        docker exec -i mssql /opt/mssql-tools18/bin/sqlcmd \
+          -S localhost -U sa -P "{{ mssql_sa_password }}" \
+          -C -b < /opt/mssql/bootstrap.sql \
+          > /opt/mssql/bootstrap.out 2>&1
+      args:
+        executable: /bin/bash
+      register: mssql_bootstrap_run
+      retries: 3
+      delay: 5
+      until: mssql_bootstrap_run.rc == 0
+      changed_when: false
+      no_log: true
+
+  rescue:
+    - name: Show MSSQL bootstrap log tail
+      shell: tail -n 200 /opt/mssql/bootstrap.out || true
+      register: mssql_bootstrap_log
+      changed_when: false
+
+    - name: Fail with bootstrap error output
+      fail:
+        msg: |
+          MSSQL bootstrap failed. Last output:
+          {{ mssql_bootstrap_log.stdout | default('') }}
+
+  when: mssql_bootstrap_enabled | default(false)
+
+- name: Validate Remote Monitoring bootstrap variables
+  assert:
+    that:
+      - mssql_rm_admin_password is defined
+      - mssql_rm_admin_password | length > 0
+    fail_msg: >-
+      Remote Monitoring bootstrap requested but 'mssql_rm_admin_password' is missing.
+      Provide it in host_vars/group_vars or via Ansible Vault.
+  when: mssql_rm_bootstrap_enabled | default(false)
+
+- name: Render Remote Monitoring bootstrap SQL
+  template:
+    src: bootstrap.remote_monitoring.sql.j2
+    dest: /opt/mssql/bootstrap.remote_monitoring.sql
+    owner: root
+    group: root
+    mode: "0600"
+  when: mssql_rm_bootstrap_enabled | default(false)
+  no_log: true
+
+- name: Run Remote Monitoring bootstrap SQL
+  block:
+    - name: Execute Remote Monitoring bootstrap script (log to /opt/mssql/bootstrap.remote_monitoring.out)
+      shell: |
+        set -euo pipefail
+        docker exec -i mssql /opt/mssql-tools18/bin/sqlcmd \
+          -S localhost -U sa -P "{{ mssql_sa_password }}" \
+          -C -b < /opt/mssql/bootstrap.remote_monitoring.sql \
+          > /opt/mssql/bootstrap.remote_monitoring.out 2>&1
+      args:
+        executable: /bin/bash
+      register: mssql_rm_bootstrap_run
+      retries: 3
+      delay: 5
+      until: mssql_rm_bootstrap_run.rc == 0
+      changed_when: false
+      no_log: true
+
+  rescue:
+    - name: Show Remote Monitoring bootstrap log tail
+      shell: tail -n 200 /opt/mssql/bootstrap.remote_monitoring.out || true
+      register: mssql_rm_bootstrap_log
+      changed_when: false
+
+    - name: Fail with Remote Monitoring bootstrap error output
+      fail:
+        msg: |
+          Remote Monitoring MSSQL bootstrap failed. Last output:
+          {{ mssql_rm_bootstrap_log.stdout | default('') }}
+
+  when: mssql_rm_bootstrap_enabled | default(false)

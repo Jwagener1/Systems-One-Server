@@ -1,8 +1,22 @@
 - name: Configure database tier
   hosts: dbservers
   become: true
-  vars_files:
-    - group_vars/vault.yml
+  pre_tasks:
+    - name: Load vaulted variables if available
+      include_vars:
+        file: group_vars/vault.yml
+      no_log: true
+      ignore_errors: true
+
+    - name: Validate required variables
+      assert:
+        that:
+          - mssql_sa_password is defined
+          - mssql_sa_password | length >= 8
+        fail_msg: >-
+          Missing required variable 'mssql_sa_password'.
+          Provide it via Ansible Vault (group_vars/vault.yml + --ask-vault-pass / --vault-password-file)
+          or via --extra-vars.
   roles:
     - docker
     - mssql

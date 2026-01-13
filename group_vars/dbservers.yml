@@ -1,1 +1,7 @@
 mssql_port: 1433
+
+# Remote Monitoring DB bootstrap (applies to all dbservers, including production)
+mssql_rm_bootstrap_enabled: true
+mssql_rm_database: 'S1_Remote_Monitoring'
+mssql_rm_admin_login: 'admin'
+mssql_rm_admin_password: 'SysOne012!'

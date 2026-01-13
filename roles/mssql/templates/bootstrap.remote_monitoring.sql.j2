@@ -1,0 +1,416 @@
+/* =========================================================
+   Remote Monitoring DB Setup: {{ mssql_rm_database | default('S1_Remote_Monitoring') }}
+   - Create DB (if missing)
+   - Create login/user: {{ mssql_rm_admin_login | default('admin') }}
+   - Set DB owner to admin
+   - Create tables + constraints + indexes (idempotent)
+   ========================================================= */
+
+-----------------------------
+-- 1) Create Database
+-----------------------------
+USE [master];
+GO
+
+IF DB_ID(N'{{ (mssql_rm_database | default('S1_Remote_Monitoring')) | replace("'","''") }}') IS NULL
+BEGIN
+    CREATE DATABASE [{{ (mssql_rm_database | default('S1_Remote_Monitoring')) | replace("]", "]]" ) }}];
+END
+GO
+
+-----------------------------
+-- 2) Create SQL Login
+-----------------------------
+USE [master];
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'{{ (mssql_rm_admin_login | default('admin')) | replace("'","''") }}')
+BEGIN
+    CREATE LOGIN [{{ (mssql_rm_admin_login | default('admin')) | replace("]", "]]" ) }}]
+        WITH PASSWORD = N'{{ (mssql_rm_admin_password | default('')) | replace("'","''") }}',
+             CHECK_POLICY = OFF,
+             CHECK_EXPIRATION = OFF;
+END
+GO
+
+-----------------------------
+-- 3) Set DB owner to admin (dbo)
+-----------------------------
+USE [master];
+GO
+
+IF EXISTS (SELECT 1 FROM sys.databases WHERE name = N'{{ (mssql_rm_database | default('S1_Remote_Monitoring')) | replace("'","''") }}')
+AND SUSER_SNAME((SELECT owner_sid FROM sys.databases WHERE name = N'{{ (mssql_rm_database | default('S1_Remote_Monitoring')) | replace("'","''") }}')) <> N'{{ (mssql_rm_admin_login | default('admin')) | replace("'","''") }}'
+BEGIN
+    -- If the login is already mapped as a different username in the DB, drop that user to allow ownership change.
+    EXEC(N'USE [{{ (mssql_rm_database | default('S1_Remote_Monitoring')) | replace("]", "]]" ) }}];
+DECLARE @u sysname;
+SELECT TOP (1) @u = name
+FROM sys.database_principals
+WHERE sid = SUSER_SID(N''{{ (mssql_rm_admin_login | default('admin')) | replace("'","''") }}'')
+  AND name <> N''dbo'';
+IF @u IS NOT NULL
+    EXEC(N''DROP USER '' + QUOTENAME(@u) + N'';'');');
+
+    ALTER AUTHORIZATION ON DATABASE::[{{ (mssql_rm_database | default('S1_Remote_Monitoring')) | replace("]", "]]" ) }}] TO [{{ (mssql_rm_admin_login | default('admin')) | replace("]", "]]" ) }}];
+END
+GO
+
+-----------------------------
+-- 4) Create DB User (if needed) + Ensure db_owner
+-----------------------------
+USE [{{ (mssql_rm_database | default('S1_Remote_Monitoring')) | replace("]", "]]" ) }}];
+GO
+
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.database_principals
+    WHERE sid = SUSER_SID(N'{{ (mssql_rm_admin_login | default('admin')) | replace("'","''") }}')
+)
+BEGIN
+    CREATE USER [{{ (mssql_rm_admin_login | default('admin')) | replace("]", "]]" ) }}]
+      FOR LOGIN [{{ (mssql_rm_admin_login | default('admin')) | replace("]", "]]" ) }}]
+      WITH DEFAULT_SCHEMA = [dbo];
+END
+GO
+
+IF EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'{{ (mssql_rm_admin_login | default('admin')) | replace("'","''") }}')
+AND IS_ROLEMEMBER(N'db_owner', N'{{ (mssql_rm_admin_login | default('admin')) | replace("'","''") }}') = 0
+BEGIN
+    ALTER ROLE [db_owner] ADD MEMBER [{{ (mssql_rm_admin_login | default('admin')) | replace("]", "]]" ) }}];
+END
+GO
+
+-----------------------------
+-- 5) Tables / Constraints / Indexes
+-----------------------------
+
+-- devices
+IF OBJECT_ID(N'dbo.devices', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.devices (
+        id INT IDENTITY(1,1) PRIMARY KEY,
+
+        serial_number NVARCHAR(50) NOT NULL,
+        customer      NVARCHAR(100) NOT NULL,
+        location      NVARCHAR(100) NOT NULL,
+        machine_name  NVARCHAR(100) NOT NULL,
+
+        created_at    DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+        updated_at    DATETIME2 NULL
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.key_constraints WHERE name = N'UQ_devices_serial')
+BEGIN
+    ALTER TABLE dbo.devices
+    ADD CONSTRAINT UQ_devices_serial UNIQUE (serial_number);
+END
+GO
+
+-- device_status
+IF OBJECT_ID(N'dbo.device_status', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.device_status (
+        id INT IDENTITY(1,1) PRIMARY KEY,
+
+        device_id INT NOT NULL,
+        status NVARCHAR(20) NOT NULL,
+
+        ts_epoch BIGINT NOT NULL,
+        ts_datetime DATETIME2 NOT NULL,
+
+        offline_since DATETIME2 NULL,
+
+        created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+        updated_at DATETIME2 NULL
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_device_status_device')
+BEGIN
+    ALTER TABLE dbo.device_status
+    ADD CONSTRAINT FK_device_status_device
+        FOREIGN KEY (device_id)
+        REFERENCES dbo.devices(id)
+        ON DELETE CASCADE;
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.key_constraints WHERE name = N'UQ_device_status_device')
+BEGIN
+    ALTER TABLE dbo.device_status
+    ADD CONSTRAINT UQ_device_status_device UNIQUE (device_id);
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_device_status_status' AND object_id = OBJECT_ID(N'dbo.device_status'))
+BEGIN
+    CREATE INDEX IX_device_status_status
+    ON dbo.device_status (status);
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_device_status_ts' AND object_id = OBJECT_ID(N'dbo.device_status'))
+BEGIN
+    CREATE INDEX IX_device_status_ts
+    ON dbo.device_status (ts_datetime DESC);
+END
+GO
+
+-- device_application_status
+IF OBJECT_ID(N'dbo.device_application_status', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.device_application_status (
+        id INT IDENTITY(1,1) PRIMARY KEY,
+
+        device_id INT NOT NULL,
+        application_running BIT NOT NULL,
+
+        ts_epoch BIGINT NOT NULL,
+        ts_datetime DATETIME2 NOT NULL,
+
+        stopped_since DATETIME2 NULL,
+
+        created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+        updated_at DATETIME2 NULL
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_app_status_device')
+BEGIN
+    ALTER TABLE dbo.device_application_status
+    ADD CONSTRAINT FK_app_status_device
+        FOREIGN KEY (device_id)
+        REFERENCES dbo.devices(id)
+        ON DELETE CASCADE;
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.key_constraints WHERE name = N'UQ_app_status_device')
+BEGIN
+    ALTER TABLE dbo.device_application_status
+    ADD CONSTRAINT UQ_app_status_device UNIQUE (device_id);
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_app_status_running' AND object_id = OBJECT_ID(N'dbo.device_application_status'))
+BEGIN
+    CREATE INDEX IX_app_status_running
+    ON dbo.device_application_status (application_running);
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_app_status_ts' AND object_id = OBJECT_ID(N'dbo.device_application_status'))
+BEGIN
+    CREATE INDEX IX_app_status_ts
+    ON dbo.device_application_status (ts_datetime DESC);
+END
+GO
+
+-- device_os_status
+IF OBJECT_ID(N'dbo.device_os_status', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.device_os_status (
+        id INT IDENTITY(1,1) PRIMARY KEY,
+
+        device_id INT NOT NULL,
+        os_version NVARCHAR(200) NOT NULL,
+
+        ts_epoch BIGINT NOT NULL,
+        ts_datetime DATETIME2 NOT NULL,
+
+        created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+        updated_at DATETIME2 NULL
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_os_status_device')
+BEGIN
+    ALTER TABLE dbo.device_os_status
+    ADD CONSTRAINT FK_os_status_device
+        FOREIGN KEY (device_id)
+        REFERENCES dbo.devices(id)
+        ON DELETE CASCADE;
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.key_constraints WHERE name = N'UQ_os_status_device')
+BEGIN
+    ALTER TABLE dbo.device_os_status
+    ADD CONSTRAINT UQ_os_status_device UNIQUE (device_id);
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_os_status_version' AND object_id = OBJECT_ID(N'dbo.device_os_status'))
+BEGIN
+    CREATE INDEX IX_os_status_version
+    ON dbo.device_os_status (os_version);
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_os_status_ts' AND object_id = OBJECT_ID(N'dbo.device_os_status'))
+BEGIN
+    CREATE INDEX IX_os_status_ts
+    ON dbo.device_os_status (ts_datetime DESC);
+END
+GO
+
+-- device_uptime_status
+IF OBJECT_ID(N'dbo.device_uptime_status', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.device_uptime_status (
+        id INT IDENTITY(1,1) PRIMARY KEY,
+
+        device_id INT NOT NULL,
+
+        uptime_seconds DECIMAL(18,3) NOT NULL,
+        ts_epoch BIGINT NOT NULL,
+        ts_datetime DATETIME2 NOT NULL,
+
+        created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+        updated_at DATETIME2 NULL
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_uptime_status_device')
+BEGIN
+    ALTER TABLE dbo.device_uptime_status
+    ADD CONSTRAINT FK_uptime_status_device
+        FOREIGN KEY (device_id)
+        REFERENCES dbo.devices(id)
+        ON DELETE CASCADE;
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.key_constraints WHERE name = N'UQ_uptime_status_device')
+BEGIN
+    ALTER TABLE dbo.device_uptime_status
+    ADD CONSTRAINT UQ_uptime_status_device UNIQUE (device_id);
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_uptime_status_ts' AND object_id = OBJECT_ID(N'dbo.device_uptime_status'))
+BEGIN
+    CREATE INDEX IX_uptime_status_ts
+    ON dbo.device_uptime_status (ts_datetime DESC);
+END
+GO
+
+-- device_storage_status
+IF OBJECT_ID(N'dbo.device_storage_status', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.device_storage_status (
+        id INT IDENTITY(1,1) PRIMARY KEY,
+
+        device_id INT NOT NULL,
+
+        drive NVARCHAR(10) NOT NULL,
+        drive_type NVARCHAR(50) NULL,
+        format NVARCHAR(20) NULL,
+
+        total_gb DECIMAL(10,2) NOT NULL,
+        free_gb  DECIMAL(10,2) NOT NULL,
+        used_gb  DECIMAL(10,2) NOT NULL,
+        usage_percent DECIMAL(5,2) NOT NULL,
+
+        ts_epoch BIGINT NOT NULL,
+        ts_datetime DATETIME2 NOT NULL,
+
+        created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+        updated_at DATETIME2 NULL
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_storage_status_device')
+BEGIN
+    ALTER TABLE dbo.device_storage_status
+    ADD CONSTRAINT FK_storage_status_device
+        FOREIGN KEY (device_id)
+        REFERENCES dbo.devices(id)
+        ON DELETE CASCADE;
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.key_constraints WHERE name = N'UQ_storage_device_drive')
+BEGIN
+    ALTER TABLE dbo.device_storage_status
+    ADD CONSTRAINT UQ_storage_device_drive UNIQUE (device_id, drive);
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_storage_status_ts' AND object_id = OBJECT_ID(N'dbo.device_storage_status'))
+BEGIN
+    CREATE INDEX IX_storage_status_ts
+    ON dbo.device_storage_status (ts_datetime DESC);
+END
+GO
+
+-- device_statistics
+IF OBJECT_ID(N'dbo.device_statistics', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.device_statistics (
+        id BIGINT IDENTITY(1,1) PRIMARY KEY,
+
+        device_id INT NOT NULL,
+
+        ts_epoch BIGINT NOT NULL,
+        ts_datetime DATETIME2 NOT NULL,
+
+        total_items        INT NOT NULL,
+        no_read            INT NOT NULL,
+        good_read          INT NOT NULL,
+        no_dimension       INT NOT NULL,
+        no_weight          INT NOT NULL,
+        data_sent          INT NOT NULL,
+        not_sent           INT NOT NULL,
+        image_sent         INT NOT NULL,
+        image_not_sent     INT NOT NULL,
+        item_out_of_spec   INT NOT NULL,
+        more_than_1_item   INT NOT NULL,
+
+        created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME()
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_device_statistics_device')
+BEGIN
+    ALTER TABLE dbo.device_statistics
+    ADD CONSTRAINT FK_device_statistics_device
+        FOREIGN KEY (device_id)
+        REFERENCES dbo.devices(id)
+        ON DELETE CASCADE;
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_device_statistics_ts' AND object_id = OBJECT_ID(N'dbo.device_statistics'))
+BEGIN
+    CREATE INDEX IX_device_statistics_ts
+    ON dbo.device_statistics (device_id, ts_datetime DESC);
+END
+GO
+
+-----------------------------
+-- 6) Quick verification output
+-----------------------------
+SELECT
+    DB_NAME() AS [Database],
+    SUSER_SNAME(owner_sid) AS [DbOwner]
+FROM sys.databases
+WHERE name = N'{{ (mssql_rm_database | default('S1_Remote_Monitoring')) | replace("'","''") }}';
+
+SELECT
+    s.name AS [Schema],
+    t.name AS [Table]
+FROM sys.tables t
+JOIN sys.schemas s ON s.schema_id = t.schema_id
+WHERE t.is_ms_shipped = 0
+ORDER BY s.name, t.name;
+GO

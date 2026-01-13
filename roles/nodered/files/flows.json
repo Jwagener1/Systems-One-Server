@@ -1,0 +1,9 @@
+[
+    {
+        "id": "tab1",
+        "type": "tab",
+        "label": "Ingest",
+        "disabled": false,
+        "info": "Provisioned by Ansible. Replace roles/nodered/files/flows.json with your exported Node-RED flows."
+    }
+]
