@@ -1,8 +1,24 @@
 - name: Configure web tier
   hosts: webservers
   become: true
-  vars_files:
-    - group_vars/vault.yml
+  pre_tasks:
+    - name: Load vaulted variables if available
+      include_vars:
+        file: group_vars/vault.yml
+      no_log: true
+      ignore_errors: true
+
+    - name: Validate required variables
+      assert:
+        that:
+          - cloudflare_tunnel_token is defined
+          - cloudflare_tunnel_token | length > 0
+        fail_msg: >-
+          Missing required variable 'cloudflare_tunnel_token'.
+          Define it in host_vars/<host>.yml, group_vars, or via --extra-vars.
   roles:
     - docker
     - cloudflared
+    - grafana
+    - mqtt
+    - nodered

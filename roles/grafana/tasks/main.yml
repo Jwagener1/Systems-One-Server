@@ -1,0 +1,65 @@
+- name: Ensure Grafana directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /opt/grafana
+    - /opt/grafana/provisioning
+    - /opt/grafana/provisioning/dashboards
+    - /opt/grafana/provisioning/datasources
+    - /opt/grafana/dashboards
+
+- name: Ensure shared Docker network exists
+  shell: "docker network inspect {{ docker_shared_network | default('infra') }} >/dev/null 2>&1 || docker network create {{ docker_shared_network | default('infra') }}"
+  changed_when: false
+
+- name: Validate required variables
+  assert:
+    that:
+      - grafana_admin_password is defined
+      - grafana_admin_password | length >= 8
+    fail_msg: >-
+      Missing required variable 'grafana_admin_password'.
+      Provide it in host_vars/group_vars or via Ansible Vault.
+
+- name: Render Grafana docker compose file
+  template:
+    src: docker-compose.grafana.yml.j2
+    dest: /opt/grafana/docker-compose.yml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Render Grafana dashboards provider provisioning
+  template:
+    src: dashboards-provider.yml.j2
+    dest: /opt/grafana/provisioning/dashboards/provider.yml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Render Grafana datasources provisioning
+  template:
+    src: datasources.yml.j2
+    dest: /opt/grafana/provisioning/datasources/datasources.yml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Copy provisioned dashboards (JSON)
+  copy:
+    src: "{{ item }}"
+    dest: /opt/grafana/dashboards/
+    owner: root
+    group: root
+    mode: "0644"
+  with_fileglob:
+    - "{{ role_path }}/files/dashboards/*.json"
+
+- name: Start/Update Grafana container
+  command: docker compose up -d
+  args:
+    chdir: /opt/grafana

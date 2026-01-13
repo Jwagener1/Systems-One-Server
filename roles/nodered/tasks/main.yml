@@ -1,0 +1,47 @@
+- name: Ensure Node-RED directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ nodered_uid | default(1000) }}"
+    group: "{{ nodered_gid | default(1000) }}"
+    mode: "0755"
+  loop:
+    - /opt/nodered
+    - /opt/nodered/data
+
+- name: Render Node-RED docker compose file
+  template:
+    src: docker-compose.nodered.yml.j2
+    dest: /opt/nodered/docker-compose.yml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Provision Node-RED settings.js
+  copy:
+    src: settings.js
+    dest: /opt/nodered/data/settings.js
+    owner: "{{ nodered_uid | default(1000) }}"
+    group: "{{ nodered_gid | default(1000) }}"
+    mode: "0644"
+  register: nodered_settings
+
+- name: Provision Node-RED flows.json
+  copy:
+    src: flows.json
+    dest: /opt/nodered/data/flows.json
+    owner: "{{ nodered_uid | default(1000) }}"
+    group: "{{ nodered_gid | default(1000) }}"
+    mode: "0644"
+  register: nodered_flows
+
+- name: Start/Update Node-RED container
+  command: docker compose up -d --remove-orphans
+  args:
+    chdir: /opt/nodered
+
+- name: Restart Node-RED if provisioning changed
+  command: docker compose restart nodered
+  args:
+    chdir: /opt/nodered
+  when: nodered_settings.changed or nodered_flows.changed

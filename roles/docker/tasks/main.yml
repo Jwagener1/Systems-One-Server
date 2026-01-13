@@ -42,6 +42,11 @@
     enabled: true
     state: started
 
+- name: Ensure shared Docker network exists
+  shell: "docker network inspect {{ docker_shared_network | default('infra') }} >/dev/null 2>&1 || docker network create {{ docker_shared_network | default('infra') }}"
+  register: docker_shared_network_create
+  changed_when: docker_shared_network_create.stdout | length > 0
+
 - name: Add remote user to docker group
   user:
     name: "{{ ansible_user }}"

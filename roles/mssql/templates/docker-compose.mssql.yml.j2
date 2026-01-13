@@ -17,6 +17,12 @@ services:
       timeout: 10s
       retries: 10
       start_period: 30s
+    networks:
+      - {{ docker_shared_network | default('infra') }}
 
 volumes:
   mssql_data:
+
+networks:
+  {{ docker_shared_network | default('infra') }}:
+    external: true

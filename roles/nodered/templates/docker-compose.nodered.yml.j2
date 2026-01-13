@@ -1,0 +1,24 @@
+services:
+  nodered:
+    image: nodered/node-red:latest
+    container_name: nodered
+    restart: unless-stopped
+{% if nodered_network_mode | default('host') == 'host' %}
+    network_mode: host
+{% else %}
+    ports:
+      - "{{ nodered_bind_address | default('127.0.0.1') }}:{{ nodered_port | default(1880) }}:1880"
+{% endif %}
+    environment:
+      TZ: "{{ nodered_timezone | default('UTC') }}"
+      NODE_RED_UI_HOST: "{{ nodered_ui_host | default(nodered_bind_address | default('127.0.0.1')) }}"
+    volumes:
+      - /opt/nodered/data:/data
+{% if nodered_network_mode | default('host') != 'host' %}
+    networks:
+      - {{ docker_shared_network | default('infra') }}
+
+networks:
+  {{ docker_shared_network | default('infra') }}:
+    external: true
+{% endif %}
