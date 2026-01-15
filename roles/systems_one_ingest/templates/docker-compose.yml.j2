@@ -1,0 +1,49 @@
+services:
+  systems_one_ingest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: "{{ systems_one_ingest_image }}"
+    container_name: systems_one_ingest
+    restart: unless-stopped
+    environment:
+      # MQTT broker
+      MQTT_HOST: "{{ systems_one_ingest_mqtt_host }}"
+      MQTT_PORT: "{{ systems_one_ingest_mqtt_port }}"
+      MQTT_USERNAME: "{{ systems_one_ingest_mqtt_username }}"
+      MQTT_PASSWORD: "{{ systems_one_ingest_mqtt_password }}"
+      MQTT_CLIENT_ID: "{{ systems_one_ingest_mqtt_client_id }}"
+      MQTT_TRANSPORT: "{{ systems_one_ingest_mqtt_transport }}"
+      MQTT_TLS: "{{ systems_one_ingest_mqtt_tls | ternary('true','false') }}"
+      MQTT_TLS_INSECURE: "{{ systems_one_ingest_mqtt_tls_insecure | ternary('true','false') }}"
+      MQTT_KEEPALIVE: "{{ systems_one_ingest_mqtt_keepalive }}"
+      MQTT_WS_PATH: "{{ systems_one_ingest_mqtt_ws_path }}"
+
+      # Ingest
+      INGEST_TOPICS: "{{ systems_one_ingest_topics }}"
+      INGEST_QOS: "{{ systems_one_ingest_qos }}"
+      LOG_LEVEL: "{{ systems_one_ingest_log_level }}"
+
+      # Database
+      DB_ENABLE: "{{ systems_one_ingest_db_enable | ternary('true','false') }}"
+      DB_HOST: "{{ systems_one_ingest_db_host }}"
+      DB_PORT: "{{ systems_one_ingest_db_port }}"
+      DB_NAME: "{{ systems_one_ingest_db_name }}"
+      DB_USER: "{{ systems_one_ingest_db_user }}"
+      DB_PASSWORD: "{{ systems_one_ingest_db_password }}"
+      DB_DRIVER: "{{ systems_one_ingest_db_driver }}"
+      DB_ENCRYPT: "{{ systems_one_ingest_db_encrypt }}"
+      DB_TRUST_SERVER_CERT: "{{ systems_one_ingest_db_trust_server_cert }}"
+      DB_CONNECT_TIMEOUT: "{{ systems_one_ingest_db_connect_timeout }}"
+      DB_CONNECT_ON_START: "{{ systems_one_ingest_db_connect_on_start | ternary('true','false') }}"
+      DB_CONNECT_REQUIRED: "{{ systems_one_ingest_db_connect_required | ternary('true','false') }}"
+
+      # Optional diagnostics
+      RUN_SECONDS: "{{ systems_one_ingest_run_seconds }}"
+
+    networks:
+      - {{ systems_one_ingest_docker_network }}
+
+networks:
+  {{ systems_one_ingest_docker_network }}:
+    external: true

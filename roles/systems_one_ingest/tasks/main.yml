@@ -1,0 +1,63 @@
+- name: Ensure ingest directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ systems_one_ingest_install_dir }}"
+
+- name: Ensure shared Docker network exists
+  shell: "docker network inspect {{ systems_one_ingest_docker_network | default('infra') }} >/dev/null 2>&1 || docker network create {{ systems_one_ingest_docker_network | default('infra') }}"
+  changed_when: false
+
+- name: Validate required variables
+  assert:
+    that:
+      - systems_one_ingest_mqtt_host is defined
+      - systems_one_ingest_mqtt_host | length > 0
+      - systems_one_ingest_topics is defined
+      - systems_one_ingest_topics | length > 0
+      - (not (systems_one_ingest_db_enable | bool)) or (systems_one_ingest_db_host | length > 0)
+      - (not (systems_one_ingest_db_enable | bool)) or (systems_one_ingest_db_name | length > 0)
+    fail_msg: >-
+      Missing required Systems One ingest variables. Provide at least MQTT host + INGEST topics,
+      and DB settings if DB is enabled.
+
+- name: Copy ingest service source (kept identical)
+  copy:
+    src: app/
+    dest: "{{ systems_one_ingest_install_dir }}/app/"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Remove legacy dotenv files (host_vars are source of truth)
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ systems_one_ingest_install_dir }}/.env"
+    - "{{ systems_one_ingest_install_dir }}/app/.env"
+
+- name: Render Dockerfile
+  template:
+    src: Dockerfile.j2
+    dest: "{{ systems_one_ingest_install_dir }}/Dockerfile"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Render docker compose file
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ systems_one_ingest_install_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Start/Update Systems One ingest container
+  command: docker compose up -d --build --remove-orphans
+  args:
+    chdir: "{{ systems_one_ingest_install_dir }}"
