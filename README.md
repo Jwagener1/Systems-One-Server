@@ -98,6 +98,100 @@ Run everything in **staging**:
 ansible-playbook -i staging site.yml
 ```
 
+## Grafana: dashboards + orgs/users as code
+
+This repo provisions Grafana via Docker Compose and supports two approaches:
+
+- **Dashboards/datasources**: file provisioning from this repo (portable across machines).
+- **Orgs/users/teams**: optional API provisioning via Ansible (portable across machines).
+
+You can also enable Grafana's experimental Git Sync feature (Grafana v12+) to sync **dashboards and folders** with a GitHub repository.
+
+### Git Sync (Grafana v12 experimental)
+
+To enable the Provisioning UI required for Git Sync in this deployment, set in host/group vars:
+
+```yaml
+grafana_git_sync_enabled: true
+
+# Optional but recommended if you plan to use webhooks / preview links:
+# grafana_root_url: "https://grafana.example.com/"
+```
+
+Then redeploy Grafana.
+
+After Grafana restarts, configure Git Sync in the UI:
+
+- Administration -> Provisioning -> Configure Git Sync
+
+Note: When `grafana_git_sync_enabled` is true, this role skips the legacy file-based dashboard provisioning (dashboard JSON copy + provider) to avoid confusion. Datasource provisioning remains enabled.
+
+### Dashboards (file provisioning)
+
+Dashboard JSON files live under:
+
+- [roles/grafana/files/dashboards](roles/grafana/files/dashboards)
+
+They are mounted read-only into Grafana and loaded via the provisioning file template.
+
+#### Export dashboards from Grafana back into the repo
+
+Grafana does not automatically push UI changes back into Git. The typical workflow is:
+
+1) Build/update dashboards in the Grafana UI
+2) Export dashboards to JSON
+3) Commit the JSON into this repo
+
+To make step (2) fast, use the export script:
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r tools/requirements.txt
+
+# Example (through SSH port-forward):
+python tools/grafana_export_dashboards.py \
+  --url http://127.0.0.1:3000 \
+  --username admin \
+  --password '***' \
+  --out-dir roles/grafana/files/dashboards \
+  --overwrite
+```
+
+Then re-run the playbook to sync dashboards onto another host.
+
+### Orgs/users/teams (API provisioning)
+
+Grafana does not support declarative provisioning of orgs/users purely via provisioning files. To make orgs/users portable, this repo includes an optional Ansible step that calls the Grafana HTTP API after Grafana starts.
+
+Configure in host/group vars:
+
+```yaml
+grafana_api_provision_enabled: true
+
+grafana_orgs:
+  - name: "Main"
+
+grafana_users:
+  - login: "alice"
+    email: "alice@example.com"
+    name: "Alice"
+    password: "{{ vault_grafana_alice_password }}"
+    orgs:
+      - name: "Main"
+        role: "Editor"
+
+grafana_teams:
+  - org: "Main"
+    name: "SRE"
+    members: ["alice"]
+```
+
+Notes:
+
+- Keep user passwords in Vault (recommended).
+- If you use SSO (Google/GitHub/OIDC/LDAP), it is usually better to manage access there rather than in Grafana local users.
+
 Run only the web tier:
 
 ```bash

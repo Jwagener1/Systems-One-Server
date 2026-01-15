@@ -6,12 +6,20 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: "{{ grafana_admin_user | default('admin') }}"
       GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_admin_password }}"
+{% if grafana_git_sync_enabled | default(false) | bool %}
+      GF_FEATURE_TOGGLES_ENABLE: "provisioning,kubernetesDashboards"
+{% endif %}
+{% if grafana_root_url is defined and grafana_root_url | length > 0 %}
+      GF_SERVER_ROOT_URL: "{{ grafana_root_url }}"
+{% endif %}
     ports:
       - "{{ grafana_bind_address | default('127.0.0.1') }}:{{ grafana_port | default(3000) }}:3000"
     volumes:
       - grafana_data:/var/lib/grafana
       - /opt/grafana/provisioning:/etc/grafana/provisioning:ro
+{% if (grafana_dashboards_file_provisioning_enabled | default(true) | bool) and not (grafana_git_sync_enabled | default(false) | bool) %}
       - /opt/grafana/dashboards:/var/lib/grafana/dashboards:ro
+{% endif %}
     networks:
       - {{ docker_shared_network | default('infra') }}
 

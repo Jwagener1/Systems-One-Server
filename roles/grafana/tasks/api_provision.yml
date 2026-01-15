@@ -1,0 +1,255 @@
+- name: Wait for Grafana API to be healthy
+  ansible.builtin.uri:
+    url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/api/health"
+    method: GET
+    status_code: [200]
+    validate_certs: "{{ grafana_api_validate_certs | bool }}"
+    url_username: "{{ grafana_admin_user | default('admin') }}"
+    url_password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+  register: grafana_health
+  retries: 30
+  delay: 2
+  until: grafana_health.status == 200
+
+- name: Ensure Grafana orgs exist
+  ansible.builtin.uri:
+    url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/api/orgs/name/{{ item.name | urlencode }}"
+    method: GET
+    status_code: [200, 404]
+    validate_certs: "{{ grafana_api_validate_certs | bool }}"
+    url_username: "{{ grafana_admin_user | default('admin') }}"
+    url_password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+  loop: "{{ grafana_orgs | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: grafana_org_lookup
+
+- name: Create missing Grafana orgs
+  ansible.builtin.uri:
+    url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/api/orgs"
+    method: POST
+    status_code: [200]
+    validate_certs: "{{ grafana_api_validate_certs | bool }}"
+    url_username: "{{ grafana_admin_user | default('admin') }}"
+    url_password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "{{ item.item.name }}"
+  loop: "{{ grafana_org_lookup.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when: item.status == 404
+
+- name: Lookup org IDs (name -> id)
+  ansible.builtin.uri:
+    url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/api/orgs/name/{{ item.name | urlencode }}"
+    method: GET
+    status_code: [200]
+    validate_certs: "{{ grafana_api_validate_certs | bool }}"
+    url_username: "{{ grafana_admin_user | default('admin') }}"
+    url_password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+  loop: "{{ grafana_orgs | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: grafana_orgs_by_name
+
+- name: Build org id map
+  ansible.builtin.set_fact:
+    grafana_org_id_map: "{{ grafana_org_id_map | default({}) | combine({ item.json.name: item.json.id }) }}"
+  loop: "{{ grafana_orgs_by_name.results | default([]) }}"
+  when: item.json is defined
+
+- name: Lookup existing Grafana users (by login)
+  ansible.builtin.uri:
+    url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/api/users/lookup?loginOrEmail={{ item.login | urlencode }}"
+    method: GET
+    status_code: [200, 404]
+    validate_certs: "{{ grafana_api_validate_certs | bool }}"
+    url_username: "{{ grafana_admin_user | default('admin') }}"
+    url_password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+  loop: "{{ grafana_users | default([]) }}"
+  loop_control:
+    label: "{{ item.login }}"
+  register: grafana_user_lookup
+
+- name: Create missing Grafana users
+  ansible.builtin.uri:
+    url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/api/admin/users"
+    method: POST
+    status_code: [200]
+    validate_certs: "{{ grafana_api_validate_certs | bool }}"
+    url_username: "{{ grafana_admin_user | default('admin') }}"
+    url_password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "{{ item.item.name | default(item.item.login) }}"
+      email: "{{ item.item.email | default(item.item.login ~ '@local') }}"
+      login: "{{ item.item.login }}"
+      password: "{{ item.item.password }}"
+  loop: "{{ grafana_user_lookup.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.login }}"
+  when: item.status == 404
+
+- name: Lookup user IDs (login -> id)
+  ansible.builtin.uri:
+    url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/api/users/lookup?loginOrEmail={{ item.login | urlencode }}"
+    method: GET
+    status_code: [200]
+    validate_certs: "{{ grafana_api_validate_certs | bool }}"
+    url_username: "{{ grafana_admin_user | default('admin') }}"
+    url_password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+  loop: "{{ grafana_users | default([]) }}"
+  loop_control:
+    label: "{{ item.login }}"
+  register: grafana_users_by_login
+
+- name: Build user id map
+  ansible.builtin.set_fact:
+    grafana_user_id_map: "{{ grafana_user_id_map | default({}) | combine({ item.item.login: item.json.id }) }}"
+  loop: "{{ grafana_users_by_login.results | default([]) }}"
+  when: item.json is defined
+
+- name: Build desired org membership list
+  ansible.builtin.set_fact:
+    grafana_desired_memberships: "{{ grafana_desired_memberships | default([]) + memberships_for_user }}"
+  vars:
+    memberships_for_user: >-
+      {{ (item.orgs | default([]))
+         | map('combine', {'login': item.login})
+         | list }}
+  loop: "{{ grafana_users | default([]) }}"
+  loop_control:
+    label: "{{ item.login }}"
+
+- name: Ensure users are members of orgs with desired roles
+  ansible.builtin.uri:
+    url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/api/orgs/{{ grafana_org_id_map[item.name] }}/users"
+    method: POST
+    status_code: [200, 409]
+    validate_certs: "{{ grafana_api_validate_certs | bool }}"
+    url_username: "{{ grafana_admin_user | default('admin') }}"
+    url_password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      userId: "{{ grafana_user_id_map[item.login] }}"
+      role: "{{ item.role | default('Viewer') }}"
+  loop: "{{ grafana_desired_memberships | default([]) }}"
+  loop_control:
+    label: "{{ item.login }} -> {{ item.name }} ({{ item.role | default('Viewer') }})"
+  when:
+    - grafana_org_id_map is defined
+    - grafana_user_id_map is defined
+    - item.name in grafana_org_id_map
+    - item.login in grafana_user_id_map
+
+- name: Lookup teams (by org + name)
+  ansible.builtin.uri:
+    url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/api/teams/search?name={{ item.name | urlencode }}"
+    method: GET
+    status_code: [200]
+    validate_certs: "{{ grafana_api_validate_certs | bool }}"
+    url_username: "{{ grafana_admin_user | default('admin') }}"
+    url_password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    headers:
+      X-Grafana-Org-Id: "{{ grafana_org_id_map[item.org] }}"
+    return_content: true
+  loop: "{{ grafana_teams | default([]) }}"
+  loop_control:
+    label: "{{ item.org }} / {{ item.name }}"
+  when:
+    - grafana_org_id_map is defined
+    - item.org in grafana_org_id_map
+  register: grafana_team_search
+
+- name: Create missing teams
+  ansible.builtin.uri:
+    url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/api/teams"
+    method: POST
+    status_code: [200]
+    validate_certs: "{{ grafana_api_validate_certs | bool }}"
+    url_username: "{{ grafana_admin_user | default('admin') }}"
+    url_password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    headers:
+      Content-Type: "application/json"
+      X-Grafana-Org-Id: "{{ grafana_org_id_map[item.item.org] }}"
+    body_format: json
+    body:
+      name: "{{ item.item.name }}"
+      email: "{{ item.item.email | default('') }}"
+  loop: "{{ grafana_team_search.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.org }} / {{ item.item.name }}"
+  when:
+    - (item.json.totalCount | default(0) | int) == 0
+
+- name: Lookup team IDs (org+name -> id)
+  ansible.builtin.uri:
+    url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/api/teams/search?name={{ item.name | urlencode }}"
+    method: GET
+    status_code: [200]
+    validate_certs: "{{ grafana_api_validate_certs | bool }}"
+    url_username: "{{ grafana_admin_user | default('admin') }}"
+    url_password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    headers:
+      X-Grafana-Org-Id: "{{ grafana_org_id_map[item.org] }}"
+    return_content: true
+  loop: "{{ grafana_teams | default([]) }}"
+  loop_control:
+    label: "{{ item.org }} / {{ item.name }}"
+  when:
+    - grafana_org_id_map is defined
+    - item.org in grafana_org_id_map
+  register: grafana_team_search_after
+
+- name: Build team id map
+  ansible.builtin.set_fact:
+    grafana_team_id_map: "{{ grafana_team_id_map | default({}) | combine({ (item.item.org ~ '::' ~ item.item.name): (item.json.teams[0].id | default(omit)) }) }}"
+  loop: "{{ grafana_team_search_after.results | default([]) }}"
+  when:
+    - item.json is defined
+    - (item.json.totalCount | default(0) | int) > 0
+
+- name: Add team members (best-effort)
+  ansible.builtin.uri:
+    url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/api/teams/{{ grafana_team_id_map[item.0.org ~ '::' ~ item.0.name] }}/members"
+    method: POST
+    status_code: [200, 409]
+    validate_certs: "{{ grafana_api_validate_certs | bool }}"
+    url_username: "{{ grafana_admin_user | default('admin') }}"
+    url_password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    headers:
+      Content-Type: "application/json"
+      X-Grafana-Org-Id: "{{ grafana_org_id_map[item.0.org] }}"
+    body_format: json
+    body:
+      userId: "{{ grafana_user_id_map[item.1] }}"
+  loop: "{{ (grafana_teams | default([])) | subelements('members', skip_missing=True) }}"
+  loop_control:
+    label: "{{ item.0.org }} / {{ item.0.name }} <- {{ item.1 }}"
+  when:
+    - grafana_team_id_map is defined
+    - grafana_user_id_map is defined
+    - (item.0.org ~ '::' ~ item.0.name) in grafana_team_id_map
+    - item.1 in grafana_user_id_map

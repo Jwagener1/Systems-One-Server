@@ -20,6 +20,9 @@ mssql_bootstrap_set_db_owner: false
 
 grafana_admin_password: 'TPDpJWI5k%PwG-mdkXOdKu@6'
 
+# Enable Grafana v12 Provisioning UI for Git Sync (experimental)
+grafana_git_sync_enabled: true
+
 grafana_mssql_database: 'S1_Remote_Monitoring'
 
 # Remote Monitoring DB bootstrap (S1_Remote_Monitoring tables + admin owner)
@@ -38,6 +41,14 @@ cloudflared_network_mode: host
 # Node-RED (ingest)
 nodered_bind_address: '127.0.0.1'
 nodered_port: 1880
+
+# Allow a remote system to connect to Node-RED as a TCP server on port 69.
+nodered_tcp_server_enabled: true
+nodered_tcp_server_port: 10069
+nodered_tcp_server_bind_address: '0.0.0.0'
+
+# High port: no privileged bind capability needed.
+nodered_allow_privileged_port_bind: false
 
 # Systems One ingest (configured via Ansible host_vars, injected into container environment)
 systems_one_ingest_mqtt_host: mosquitto

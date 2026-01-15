@@ -1,0 +1,60 @@
+# Grafana service defaults
+
+grafana_port: 3000
+# NOTE: container binds to this address on the host (see docker-compose template)
+grafana_bind_address: "127.0.0.1"
+
+grafana_admin_user: "admin"
+# grafana_admin_password must be provided (host_vars/group_vars or vault)
+
+# Enable Grafana's v12 experimental Provisioning UI (required for Git Sync).
+# When enabled, you can configure Git Sync in Grafana at:
+#   Administration -> Provisioning -> Configure Git Sync
+grafana_git_sync_enabled: false
+
+# Legacy file-based dashboard provisioning (providers + JSON on disk).
+# If you enable Git Sync, you typically want this disabled to avoid confusion.
+grafana_dashboards_file_provisioning_enabled: true
+
+# Optional: required for webhook/image-preview workflows and for correct links.
+# Example: "https://grafana.example.com/"
+# grafana_root_url: ""
+
+# Optional: provision orgs/users/teams via Grafana HTTP API after Grafana starts
+# Disabled by default to avoid accidental user/org changes.
+grafana_api_provision_enabled: false
+
+# How Ansible connects to Grafana from the remote host.
+# Because Grafana is bound to 127.0.0.1 by default, we target localhost on the remote machine.
+grafana_api_scheme: "http"
+grafana_api_host: "127.0.0.1"
+grafana_api_port: "{{ grafana_port }}"
+
+grafana_api_validate_certs: true
+
+grafana_orgs: []
+# Example:
+# grafana_orgs:
+#   - name: "Main"
+#   - name: "Ops"
+
+# grafana_users:
+#   - login: "alice"
+#     email: "alice@example.com"
+#     name: "Alice"
+#     password: "{{ vault_grafana_alice_password }}"
+#     orgs:
+#       - name: "Main"
+#         role: "Editor"   # Admin|Editor|Viewer
+#
+grafana_users: []
+
+# grafana_teams:
+#   - org: "Main"
+#     name: "SRE"
+#     email: "sre@example.com"   # optional
+#     members:
+#       - "alice"
+#       - "bob"
+
+grafana_teams: []
