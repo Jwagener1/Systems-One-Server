@@ -8,9 +8,21 @@
   loop:
     - /opt/grafana
     - /opt/grafana/provisioning
-    - /opt/grafana/provisioning/dashboards
     - /opt/grafana/provisioning/datasources
+
+- name: Ensure Grafana dashboard provisioning directories exist (legacy file provisioning)
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /opt/grafana/provisioning/dashboards
     - /opt/grafana/dashboards
+  when:
+    - grafana_dashboards_file_provisioning_enabled | default(true) | bool
+    - not (grafana_git_sync_enabled | default(false) | bool)
 
 - name: Ensure shared Docker network exists
   shell: "docker network inspect {{ docker_shared_network | default('infra') }} >/dev/null 2>&1 || docker network create {{ docker_shared_network | default('infra') }}"
@@ -40,6 +52,9 @@
     owner: root
     group: root
     mode: "0644"
+  when:
+    - grafana_dashboards_file_provisioning_enabled | default(true) | bool
+    - not (grafana_git_sync_enabled | default(false) | bool)
 
 - name: Render Grafana datasources provisioning
   template:
@@ -58,8 +73,15 @@
     mode: "0644"
   with_fileglob:
     - "{{ role_path }}/files/dashboards/*.json"
+  when:
+    - grafana_dashboards_file_provisioning_enabled | default(true) | bool
+    - not (grafana_git_sync_enabled | default(false) | bool)
 
 - name: Start/Update Grafana container
   command: docker compose up -d
   args:
     chdir: /opt/grafana
+
+- name: Provision Grafana orgs/users via API (optional)
+  include_tasks: api_provision.yml
+  when: grafana_api_provision_enabled | default(false) | bool

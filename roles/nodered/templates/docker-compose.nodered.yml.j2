@@ -3,11 +3,21 @@ services:
     image: nodered/node-red:latest
     container_name: nodered
     restart: unless-stopped
+{% if nodered_run_as_root | default(false) | bool %}
+    user: "0:0"
+{% endif %}
+{% if nodered_allow_privileged_port_bind | default(false) | bool %}
+    cap_add:
+      - NET_BIND_SERVICE
+{% endif %}
 {% if nodered_network_mode | default('host') == 'host' %}
     network_mode: host
 {% else %}
     ports:
       - "{{ nodered_bind_address | default('127.0.0.1') }}:{{ nodered_port | default(1880) }}:1880"
+{% if nodered_tcp_server_enabled | default(false) | bool %}
+      - "{{ nodered_tcp_server_bind_address | default('0.0.0.0') }}:{{ nodered_tcp_server_port | default(69) }}:{{ nodered_tcp_server_port | default(69) }}/tcp"
+{% endif %}
 {% endif %}
     environment:
       TZ: "{{ nodered_timezone | default('UTC') }}"

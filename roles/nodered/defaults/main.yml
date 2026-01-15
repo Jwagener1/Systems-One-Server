@@ -1,0 +1,23 @@
+---
+# Node-RED defaults
+
+nodered_port: 1880
+nodered_bind_address: "127.0.0.1"
+
+# Whether to expose and allow binding to a privileged TCP port for Node-RED TCP server flows.
+# Notes:
+# - Port 69 is a privileged port (<1024). Binding may require extra Linux capabilities.
+# - If you run Node-RED with host networking, no Docker port mapping is needed, but the process
+#   still needs permission to bind the port and your host firewall must allow it.
+
+nodered_tcp_server_enabled: false
+nodered_tcp_server_port: 69
+nodered_tcp_server_bind_address: "0.0.0.0"
+
+# Add NET_BIND_SERVICE capability to allow binding to privileged ports (recommended).
+# Keep Node-RED running as its default user.
+nodered_allow_privileged_port_bind: false
+
+# If you still can't bind to the privileged port, you can run the container as root.
+# This is less secure and may create root-owned files in /opt/nodered/data.
+nodered_run_as_root: false

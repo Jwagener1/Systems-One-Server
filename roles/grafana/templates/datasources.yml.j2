@@ -4,14 +4,14 @@ datasources:
 {% if grafana_datasources is defined %}
 {{ grafana_datasources | to_nice_yaml(indent=2) | indent(2, true) }}
 {% else %}
-	- name: MSSQL
-		type: mssql
-		access: proxy
-		isDefault: true
-		url: {{ "mssql:1433" | to_json }}
-		user: {{ "sa" | to_json }}
-		jsonData:
-			database: {{ (grafana_mssql_database | default('master')) | to_json }}
-		secureJsonData:
-			password: {{ mssql_sa_password | to_json }}
+  - name: MSSQL
+    type: mssql
+    access: proxy
+    isDefault: true
+    url: {{ "mssql:1433" | to_json }}
+    user: {{ "sa" | to_json }}
+    jsonData:
+      database: {{ (grafana_mssql_database | default('master')) | to_json }}
+    secureJsonData:
+      password: {{ mssql_sa_password | to_json }}
 {% endif %}
