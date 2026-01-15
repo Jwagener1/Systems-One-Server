@@ -1,0 +1,43 @@
+---
+# Install location on the target host
+systems_one_ingest_install_dir: /opt/systems_one_ingest
+
+# Container image name (built locally on the host via docker compose build)
+systems_one_ingest_image: systems-one-ingest:latest
+
+# Join the shared infra network so we can reach mosquitto/mssql by container name.
+systems_one_ingest_docker_network: "{{ docker_shared_network | default('infra') }}"
+
+# MQTT
+systems_one_ingest_mqtt_host: mosquitto
+systems_one_ingest_mqtt_port: "{{ mosquitto_mqtt_port | default(1883) }}"
+systems_one_ingest_mqtt_username: "{{ mqtt_username | default('') }}"
+systems_one_ingest_mqtt_password: "{{ mqtt_password | default('') }}"
+systems_one_ingest_mqtt_client_id: mqtt_ingest
+systems_one_ingest_mqtt_transport: tcp
+systems_one_ingest_mqtt_tls: false
+systems_one_ingest_mqtt_tls_insecure: false
+systems_one_ingest_mqtt_keepalive: 60
+systems_one_ingest_mqtt_ws_path: ""
+
+# Ingest
+systems_one_ingest_topics: systems-one/#,systemsone/#
+systems_one_ingest_qos: 0
+systems_one_ingest_log_level: INFO
+
+# Database
+systems_one_ingest_db_enable: true
+systems_one_ingest_db_host: mssql
+systems_one_ingest_db_port: "{{ mssql_port | default(1433) }}"
+systems_one_ingest_db_name: "{{ mssql_rm_database | default(mssql_database_name | default('S1_Remote_Monitoring')) }}"
+systems_one_ingest_db_user: "{{ mssql_rm_admin_login | default(mssql_app_login | default('')) }}"
+systems_one_ingest_db_password: "{{ mssql_rm_admin_password | default(mssql_app_login_password | default('')) }}"
+systems_one_ingest_db_driver: "ODBC Driver 18 for SQL Server"
+systems_one_ingest_db_encrypt: optional
+systems_one_ingest_db_trust_server_cert: ""
+systems_one_ingest_db_connect_timeout: 5
+systems_one_ingest_db_connect_on_start: false
+systems_one_ingest_db_connect_required: false
+
+# Optional: exit after N seconds
+systems_one_ingest_run_seconds: ""

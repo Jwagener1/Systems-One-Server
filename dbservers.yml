@@ -6,7 +6,7 @@
       include_vars:
         file: group_vars/vault.yml
       no_log: true
-      ignore_errors: true
+      failed_when: false
 
     - name: Validate required variables
       assert:

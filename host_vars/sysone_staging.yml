@@ -1,6 +1,6 @@
 ansible_host: 192.168.134.5
 ansible_user: s1
-ansible_ssh_private_key_file: /mnt/c/Users/Jonathan/.ssh/github_ed25519
+ansible_ssh_private_key_file: /home/jonathan/.ssh/github_ed25519
 
 # Plaintext staging-only secrets (temporary)
 cloudflare_tunnel_token: "eyJhIjoiNmFkNGZhNDI4ODQwZTA2MDBiOWU4YTEwODM0MmFlYmIiLCJ0IjoiYWIxZWY0OWItMjJmZC00YWM2LWIzMmEtY2E0OWVlODViMDU5IiwicyI6IlpEazRZamN5WXpndE9UUmxZeTAwTVRnekxXRmtNRGt0TTJKaU1UUTVNMkk0WVRBdyJ9"
@@ -38,3 +38,34 @@ cloudflared_network_mode: host
 # Node-RED (ingest)
 nodered_bind_address: '127.0.0.1'
 nodered_port: 1880
+
+# Systems One ingest (configured via Ansible host_vars, injected into container environment)
+systems_one_ingest_mqtt_host: mosquitto
+systems_one_ingest_mqtt_port: 1883
+systems_one_ingest_mqtt_username: "{{ mqtt_username }}"
+systems_one_ingest_mqtt_password: "{{ mqtt_password }}"
+systems_one_ingest_mqtt_client_id: mqtt_ingest
+systems_one_ingest_mqtt_transport: tcp
+systems_one_ingest_mqtt_tls: false
+systems_one_ingest_mqtt_tls_insecure: false
+systems_one_ingest_mqtt_keepalive: 60
+systems_one_ingest_mqtt_ws_path: ""
+
+systems_one_ingest_topics: "systems-one/#,systemsone/#"
+systems_one_ingest_qos: 0
+systems_one_ingest_log_level: INFO
+
+systems_one_ingest_db_enable: true
+systems_one_ingest_db_host: mssql
+systems_one_ingest_db_port: 1433
+systems_one_ingest_db_name: "{{ mssql_rm_database }}"
+systems_one_ingest_db_user: "{{ mssql_rm_admin_login }}"
+systems_one_ingest_db_password: "{{ mssql_rm_admin_password }}"
+systems_one_ingest_db_driver: "ODBC Driver 18 for SQL Server"
+systems_one_ingest_db_encrypt: optional
+systems_one_ingest_db_trust_server_cert: ""
+systems_one_ingest_db_connect_timeout: 5
+systems_one_ingest_db_connect_on_start: false
+systems_one_ingest_db_connect_required: false
+
+systems_one_ingest_run_seconds: ""
