@@ -34,6 +34,7 @@
     group: "{{ nodered_gid | default(1000) }}"
     mode: "0644"
   register: nodered_flows
+  when: not (nodered_projects_enabled | default(false) | bool)
 
 - name: Start/Update Node-RED container
   command: docker compose up -d --remove-orphans
@@ -45,3 +46,10 @@
   args:
     chdir: /opt/nodered
   when: nodered_settings.changed or nodered_flows.changed
+: >-
+    docker exec nodered sh -c
+    "git config --global user.name '{{ nodered_git_user_name | default('Systems One') }}'
+     && git config --global user.email '{{ nodered_git_user_email | default('s1@localhost') }}'
+     && git config --global --add safe.directory '*'"
+  changed_when: false
+  when: nodered_projects_enabled | default(false) | bool

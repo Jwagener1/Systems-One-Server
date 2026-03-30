@@ -21,3 +21,18 @@ nodered_allow_privileged_port_bind: false
 # If you still can't bind to the privileged port, you can run the container as root.
 # This is less secure and may create root-owned files in /opt/nodered/data.
 nodered_run_as_root: false
+
+# Projects mode (git-native flow management)
+# When enabled, Node-RED stores flows inside a git project under /data/projects/.
+# The user sets up the project and links it to GitHub via the Node-RED UI.
+# NOTE: When projects mode is enabled, Ansible skips copying flows.json
+#       (the project repo is the source of truth).
+nodered_projects_enabled: false
+
+# Git identity injected into the container so Node-RED can commit changes.
+nodered_git_user_name: "Systems One"
+nodered_git_user_email: "s1@localhost"
+
+# Credential secret for encrypting Node-RED credentials at rest.
+# Set this in host_vars or vault. Leave empty to use Node-RED's default (insecure).
+nodered_credential_secret: ""

@@ -1,0 +1,43 @@
+---
+# Configure Grafana Git Sync via the provisioning API (Grafana v12+)
+# Only runs when grafana_git_sync_repo is set.
+
+- name: Wait for Grafana API to be ready
+  ansible.builtin.uri:
+    url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/api/health"
+    method: GET
+    status_code: [200]
+    validate_certs: "{{ grafana_api_validate_certs | bool }}"
+    url_username: "{{ grafana_admin_user | default('admin') }}"
+    url_password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+  register: grafana_gitsync_health
+  retries: 30
+  delay: 2
+  until: grafana_gitsync_health.status == 200
+
+- name: Configure Grafana Git Sync repository
+  ansible.builtin.uri:
+    url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/api/v1/provisioning/repositories"
+    method: POST
+    status_code: [200, 201, 409]
+    validate_certs: "{{ grafana_api_validate_certs | bool }}"
+    url_username: "{{ grafana_admin_user | default('admin') }}"
+    url_password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "systems-one-dashboards"
+      type: "github"
+      github:
+        url: "{{ grafana_git_sync_repo }}"
+        branch: "{{ grafana_git_sync_branch | default('master') }}"
+        token: "{{ grafana_git_sync_token }}"
+        path: "{{ grafana_git_sync_path | default('roles/grafana/files/dashboards') }}"
+        showDashboardChanges: true
+        generateDashboardPreviews: false
+  no_log: true
+  register: grafana_gitsync_result
+  changed_when: grafana_gitsync_result.status in [200, 201]

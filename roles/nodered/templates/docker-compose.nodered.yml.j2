@@ -22,6 +22,10 @@ services:
     environment:
       TZ: "{{ nodered_timezone | default('UTC') }}"
       NODE_RED_UI_HOST: "{{ nodered_ui_host | default(nodered_bind_address | default('127.0.0.1')) }}"
+      NODE_RED_PROJECTS_ENABLED: "{{ nodered_projects_enabled | default(false) | string | lower }}"
+{% if nodered_credential_secret | default('') | length > 0 %}
+      NODE_RED_CREDENTIAL_SECRET: "{{ nodered_credential_secret }}"
+{% endif %}
     volumes:
       - /opt/nodered/data:/data
 {% if nodered_network_mode | default('host') != 'host' %}

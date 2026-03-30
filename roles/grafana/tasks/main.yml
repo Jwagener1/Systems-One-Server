@@ -85,3 +85,10 @@
 - name: Provision Grafana orgs/users via API (optional)
   include_tasks: api_provision.yml
   when: grafana_api_provision_enabled | default(false) | bool
+
+- name: Configure Grafana Git Sync (optional)
+  include_tasks: git_sync.yml
+  when:
+    - grafana_git_sync_enabled | default(false) | bool
+    - grafana_git_sync_repo | default('') | length > 0
+    - grafana_git_sync_token | default('') | length > 0

@@ -58,3 +58,15 @@ grafana_users: []
 #       - "bob"
 
 grafana_teams: []
+
+# Git Sync (Grafana v12 experimental)
+# Set grafana_git_sync_repo to a GitHub HTTPS URL to auto-configure Git Sync via API.
+# Leave empty to configure manually in the Grafana UI (Administration -> Provisioning).
+# Example: "https://github.com/Jwagener1/Systems-One-Server"
+grafana_git_sync_repo: ""
+grafana_git_sync_branch: "master"
+# Path inside the repo where dashboards live (relative to repo root)
+grafana_git_sync_path: "roles/grafana/files/dashboards"
+# GitHub token for pushing dashboard changes back. Store in vault.
+# grafana_git_sync_token: "{{ vault_github_token }}"
+grafana_git_sync_token: ""

@@ -238,6 +238,57 @@ Inspect one host:
 ansible-inventory --host <hostname> -y
 ```
 
+## Keeping flows & dashboards in sync
+
+Ansible pushes configuration *to* the server. Changes made in the Node-RED or Grafana UI need to be pulled *back* into this repo before the next playbook run overwrites them.
+
+### Option A — Pull script (works always)
+
+```bash
+# Pull Node-RED flows only
+python3 tools/sync_nodered_flows.py --host 192.168.1.110 --user s1
+
+# Pull flows + Grafana dashboards and auto-commit
+python3 tools/sync_nodered_flows.py \
+    --host 192.168.1.110 --user s1 \
+    --grafana-url http://127.0.0.1:3000 --grafana-password '<admin-password>' \
+    --commit
+```
+
+### Option B — Node-RED Projects mode (git-native)
+
+Enable in host/group vars:
+
+```yaml
+nodered_projects_enabled: true
+nodered_credential_secret: "{{ vault_nodered_credential_secret }}"
+nodered_git_user_name: "Jonathan"
+nodered_git_user_email: "jonathan@example.com"
+```
+
+Then in the Node-RED UI:
+1. You will see a **Projects** screen on first load
+2. Create a new project or clone from GitHub
+3. Point it to `https://github.com/Jwagener1/Systems-One-Server`
+4. Enter your GitHub credentials/token
+5. Node-RED will commit and push flow changes automatically
+
+**Note:** When `nodered_projects_enabled: true`, Ansible skips copying `flows.json` — the git project is the source of truth.
+
+### Option C — Grafana Git Sync (Grafana v12+)
+
+Set in host/group vars:
+
+```yaml
+grafana_git_sync_enabled: true
+grafana_git_sync_repo: "https://github.com/Jwagener1/Systems-One-Server"
+grafana_git_sync_branch: "master"
+grafana_git_sync_path: "roles/grafana/files/dashboards"
+grafana_git_sync_token: "{{ vault_github_token }}"
+```
+
+Ansible will configure Git Sync automatically via the Grafana API after deploy. Dashboard changes in the UI are committed and pushed to GitHub by Grafana itself.
+
 ## Notes / conventions
 
 - Hostnames in `production` / `staging` should match filenames in `host_vars/` (e.g. `sysone` → `host_vars/sysone.yml`).
