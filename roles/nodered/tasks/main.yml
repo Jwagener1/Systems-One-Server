@@ -46,10 +46,11 @@
   args:
     chdir: /opt/nodered
   when: nodered_settings.changed or nodered_flows.changed
-: >-
+- name: Configure git identity inside Node-RED container (Projects mode)
+  command: >-
     docker exec nodered sh -c
-    "git config --global user.name '{{ nodered_git_user_name | default('Systems One') }}'
-     && git config --global user.email '{{ nodered_git_user_email | default('s1@localhost') }}'
+    "git config --global user.name 'Systems One'
+     && git config --global user.email 's1@localhost'
      && git config --global --add safe.directory '*'"
   changed_when: false
   when: nodered_projects_enabled | default(false) | bool
