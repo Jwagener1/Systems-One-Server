@@ -1,0 +1,51 @@
+---
+- name: Install Node.js (via NodeSource)
+  when: openclaw_install_nodejs | bool
+  block:
+    - name: Download NodeSource setup script
+      get_url:
+        url: "https://deb.nodesource.com/setup_{{ openclaw_nodejs_version }}.x"
+        dest: /tmp/nodesource_setup.sh
+        mode: "0755"
+
+    - name: Run NodeSource setup script
+      command: bash /tmp/nodesource_setup.sh
+      args:
+        creates: /etc/apt/sources.list.d/nodesource.list
+
+    - name: Install Node.js
+      apt:
+        name: nodejs
+        state: present
+        update_cache: yes
+
+- name: Install OpenClaw globally via npm
+  community.general.npm:
+    name: openclaw
+    global: true
+    version: "{{ openclaw_version if openclaw_version != 'latest' else omit }}"
+    state: "{{ 'latest' if openclaw_version == 'latest' else 'present' }}"
+  become: true
+  become_user: "{{ openclaw_install_user }}"
+
+- name: Ensure OpenClaw workspace directory exists
+  file:
+    path: "{{ openclaw_workspace }}"
+    state: directory
+    owner: "{{ openclaw_install_user }}"
+    group: "{{ openclaw_install_user }}"
+    mode: "0755"
+
+- name: Ensure OpenClaw config directory exists
+  file:
+    path: "{{ openclaw_install_dir }}"
+    state: directory
+    owner: "{{ openclaw_install_user }}"
+    group: "{{ openclaw_install_user }}"
+    mode: "0750"
+
+- name: Configure OpenClaw
+  include_tasks: configure.yml
+
+- name: Configure OpenClaw systemd service
+  include_tasks: service.yml

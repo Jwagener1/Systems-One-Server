@@ -1,0 +1,75 @@
+---
+# OpenClaw installation
+openclaw_npm_global: true
+openclaw_install_user: "{{ ansible_user }}"
+openclaw_install_dir: "/home/{{ openclaw_install_user }}/.openclaw"
+
+# Node.js — required by OpenClaw
+# Set to false if Node.js is already managed separately
+openclaw_install_nodejs: true
+openclaw_nodejs_version: "22"
+
+# OpenClaw version (use "latest" or pin a specific version e.g. "2026.3.28")
+openclaw_version: "latest"
+
+# Agent workspace directory
+openclaw_workspace: "/home/{{ openclaw_install_user }}/.openclaw/workspace"
+
+# Model configuration
+openclaw_model_primary: "github-copilot/claude-sonnet-4.6"
+
+# Tool profile: coding | messaging | minimal
+openclaw_tools_profile: "coding"
+
+# Gateway settings
+openclaw_gateway_port: 18789
+openclaw_gateway_mode: "local"
+openclaw_gateway_bind: "loopback"
+# Auth token — set in host_vars or vault
+# openclaw_gateway_auth_token: "{{ vault_openclaw_gateway_token }}"
+openclaw_gateway_auth_token: ""
+
+# Tailscale (off by default)
+openclaw_tailscale_mode: "off"
+
+# Commands
+openclaw_commands_native: "auto"
+openclaw_commands_native_skills: "auto"
+openclaw_commands_restart: true
+openclaw_commands_owner_display: "raw"
+
+# Session
+openclaw_session_dm_scope: "per-channel-peer"
+
+# Heartbeat interval (minutes)
+openclaw_heartbeat_minutes: 30
+
+# MS Teams channel (optional)
+openclaw_msteams_enabled: false
+# openclaw_msteams_app_id: "{{ vault_msteams_app_id }}"
+# openclaw_msteams_app_password: "{{ vault_msteams_app_password }}"
+# openclaw_msteams_tenant_id: "{{ vault_msteams_tenant_id }}"
+openclaw_msteams_app_id: ""
+openclaw_msteams_app_password: ""
+openclaw_msteams_tenant_id: ""
+openclaw_msteams_dm_policy: "pairing"
+openclaw_msteams_group_policy: "open"
+
+# GitHub Copilot auth (provider for model access)
+openclaw_github_copilot_enabled: true
+
+# Gateway denied commands (node commands to block)
+openclaw_gateway_deny_commands:
+  - camera.snap
+  - camera.clip
+  - screen.record
+  - contacts.add
+  - calendar.add
+  - reminders.add
+  - sms.send
+
+# Hooks (internal)
+openclaw_hooks_boot_md: true
+openclaw_hooks_bootstrap_extra_files: true
+openclaw_hooks_command_logger: true
+openclaw_hooks_session_memory: true
