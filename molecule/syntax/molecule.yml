@@ -1,0 +1,18 @@
+---
+dependency:
+  name: galaxy
+driver:
+  name: docker
+platforms:
+  - name: syntax-check
+    image: geerlingguy/docker-ubuntu2204-ansible:latest
+    pre_build_image: true
+provisioner:
+  name: ansible
+  playbooks:
+    converge: ../default/converge.yml
+verifier:
+  name: ansible
+scenario:
+  test_sequence:
+    - syntax

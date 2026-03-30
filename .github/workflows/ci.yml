@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install linting tools
+        run: pip install ansible-lint yamllint
+
+      - name: Run yamllint
+        run: yamllint -d relaxed .
+
+      - name: Run ansible-lint
+        run: ansible-lint --profile=min site.yml
+        continue-on-error: true
+
+  syntax-check:
+    name: Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Syntax check site.yml
+        run: |
+          ansible-playbook site.yml --syntax-check \
+            -i production \
+            -e "mssql_sa_password=test mssql_app_login_password=test grafana_admin_password=test mqtt_password=test openclaw_gateway_auth_token=test"

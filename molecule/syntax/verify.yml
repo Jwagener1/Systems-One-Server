@@ -1,0 +1,4 @@
+---
+- name: Syntax verify (no-op)
+  hosts: all
+  tasks: []

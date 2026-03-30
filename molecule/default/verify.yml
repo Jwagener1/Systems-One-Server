@@ -1,0 +1,12 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Check Docker is installed
+      command: docker --version
+      changed_when: false
+
+    - name: Check docker compose plugin is available
+      command: docker compose version
+      changed_when: false

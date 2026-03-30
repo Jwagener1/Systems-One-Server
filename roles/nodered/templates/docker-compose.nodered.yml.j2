@@ -28,6 +28,12 @@ services:
 {% endif %}
     volumes:
       - /opt/nodered/data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:1880/settings > /dev/null || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 {% if nodered_network_mode | default('host') != 'host' %}
     networks:
       - {{ docker_shared_network | default('infra') }}

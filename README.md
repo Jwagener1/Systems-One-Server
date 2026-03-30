@@ -1,4 +1,4 @@
-# server-infra (Ansible)
+# Systems-One-Server (Ansible)
 
 This repository contains Ansible inventories, variables, and playbooks for provisioning and deploying services via roles.
 

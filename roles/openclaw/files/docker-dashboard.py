@@ -7,6 +7,7 @@ import subprocess
 import time
 import os
 import json
+import glob
 from datetime import datetime
 
 # ── ANSI ──────────────────────────────────────────────────────────────────────
@@ -23,6 +24,7 @@ FG_ORANGE = "\033[38;5;214m"
 FG_WHITE  = "\033[38;5;252m"
 FG_DIM    = "\033[38;5;240m"
 FG_ACCENT = "\033[38;5;213m"
+FG_PURPLE = "\033[38;5;177m"
 
 
 def clr(text, *codes):
@@ -142,7 +144,6 @@ def get_containers():
 
 
 def get_health_detail(name):
-    """Return last healthcheck failure reason for unhealthy containers."""
     try:
         r = subprocess.run(
             ["docker", "inspect", "--format",
@@ -179,15 +180,109 @@ def get_logs(container, lines=20):
         return ["(error reading logs)"]
 
 
+def get_openclaw_status():
+    """Get OpenClaw gateway service status and config info."""
+    result = {
+        "active": False,
+        "state": "unknown",
+        "uptime": None,
+        "model": None,
+        "gateway_port": None,
+        "session_count": 0,
+        "last_session": None,
+    }
+
+    # Service state
+    try:
+        r = subprocess.run(
+            ["systemctl", "is-active", "openclaw-gateway-s1"],
+            capture_output=True, text=True, timeout=5
+        )
+        state = r.stdout.strip()
+        result["state"] = state
+        result["active"] = (state == "active")
+    except Exception:
+        result["state"] = "error"
+
+    # Uptime from systemd
+    try:
+        r = subprocess.run(
+            ["systemctl", "show", "openclaw-gateway-s1",
+             "--property=ActiveEnterTimestamp"],
+            capture_output=True, text=True, timeout=5
+        )
+        line = r.stdout.strip()
+        if "=" in line:
+            ts_str = line.split("=", 1)[1].strip()
+            if ts_str and ts_str != "n/a":
+                try:
+                    parts = ts_str.rsplit(" ", 1)
+                    ts = datetime.strptime(parts[0], "%a %Y-%m-%d %H:%M:%S")
+                    elapsed = datetime.now() - ts
+                    secs = int(elapsed.total_seconds())
+                    d, rem = divmod(secs, 86400)
+                    h, rem = divmod(rem, 3600)
+                    m = rem // 60
+                    if d > 0:
+                        result["uptime"] = f"{d}d {h}h {m}m"
+                    elif h > 0:
+                        result["uptime"] = f"{h}h {m}m"
+                    else:
+                        result["uptime"] = f"{m}m"
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # Config — model and port
+    config_path = os.path.expanduser("~/.openclaw/openclaw.json")
+    try:
+        with open(config_path) as f:
+            cfg = json.load(f)
+        result["model"] = (
+            cfg.get("agents", {})
+               .get("defaults", {})
+               .get("model", {})
+               .get("primary", None)
+        )
+        result["gateway_port"] = cfg.get("gateway", {}).get("port", None)
+    except Exception:
+        pass
+
+    # Session count from session files
+    sessions_dir = os.path.expanduser("~/.openclaw/agents/main/sessions")
+    try:
+        session_files = glob.glob(os.path.join(sessions_dir, "*.json"))
+        result["session_count"] = len(session_files)
+        if session_files:
+            latest = max(session_files, key=os.path.getmtime)
+            mtime = os.path.getmtime(latest)
+            last_dt = datetime.fromtimestamp(mtime)
+            ago_secs = int(time.time() - mtime)
+            if ago_secs < 60:
+                result["last_session"] = "just now"
+            elif ago_secs < 3600:
+                result["last_session"] = f"{ago_secs // 60}m ago"
+            elif ago_secs < 86400:
+                result["last_session"] = f"{ago_secs // 3600}h ago"
+            else:
+                result["last_session"] = last_dt.strftime("%d %b")
+    except Exception:
+        pass
+
+    return result
+
+
 # ── Render ─────────────────────────────────────────────────────────────────────
 
 def render(cols, rows):
-    sys   = get_system_stats()
-    ctrs  = get_containers()
-    stats = get_container_stats()
-    now   = datetime.now().strftime("%a %d %b %Y  %H:%M:%S")
-    lines = []
-    inner = cols - 2
+    sys_stats = get_system_stats()
+    ctrs      = get_containers()
+    stats     = get_container_stats()
+    oc        = get_openclaw_status()
+    now       = datetime.now().strftime("%a %d %b %Y  %H:%M:%S")
+    lines     = []
+    inner     = cols - 2
 
     def push(line=""):
         lines.append(line)
@@ -207,10 +302,35 @@ def render(cols, rows):
         content = clr(f" {label:<5}", BOLD, FG_WHITE) + " " + b + " " + clr(val, BOLD, FG_CYAN) + clr(f"  {extra}", FG_DIM)
         return clr("║", FG_DIM) + pad(content, inner) + clr("║", FG_DIM)
 
-    push(stat_row("CPU",  bar(sys["cpu_pct"]),  f"{sys['cpu_pct']:5.1f}%",         f"load {sys['load']}   uptime {sys['uptime']}"))
-    push(stat_row("MEM",  bar(sys["mem_pct"]),  f"{sys['mem_used']:5.0f} / {sys['mem_total']:.0f} MB",  f"{sys['mem_pct']:.1f}%"))
-    push(stat_row("SWAP", bar(sys["swap_pct"]), f"{sys['swap_used']:5.0f} / {sys['swap_total']:.0f} MB", f"{sys['swap_pct']:.1f}%"))
-    push(stat_row("DISK", bar(disk["pct"]),     f"{disk['used']:.1f} / {disk['total']:.1f} GB",          f"{disk['pct']:.1f}%  {disk['mount']}"))
+    push(stat_row("CPU",  bar(sys_stats["cpu_pct"]),  f"{sys_stats['cpu_pct']:5.1f}%",         f"load {sys_stats['load']}   uptime {sys_stats['uptime']}"))
+    push(stat_row("MEM",  bar(sys_stats["mem_pct"]),  f"{sys_stats['mem_used']:5.0f} / {sys_stats['mem_total']:.0f} MB",  f"{sys_stats['mem_pct']:.1f}%"))
+    push(stat_row("SWAP", bar(sys_stats["swap_pct"]), f"{sys_stats['swap_used']:5.0f} / {sys_stats['swap_total']:.0f} MB", f"{sys_stats['swap_pct']:.1f}%"))
+    push(stat_row("DISK", bar(disk["pct"]),           f"{disk['used']:.1f} / {disk['total']:.1f} GB",          f"{disk['pct']:.1f}%  {disk['mount']}"))
+
+    # ── OPENCLAW STATUS ──
+    push(clr("╠" + "═" * inner + "╣", FG_DIM))
+    push(clr("║", FG_DIM) + pad(clr("  ⚙  OPENCLAW GATEWAY", BOLD, FG_PURPLE), inner) + clr("║", FG_DIM))
+    push(clr("╟" + "─" * inner + "╢", FG_DIM))
+
+    if oc["active"]:
+        state_icon = clr("● ACTIVE", BOLD, FG_GREEN)
+    elif oc["state"] == "inactive":
+        state_icon = clr("○ INACTIVE", BOLD, FG_RED)
+    elif oc["state"] == "failed":
+        state_icon = clr("✗ FAILED", BOLD, FG_RED)
+    else:
+        state_icon = clr(f"? {oc['state'].upper()}", FG_ORANGE)
+
+    uptime_str = f"  uptime {oc['uptime']}" if oc["uptime"] else ""
+    port_str   = f"  port {oc['gateway_port']}" if oc["gateway_port"] else ""
+    row1 = clr("  ", FG_DIM) + state_icon + clr(uptime_str + port_str, FG_DIM)
+    push(clr("║", FG_DIM) + pad(row1, inner) + clr("║", FG_DIM))
+
+    model_str  = truncate(oc["model"] or "unknown", 50)
+    sess_str   = f"  sessions {oc['session_count']}"
+    last_str   = f"  last active {oc['last_session']}" if oc["last_session"] else ""
+    row2 = clr(f"  model ", FG_DIM) + clr(model_str, FG_CYAN) + clr(sess_str + last_str, FG_DIM)
+    push(clr("║", FG_DIM) + pad(row2, inner) + clr("║", FG_DIM))
 
     # ── CONTAINERS ──
     push(clr("╠" + "═" * inner + "╣", FG_DIM))

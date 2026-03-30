@@ -1,0 +1,30 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  vars:
+    docker_users: []
+    mssql_sa_password: "TestPassword123!"
+    mssql_app_login: "TestUser"
+    mssql_app_login_password: "TestPassword123!"
+    grafana_admin_password: "testpassword"
+    grafana_api_host: "localhost"
+    grafana_api_port: 3000
+    grafana_api_scheme: "http"
+    grafana_api_validate_certs: false
+    mqtt_username: "testuser"
+    mqtt_password: "testpassword"
+    nodered_timezone: "Africa/Johannesburg"
+    systems_one_ingest_mqtt_host: "localhost"
+    systems_one_ingest_mqtt_port: 1883
+    systems_one_ingest_mqtt_username: "testuser"
+    systems_one_ingest_mqtt_password: "testpassword"
+    systems_one_ingest_db_host: "localhost"
+    systems_one_ingest_db_name: "Systems_One"
+    systems_one_ingest_db_user: "TestUser"
+    systems_one_ingest_db_password: "TestPassword123!"
+    openclaw_gateway_auth_token: "test-token-12345"
+    openclaw_msteams_enabled: false
+    openclaw_dashboard_enabled: false
+  roles:
+    - role: docker

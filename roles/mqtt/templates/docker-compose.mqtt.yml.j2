@@ -10,6 +10,12 @@ services:
     ports:
       - "{{ mosquitto_mqtt_port | default(1883) }}:{{ mosquitto_mqtt_port | default(1883) }}"
       - "{{ mosquitto_ws_port | default(9001) }}:{{ mosquitto_ws_port | default(9001) }}"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost {{ mosquitto_mqtt_port | default(1883) }} || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - {{ docker_shared_network | default('infra') }}
 

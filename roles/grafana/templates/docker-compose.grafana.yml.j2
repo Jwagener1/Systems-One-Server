@@ -20,6 +20,12 @@ services:
 {% if (grafana_dashboards_file_provisioning_enabled | default(true) | bool) and not (grafana_git_sync_enabled | default(false) | bool) %}
       - /opt/grafana/dashboards:/var/lib/grafana/dashboards:ro
 {% endif %}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:3000/api/health | grep -q '\"database\": \"ok\"' || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     networks:
       - {{ docker_shared_network | default('infra') }}
 
