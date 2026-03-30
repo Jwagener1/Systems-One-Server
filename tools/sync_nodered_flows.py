@@ -26,8 +26,11 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
 FLOWS_DEST = REPO_ROOT / "roles" / "nodered" / "files" / "flows.json"
+# Grafana dashboards live in a separate repo: https://github.com/Jwagener1/grafana
+# The export script writes to this path; commit and push that repo separately.
 DASHBOARDS_DEST = REPO_ROOT / "roles" / "grafana" / "files" / "dashboards"
 REMOTE_FLOWS_PATH = "/opt/nodered/data/flows.json"
+GRAFANA_REPO_URL = "https://github.com/Jwagener1/grafana"
 
 
 def run(cmd, **kwargs):

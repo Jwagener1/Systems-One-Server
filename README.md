@@ -277,17 +277,29 @@ Then in the Node-RED UI:
 
 ### Option C — Grafana Git Sync (Grafana v12+)
 
-Set in host/group vars:
+Grafana dashboards live in a **dedicated repo**: [https://github.com/Jwagener1/grafana](https://github.com/Jwagener1/grafana)
+
+The repo layout is:
+```
+grafana/
+  admin_panel.json
+  machine_detail.json
+  PEPKOR/
+    device_drill_down.json
+    pepkor_overview.json
+  Provisioned/
+```
+
+The defaults in this repo already point Git Sync at the correct repo and path. Just supply a GitHub token in vault and enable it:
 
 ```yaml
 grafana_git_sync_enabled: true
-grafana_git_sync_repo: "https://github.com/Jwagener1/Systems-One-Server"
-grafana_git_sync_branch: "master"
-grafana_git_sync_path: "roles/grafana/files/dashboards"
 grafana_git_sync_token: "{{ vault_github_token }}"
 ```
 
-Ansible will configure Git Sync automatically via the Grafana API after deploy. Dashboard changes in the UI are committed and pushed to GitHub by Grafana itself.
+Ansible will configure Git Sync automatically via the Grafana API after deploy. Dashboard changes in the Grafana UI are committed and pushed to `https://github.com/Jwagener1/grafana` automatically.
+
+> **Note:** `grafana_dashboard_folders_from_files: true` is set by default so subfolders like `PEPKOR/` become Grafana folders automatically.
 
 ## Notes / conventions
 
