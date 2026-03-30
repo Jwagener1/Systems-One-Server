@@ -1,0 +1,26 @@
+---
+# Deploy and enable the S1 Docker Dashboard on TTY1
+
+- name: Copy docker-dashboard.py to workspace tools
+  copy:
+    src: docker-dashboard.py
+    dest: "{{ openclaw_workspace }}/tools/docker-dashboard.py"
+    owner: "{{ openclaw_install_user }}"
+    group: "{{ openclaw_install_user }}"
+    mode: "0755"
+
+- name: Render s1-dashboard systemd service
+  template:
+    src: s1-dashboard.service.j2
+    dest: /etc/systemd/system/s1-dashboard.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart s1-dashboard
+
+- name: Enable and start s1-dashboard service
+  systemd:
+    name: s1-dashboard
+    enabled: "{{ openclaw_dashboard_enabled | default(true) | bool }}"
+    state: "{{ 'started' if openclaw_dashboard_enabled | default(true) | bool else 'stopped' }}"
+    daemon_reload: true

@@ -44,6 +44,10 @@ openclaw_session_dm_scope: "per-channel-peer"
 # Heartbeat interval (minutes)
 openclaw_heartbeat_minutes: 30
 
+# S1 Docker Dashboard — runs on TTY1 at boot
+# Shows container status, system stats and MQTT logs on the physical console
+openclaw_dashboard_enabled: true
+
 # MS Teams channel (optional)
 openclaw_msteams_enabled: false
 # openclaw_msteams_app_id: "{{ vault_msteams_app_id }}"

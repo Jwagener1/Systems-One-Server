@@ -49,3 +49,15 @@
 
 - name: Configure OpenClaw systemd service
   include_tasks: service.yml
+
+- name: Ensure workspace tools directory exists
+  file:
+    path: "{{ openclaw_workspace }}/tools"
+    state: directory
+    owner: "{{ openclaw_install_user }}"
+    group: "{{ openclaw_install_user }}"
+    mode: "0755"
+
+- name: Deploy S1 Docker Dashboard
+  include_tasks: dashboard.yml
+  when: openclaw_dashboard_enabled | default(true) | bool
