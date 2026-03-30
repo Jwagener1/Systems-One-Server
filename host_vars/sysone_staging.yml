@@ -23,6 +23,10 @@ grafana_admin_password: '{{ vault_grafana_admin_password }}'
 # Enable Grafana v12 Provisioning UI for Git Sync (experimental)
 grafana_git_sync_enabled: true
 
+# Grafana Git Sync token — dedicated dashboard repo: https://github.com/Jwagener1/grafana
+# TODO: move into group_vars/vault.yml (Ansible Vault encrypted)
+grafana_git_sync_token: "{{ vault_grafana_git_sync_token }}"
+
 grafana_mssql_database: 'S1_Remote_Monitoring'
 
 # Remote Monitoring DB bootstrap (S1_Remote_Monitoring tables + admin owner)

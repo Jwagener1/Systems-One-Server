@@ -3,3 +3,8 @@ ansible_user: s1
 ansible_ssh_private_key_file: /home/jonathan/.ssh/github_ed25519
 
 cloudflare_tunnel_token: "{{ vault_cloudflare_tunnel_token }}"
+
+# Grafana Git Sync — dedicated dashboard repo: https://github.com/Jwagener1/grafana
+# TODO: move vault_github_token into group_vars/vault.yml (Ansible Vault encrypted)
+grafana_git_sync_enabled: true
+grafana_git_sync_token: "{{ vault_grafana_git_sync_token }}"

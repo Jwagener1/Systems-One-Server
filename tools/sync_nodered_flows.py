@@ -31,6 +31,8 @@ FLOWS_DEST = REPO_ROOT / "roles" / "nodered" / "files" / "flows.json"
 DASHBOARDS_DEST = REPO_ROOT / "roles" / "grafana" / "files" / "dashboards"
 REMOTE_FLOWS_PATH = "/opt/nodered/data/flows.json"
 GRAFANA_REPO_URL = "https://github.com/Jwagener1/grafana"
+# Default GitHub token — store in env var GITHUB_TOKEN or pass via --github-token
+DEFAULT_GITHUB_TOKEN = "{{ vault_grafana_git_sync_token }}"
 
 
 def run(cmd, **kwargs):
@@ -50,19 +52,48 @@ def pull_nodered_flows(host: str, user: str, key: str | None):
     print(f"  Done: {FLOWS_DEST.relative_to(REPO_ROOT)}")
 
 
-def pull_grafana_dashboards(grafana_url: str, grafana_user: str, grafana_password: str):
-    print("\n[Grafana] Pulling dashboards via export script...")
+def pull_grafana_dashboards(grafana_url: str, grafana_user: str, grafana_password: str,
+                            github_token: str | None = None):
+    """Pull dashboards from Grafana and push them to the dedicated grafana repo."""
+    import tempfile, os, shutil
+
+    print("\n[Grafana] Pulling dashboards via Grafana API...")
     export_script = REPO_ROOT / "tools" / "grafana_export_dashboards.py"
-    DASHBOARDS_DEST.mkdir(parents=True, exist_ok=True)
-    run([
-        sys.executable, str(export_script),
-        "--url", grafana_url,
-        "--username", grafana_user,
-        "--password", grafana_password,
-        "--out-dir", str(DASHBOARDS_DEST),
-        "--overwrite",
-    ])
-    print(f"  Done: {DASHBOARDS_DEST.relative_to(REPO_ROOT)}/")
+
+    # Clone the grafana repo into a temp dir
+    token = github_token or os.environ.get("GITHUB_TOKEN") or DEFAULT_GITHUB_TOKEN
+    auth_url = GRAFANA_REPO_URL.replace("https://", f"https://{token}@")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        print(f"  Cloning {GRAFANA_REPO_URL} ...")
+        run(["git", "clone", "--depth=1", auth_url, tmpdir], capture_output=True)
+
+        out_dir = Path(tmpdir) / "grafana"
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        run([
+            sys.executable, str(export_script),
+            "--url", grafana_url,
+            "--username", grafana_user,
+            "--password", grafana_password,
+            "--out-dir", str(out_dir),
+            "--overwrite",
+        ])
+
+        # Commit and push back to grafana repo
+        run(["git", "-C", tmpdir, "config", "user.name", "Systems-One S1"], capture_output=True)
+        run(["git", "-C", tmpdir, "config", "user.email", "s1@systems-one"], capture_output=True)
+        run(["git", "-C", tmpdir, "add", "grafana/"], capture_output=True)
+
+        diff = subprocess.run(["git", "-C", tmpdir, "diff", "--cached", "--quiet"],
+                              capture_output=True)
+        if diff.returncode == 0:
+            print("  Nothing changed in dashboards — skipping push.")
+        else:
+            run(["git", "-C", tmpdir, "commit",
+                 "-m", "chore: sync dashboards from live Grafana"], capture_output=True)
+            run(["git", "-C", tmpdir, "push"], capture_output=True)
+            print(f"  Done: dashboards pushed to {GRAFANA_REPO_URL}")
 
 
 def git_commit():
@@ -101,6 +132,8 @@ def main():
                         help="Grafana admin user (default: admin)")
     parser.add_argument("--grafana-password", default=None,
                         help="Grafana admin password (required if --grafana-url set)")
+    parser.add_argument("--github-token", default=None,
+                        help="GitHub PAT for pushing to Jwagener1/grafana (falls back to GITHUB_TOKEN env var)")
     parser.add_argument("--commit", action="store_true",
                         help="Auto-commit pulled changes to git")
 
@@ -116,7 +149,8 @@ def main():
         if not args.grafana_password:
             print("Error: --grafana-password required when --grafana-url is set")
             sys.exit(1)
-        pull_grafana_dashboards(args.grafana_url, args.grafana_user, args.grafana_password)
+        pull_grafana_dashboards(args.grafana_url, args.grafana_user, args.grafana_password,
+                                github_token=args.github_token)
 
     if args.commit:
         git_commit()
