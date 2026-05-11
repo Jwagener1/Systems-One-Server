@@ -7,7 +7,7 @@ services:
     environment:
       - TUNNEL_TOKEN={{ cloudflare_tunnel_token }}
     healthcheck:
-      test: ["CMD-SHELL", "cloudflared tunnel info 2>/dev/null | grep -q 'connections' || cloudflared version > /dev/null 2>&1"]
+      test: ["CMD", "/usr/local/bin/cloudflared", "version"]
       interval: 30s
       timeout: 10s
       retries: 3

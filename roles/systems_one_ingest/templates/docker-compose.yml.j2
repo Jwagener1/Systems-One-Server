@@ -42,7 +42,7 @@ services:
       RUN_SECONDS: "{{ systems_one_ingest_run_seconds }}"
 
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'python.*mqtt_ingest' > /dev/null || exit 1"]
+      test: ["CMD-SHELL", "[ -f /proc/1/comm ] && cat /proc/1/comm | grep -q 'python' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

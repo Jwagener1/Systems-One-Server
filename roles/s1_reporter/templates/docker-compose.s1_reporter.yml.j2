@@ -24,7 +24,7 @@ services:
       OFFLINE_STATE_FILE: "/data/offline_state.json"
       UPLOAD_STATE_FILE: "/data/upload_state.json"
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'sh.*entrypoint' > /dev/null && pgrep -f 'python3' > /dev/null || pgrep -f 'sh.*entrypoint' > /dev/null || exit 1"]
+      test: ["CMD-SHELL", "[ -f /proc/1/comm ] && cat /proc/1/comm | grep -q 'sh' || exit 1"]
       interval: 60s
       timeout: 10s
       retries: 3
