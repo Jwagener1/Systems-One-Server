@@ -6,6 +6,12 @@ services:
     command: tunnel run
     environment:
       - TUNNEL_TOKEN={{ cloudflare_tunnel_token }}
+    healthcheck:
+      test: ["CMD-SHELL", "cloudflared tunnel info 2>/dev/null | grep -q 'connections' || cloudflared version > /dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 {% if cloudflared_network_mode | default('bridge') == 'host' %}
     network_mode: host
 {% else %}

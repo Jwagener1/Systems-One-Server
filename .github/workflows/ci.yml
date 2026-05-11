@@ -60,7 +60,10 @@ jobs:
                 openclaw_gateway_auth_token=test \
                 grafana_git_sync_token=test \
                 cloudflare_tunnel_token=test \
-                openclaw_msteams_app_password=test"
+                openclaw_msteams_app_password=test \
+                vault_s1_reporter_smtp_user=test@test.com \
+                vault_s1_reporter_smtp_pass=test \
+                vault_s1_reporter_report_to=test@test.com"
 
   molecule:
     name: Molecule (docker role)

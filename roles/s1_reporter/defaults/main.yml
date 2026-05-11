@@ -1,0 +1,13 @@
+# s1_reporter service defaults
+s1_reporter_image: "s1-reporter:latest"
+s1_reporter_dir: "/opt/s1-reporter"
+s1_reporter_db_host: "mssql"
+s1_reporter_db_port: 1433
+s1_reporter_db_user: "sa"
+s1_reporter_db_name: "S1_Remote_Monitoring"
+
+# Schedule
+s1_reporter_offline_check_interval_minutes: 20
+s1_reporter_offline_threshold_minutes: 30
+s1_reporter_daily_report_hour: 6
+s1_reporter_monthly_report_hour: 6

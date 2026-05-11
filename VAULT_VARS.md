@@ -33,3 +33,11 @@ To edit: `ansible-vault edit group_vars/vault.yml`
 - `pkluser` = PKL User Group shared login (Viewer, PEPKOR folder only)
 - `avi`, `chris` = Viewers (all folders)
 - `jonathan` = Admin
+
+## s1_reporter
+
+| Variable | Description |
+|---|---|
+| `vault_s1_reporter_smtp_user` | Gmail address used to send reports |
+| `vault_s1_reporter_smtp_pass` | Gmail app password |
+| `vault_s1_reporter_report_to` | Email address to send reports to |

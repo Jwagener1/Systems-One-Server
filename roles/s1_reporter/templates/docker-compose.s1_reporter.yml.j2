@@ -1,0 +1,42 @@
+services:
+  s1-reporter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: "{{ s1_reporter_image }}"
+    container_name: s1_reporter
+    restart: unless-stopped
+    environment:
+      DB_HOST: "{{ s1_reporter_db_host }}"
+      DB_PORT: "{{ s1_reporter_db_port }}"
+      DB_USER: "{{ s1_reporter_db_user }}"
+      DB_PASS: "{{ mssql_sa_password }}"
+      DB_NAME: "{{ s1_reporter_db_name }}"
+      SMTP_HOST: "smtp.gmail.com"
+      SMTP_PORT: "587"
+      SMTP_USER: "{{ vault_s1_reporter_smtp_user }}"
+      SMTP_PASS: "{{ vault_s1_reporter_smtp_pass }}"
+      REPORT_TO: "{{ vault_s1_reporter_report_to }}"
+      OFFLINE_CHECK_INTERVAL_MINUTES: "{{ s1_reporter_offline_check_interval_minutes }}"
+      OFFLINE_THRESHOLD_MINUTES: "{{ s1_reporter_offline_threshold_minutes }}"
+      DAILY_REPORT_HOUR: "{{ s1_reporter_daily_report_hour }}"
+      MONTHLY_REPORT_HOUR: "{{ s1_reporter_monthly_report_hour }}"
+      OFFLINE_STATE_FILE: "/data/offline_state.json"
+      UPLOAD_STATE_FILE: "/data/upload_state.json"
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'sh.*entrypoint' > /dev/null && pgrep -f 'python3' > /dev/null || pgrep -f 'sh.*entrypoint' > /dev/null || exit 1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - s1_reporter_data:/data
+    networks:
+      - {{ docker_shared_network | default('infra') }}
+
+networks:
+  {{ docker_shared_network | default('infra') }}:
+    external: true
+
+volumes:
+  s1_reporter_data:
