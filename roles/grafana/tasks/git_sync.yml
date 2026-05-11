@@ -1,5 +1,5 @@
 ---
-# Configure Grafana Git Sync via the provisioning API (Grafana v12+)
+# Configure Grafana Git Sync via the k8s provisioning API (Grafana v12+)
 # Only runs when grafana_git_sync_repo is set.
 
 - name: Wait for Grafana API to be ready
@@ -16,11 +16,23 @@
   delay: 2
   until: grafana_gitsync_health.status == 200
 
+- name: Check if Git Sync repository already configured
+  ansible.builtin.uri:
+    url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/apis/provisioning.grafana.app/v0alpha1/namespaces/default/repositories"
+    method: GET
+    status_code: [200]
+    validate_certs: "{{ grafana_api_validate_certs | bool }}"
+    url_username: "{{ grafana_admin_user | default('admin') }}"
+    url_password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    return_content: true
+  register: grafana_gitsync_repos
+
 - name: Configure Grafana Git Sync repository
   ansible.builtin.uri:
-    url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/api/v1/provisioning/repositories"
+    url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/apis/provisioning.grafana.app/v0alpha1/namespaces/default/repositories"
     method: POST
-    status_code: [200, 201, 409]
+    status_code: [200, 201]
     validate_certs: "{{ grafana_api_validate_certs | bool }}"
     url_username: "{{ grafana_admin_user | default('admin') }}"
     url_password: "{{ grafana_admin_password }}"
@@ -29,15 +41,26 @@
       Content-Type: "application/json"
     body_format: json
     body:
-      name: "systems-one-dashboards"
-      type: "github"
-      github:
-        url: "{{ grafana_git_sync_repo }}"
-        branch: "{{ grafana_git_sync_branch | default('master') }}"
-        token: "{{ grafana_git_sync_token }}"
-        path: "{{ grafana_git_sync_path | default('roles/grafana/files/dashboards') }}"
-        showDashboardChanges: true
-        generateDashboardPreviews: false
+      apiVersion: "provisioning.grafana.app/v0alpha1"
+      kind: "Repository"
+      metadata:
+        name: "systems-one-dashboards"
+        namespace: "default"
+      spec:
+        type: "github"
+        github:
+          url: "{{ grafana_git_sync_repo }}"
+          branch: "{{ grafana_git_sync_branch | default('main') }}"
+          token: "{{ grafana_git_sync_token }}"
+          path: "{{ grafana_git_sync_path | default('grafana/') }}"
+          showDashboardChanges: true
+          generateDashboardPreviews: false
+        sync:
+          enabled: true
+          target: "instance"
+          intervalSeconds: 60
   no_log: true
+  when: >-
+    (grafana_gitsync_repos.json.items | default([]) | length) == 0
   register: grafana_gitsync_result
   changed_when: grafana_gitsync_result.status in [200, 201]

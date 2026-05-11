@@ -1,94 +1,60 @@
-ansible_host: 192.168.134.5
+ansible_host: 127.0.0.1
 ansible_user: s1
-ansible_ssh_private_key_file: /home/jonathan/.ssh/github_ed25519
+ansible_connection: local
 
-# Plaintext staging-only secrets (temporary)
 cloudflare_tunnel_token: "{{ vault_cloudflare_tunnel_token }}"
 
-mssql_sa_password: '{{ vault_mssql_sa_password }}'
+# MSSQL
+mssql_sa_password: "{{ vault_mssql_sa_password }}"
 
-# Primary MSSQL application database name
-mssql_database_name: 'S1_Remote_Monitoring'
+# Grafana
+grafana_admin_password: "{{ vault_grafana_admin_password }}"
+grafana_mssql_database: "S1_Remote_Monitoring"
 
-# MSSQL bootstrap (creates Systems_One DB + SysOne login/user + tables)
-mssql_bootstrap_enabled: true
-mssql_bootstrap_database: 'Systems_One'
-mssql_app_login: 'SysOne'
-mssql_app_login_password: 'SysOne012!'
-mssql_app_login_check_policy: false
-mssql_bootstrap_set_db_owner: false
-
-grafana_admin_password: '{{ vault_grafana_admin_password }}'
-
-# Enable Grafana v12 Provisioning UI for Git Sync (experimental)
+# Grafana Git Sync
 grafana_git_sync_enabled: true
-
-# Grafana Git Sync token — dedicated dashboard repo: https://github.com/Jwagener1/grafana
-# TODO: move into group_vars/vault.yml (Ansible Vault encrypted)
 grafana_git_sync_token: "{{ vault_grafana_git_sync_token }}"
+grafana_git_sync_branch: "main"
+grafana_git_sync_path: "grafana/"
 
-grafana_mssql_database: 'S1_Remote_Monitoring'
+# Grafana API provisioning
+grafana_api_provision_enabled: true
+grafana_orgs:
+  - name: "Main Org."
 
-# Remote Monitoring DB bootstrap (S1_Remote_Monitoring tables + admin owner)
-mssql_rm_bootstrap_enabled: true
-mssql_rm_database: 'S1_Remote_Monitoring'
-mssql_rm_admin_login: 'admin'
-mssql_rm_admin_password: 'SysOne012!'
+grafana_users:
+  - login: "jonathan"
+    email: "jonathan@systems-one.com"
+    name: "Jonathan"
+    password: "{{ vault_grafana_jonathan_password }}"
+    orgs:
+      - name: "Main Org."
+        role: "Admin"
+  - login: "avi"
+    email: "avi"
+    name: "Avi"
+    password: "{{ vault_grafana_avi_password }}"
+    orgs:
+      - name: "Main Org."
+        role: "Viewer"
+  - login: "chris"
+    email: "chris"
+    name: "Chris"
+    password: "{{ vault_grafana_chris_password }}"
+    orgs:
+      - name: "Main Org."
+        role: "Viewer"
+  - login: "pkluser"
+    email: "pkluser"
+    name: "PKL User Group"
+    password: "{{ vault_grafana_pkluser_password }}"
+    orgs:
+      - name: "Main Org."
+        role: "Viewer"
 
-# MQTT Broker (local)
-mqtt_username: 'admin'
-mqtt_password: 'admin'
-
-# Cloudflared
-cloudflared_network_mode: host
-
-# Node-RED (ingest)
-nodered_bind_address: '127.0.0.1'
-nodered_port: 1880
-
-# Allow a remote system to connect to Node-RED as a TCP server on port 69.
-nodered_tcp_server_enabled: true
-nodered_tcp_server_port: 10069
-nodered_tcp_server_bind_address: '0.0.0.0'
-
-# High port: no privileged bind capability needed.
-nodered_allow_privileged_port_bind: false
-
-# Systems One ingest (configured via Ansible host_vars, injected into container environment)
-systems_one_ingest_mqtt_host: mosquitto
-systems_one_ingest_mqtt_port: 1883
-systems_one_ingest_mqtt_username: "{{ mqtt_username }}"
-systems_one_ingest_mqtt_password: "{{ mqtt_password }}"
-systems_one_ingest_mqtt_client_id: mqtt_ingest
-systems_one_ingest_mqtt_transport: tcp
-systems_one_ingest_mqtt_tls: false
-systems_one_ingest_mqtt_tls_insecure: false
-systems_one_ingest_mqtt_keepalive: 60
-systems_one_ingest_mqtt_ws_path: ""
-
-systems_one_ingest_topics: "systems-one/#,systemsone/#"
-systems_one_ingest_qos: 0
-systems_one_ingest_log_level: INFO
-
-systems_one_ingest_db_enable: true
-systems_one_ingest_db_host: mssql
-systems_one_ingest_db_port: 1433
-systems_one_ingest_db_name: "{{ mssql_rm_database }}"
-systems_one_ingest_db_user: "{{ mssql_rm_admin_login }}"
-systems_one_ingest_db_password: "{{ mssql_rm_admin_password }}"
-systems_one_ingest_db_driver: "ODBC Driver 18 for SQL Server"
-systems_one_ingest_db_encrypt: optional
-systems_one_ingest_db_trust_server_cert: ""
-systems_one_ingest_db_connect_timeout: 5
-systems_one_ingest_db_connect_on_start: false
-systems_one_ingest_db_connect_required: false
-
-systems_one_ingest_run_seconds: ""
-
-# OpenClaw (staging — uses same Teams app for now)
-openclaw_msteams_enabled: true
-# TODO: move all these into group_vars/vault.yml
+# OpenClaw
+openclaw_msteams_enabled: false
 openclaw_gateway_auth_token: "{{ vault_openclaw_gateway_token }}"
-openclaw_msteams_app_id: "8ca45be8-6a85-49bd-a2bb-283f65006175"
-openclaw_msteams_app_password: "{{ vault_openclaw_msteams_app_password }}"
-openclaw_msteams_tenant_id: "2cacbdf2-278e-4cca-b6c2-e17094934b7b"
+openclaw_msteams_app_id: ""
+openclaw_msteams_app_password: ""
+openclaw_msteams_tenant_id: ""

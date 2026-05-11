@@ -4,14 +4,56 @@ ansible_ssh_private_key_file: /home/jonathan/.ssh/github_ed25519
 
 cloudflare_tunnel_token: "{{ vault_cloudflare_tunnel_token }}"
 
+# MSSQL
+mssql_sa_password: "{{ vault_mssql_sa_password }}"
+
+# Grafana
+grafana_admin_password: "{{ vault_grafana_admin_password }}"
+grafana_mssql_database: "S1_Remote_Monitoring"
+
 # Grafana Git Sync — dedicated dashboard repo: https://github.com/Jwagener1/grafana
-# TODO: move vault_github_token into group_vars/vault.yml (Ansible Vault encrypted)
 grafana_git_sync_enabled: true
 grafana_git_sync_token: "{{ vault_grafana_git_sync_token }}"
+grafana_git_sync_branch: "main"
+grafana_git_sync_path: "grafana/"
+
+# Grafana API provisioning — creates users and org on deploy
+grafana_api_provision_enabled: true
+grafana_orgs:
+  - name: "Main Org."
+
+grafana_users:
+  - login: "jonathan"
+    email: "jonathan@systems-one.com"
+    name: "Jonathan"
+    password: "{{ vault_grafana_jonathan_password }}"
+    orgs:
+      - name: "Main Org."
+        role: "Admin"
+  - login: "avi"
+    email: "avi"
+    name: "Avi"
+    password: "{{ vault_grafana_avi_password }}"
+    orgs:
+      - name: "Main Org."
+        role: "Viewer"
+  - login: "chris"
+    email: "chris"
+    name: "Chris"
+    password: "{{ vault_grafana_chris_password }}"
+    orgs:
+      - name: "Main Org."
+        role: "Viewer"
+  - login: "pkluser"
+    email: "pkluser"
+    name: "PKL User Group"
+    password: "{{ vault_grafana_pkluser_password }}"
+    orgs:
+      - name: "Main Org."
+        role: "Viewer"
 
 # OpenClaw
 openclaw_msteams_enabled: true
-# TODO: move all these into group_vars/vault.yml
 openclaw_gateway_auth_token: "{{ vault_openclaw_gateway_token }}"
 openclaw_msteams_app_id: "8ca45be8-6a85-49bd-a2bb-283f65006175"
 openclaw_msteams_app_password: "{{ vault_openclaw_msteams_app_password }}"
