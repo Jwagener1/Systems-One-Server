@@ -49,6 +49,7 @@
 
 - name: Add remote user to docker group
   user:
-    name: "{{ ansible_user }}"
+    name: "{{ ansible_user | default('') }}"
     groups: docker
     append: yes
+  when: ansible_user is defined and ansible_user != "root"
