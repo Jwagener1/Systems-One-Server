@@ -49,4 +49,36 @@ jobs:
         run: |
           ansible-playbook site.yml --syntax-check \
             -i production \
-            -e "mssql_sa_password=test mssql_app_login_password=test grafana_admin_password=test mqtt_password=test openclaw_gateway_auth_token=test"
+            -e "mssql_sa_password=test \
+                mssql_app_login_password=test \
+                grafana_admin_password=test \
+                grafana_jonathan_password=test \
+                grafana_avi_password=test \
+                grafana_chris_password=test \
+                grafana_pkluser_password=test \
+                mqtt_password=test \
+                openclaw_gateway_auth_token=test \
+                grafana_git_sync_token=test \
+                cloudflare_tunnel_token=test \
+                openclaw_msteams_app_password=test"
+
+  molecule:
+    name: Molecule (docker role)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install ansible molecule molecule-plugins[docker] docker
+
+      - name: Run Molecule
+        run: molecule test
+        working-directory: .
+        env:
+          PY_COLORS: "1"
+          ANSIBLE_FORCE_COLOR: "1"
