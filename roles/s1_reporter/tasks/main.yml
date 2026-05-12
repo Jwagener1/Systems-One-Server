@@ -7,6 +7,38 @@
     group: root
     mode: "0755"
 
+- name: Copy Dockerfile
+  copy:
+    src: Dockerfile
+    dest: "{{ s1_reporter_dir }}/Dockerfile"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Copy report.py
+  copy:
+    src: report.py
+    dest: "{{ s1_reporter_dir }}/report.py"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Copy upload_monitor.py
+  copy:
+    src: upload_monitor.py
+    dest: "{{ s1_reporter_dir }}/upload_monitor.py"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Copy entrypoint.sh
+  copy:
+    src: entrypoint.sh
+    dest: "{{ s1_reporter_dir }}/entrypoint.sh"
+    owner: root
+    group: root
+    mode: "0755"
+
 - name: Render s1_reporter docker-compose
   template:
     src: docker-compose.s1_reporter.yml.j2
@@ -15,7 +47,7 @@
     group: root
     mode: "0644"
 
-- name: Start/Update s1_reporter container
+- name: Build and start s1_reporter container
   command: docker compose up -d --build
   args:
     chdir: "{{ s1_reporter_dir }}"
