@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Systems One — Live Performance</title>
+  <style>
+    /* ── Reset & base ────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0a0f;
+      --surface:   #13131a;
+      --border:    #1e1e2e;
+      --accent:    #4f8ef7;
+      --accent2:   #6ee7b7;
+      --warn:      #f59e0b;
+      --danger:    #ef4444;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --font:      'Inter', system-ui, sans-serif;
+      --radius:    12px;
+      --glow:      0 0 24px rgba(79,142,247,.15);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 15px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Layout ──────────────────────────────────────────────────────── */
+    .shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: 0 clamp(16px, 4vw, 48px);
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 0 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-mark {
+      width: 36px; height: 36px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 18px; color: #fff;
+    }
+    .logo-text { font-weight: 600; font-size: 16px; letter-spacing: .02em; }
+    .logo-sub  { font-size: 11px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+
+    .live-badge {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 12px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase;
+    }
+    .pulse {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--accent2);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: .4; transform: scale(.7); }
+    }
+
+    main { padding: 36px 0 24px; }
+
+    /* ── Section headings ────────────────────────────────────────────── */
+    .section-label {
+      font-size: 11px; font-weight: 600;
+      color: var(--muted); letter-spacing: .1em; text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    /* ── Stat grid ───────────────────────────────────────────────────── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 36px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px 18px;
+      position: relative;
+      transition: border-color .25s, box-shadow .25s;
+    }
+    .stat-card:hover {
+      border-color: var(--accent);
+      box-shadow: var(--glow);
+    }
+    .stat-card.accent  { border-top: 2px solid var(--accent); }
+    .stat-card.green   { border-top: 2px solid var(--accent2); }
+    .stat-card.warn    { border-top: 2px solid var(--warn); }
+    .stat-card.danger  { border-top: 2px solid var(--danger); }
+
+    .stat-label {
+      font-size: 11px; font-weight: 600;
+      color: var(--muted); letter-spacing: .07em; text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .stat-value {
+      font-size: 32px; font-weight: 700;
+      letter-spacing: -.02em; line-height: 1;
+      color: var(--text);
+    }
+    .stat-value.small { font-size: 22px; }
+    .stat-suffix { font-size: 16px; font-weight: 400; color: var(--muted); margin-left: 2px; }
+
+    /* ── Chart area ──────────────────────────────────────────────────── */
+    .chart-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 24px 20px;
+      margin-bottom: 36px;
+    }
+    .chart-title {
+      font-size: 13px; font-weight: 600; color: var(--text);
+      margin-bottom: 20px;
+    }
+
+    .bar-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      height: 80px;
+    }
+    .bar-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+      height: 100%;
+    }
+    .bar-fill {
+      width: 100%;
+      border-radius: 3px 3px 0 0;
+      background: var(--accent);
+      transition: height .6s cubic-bezier(.4,0,.2,1);
+      min-height: 2px;
+    }
+    .bar-label {
+      font-size: 9px; color: var(--muted);
+      white-space: nowrap; overflow: hidden;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      height: 28px; line-height: 1;
+    }
+
+    /* ── Fleet status row ────────────────────────────────────────────── */
+    .fleet-row {
+      display: flex; gap: 12px; flex-wrap: wrap;
+      margin-bottom: 36px;
+    }
+    .fleet-pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      padding: 8px 18px;
+      font-size: 13px; font-weight: 500;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+    }
+    .dot.online  { background: var(--accent2); }
+    .dot.offline { background: var(--danger); }
+    .dot.app     { background: var(--accent); }
+    .dot.stopped { background: var(--warn); }
+
+    /* ── Footer ──────────────────────────────────────────────────────── */
+    footer {
+      padding: 16px 0;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px; color: var(--muted);
+    }
+    #last-updated { font-variant-numeric: tabular-nums; }
+
+    /* ── Error state ─────────────────────────────────────────────────── */
+    #error-banner {
+      display: none;
+      background: rgba(239,68,68,.1);
+      border: 1px solid var(--danger);
+      border-radius: var(--radius);
+      padding: 12px 18px;
+      margin-bottom: 24px;
+      font-size: 13px; color: var(--danger);
+    }
+
+    /* ── Skeleton shimmer ────────────────────────────────────────────── */
+    .skeleton {
+      background: linear-gradient(90deg, var(--border) 25%, #2a2a3a 50%, var(--border) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 4px;
+      height: 1em;
+      width: 60%;
+    }
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ── Responsive ──────────────────────────────────────────────────── */
+    @media (max-width: 480px) {
+      .stat-grid { grid-template-columns: 1fr 1fr; }
+      .bar-label { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header>
+    <div class="logo">
+      <div class="logo-mark">S1</div>
+      <div>
+        <div class="logo-text">Systems One</div>
+        <div class="logo-sub">Fleet Performance</div>
+      </div>
+    </div>
+    <div class="live-badge">
+      <div class="pulse"></div>
+      Live
+    </div>
+  </header>
+
+  <main>
+    <div id="error-banner">Unable to reach data source. Retrying…</div>
+
+    <!-- Fleet status pills -->
+    <div class="section-label">Fleet Status</div>
+    <div class="fleet-row" id="fleet-row">
+      <div class="fleet-pill"><div class="dot online"></div><span id="f-online">—</span> Online</div>
+      <div class="fleet-pill"><div class="dot offline"></div><span id="f-offline">—</span> Offline</div>
+      <div class="fleet-pill"><div class="dot app"></div><span id="f-apps-running">—</span> Apps Running</div>
+      <div class="fleet-pill"><div class="dot stopped"></div><span id="f-apps-stopped">—</span> Apps Stopped</div>
+      <div class="fleet-pill" style="margin-left:auto"><span id="f-total">—</span> Total Machines</div>
+    </div>
+
+    <!-- Today KPIs -->
+    <div class="section-label">Today</div>
+    <div class="stat-grid" id="today-grid">
+      <div class="stat-card accent">
+        <div class="stat-label">Items Processed</div>
+        <div class="stat-value" id="t-items">—</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Good Read %</div>
+        <div class="stat-value" id="t-gr-pct">—<span class="stat-suffix">%</span></div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Good Reads</div>
+        <div class="stat-value small" id="t-good">—</div>
+      </div>
+      <div class="stat-card warn">
+        <div class="stat-label">No Reads</div>
+        <div class="stat-value small" id="t-noread">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Not Sent</div>
+        <div class="stat-value small" id="t-notsent">—</div>
+      </div>
+    </div>
+
+    <!-- Month / Year KPIs -->
+    <div class="section-label">Month &amp; Year</div>
+    <div class="stat-grid">
+      <div class="stat-card accent">
+        <div class="stat-label">Items This Month</div>
+        <div class="stat-value" id="m-items">—</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Month Good Read %</div>
+        <div class="stat-value" id="m-gr-pct">—<span class="stat-suffix">%</span></div>
+      </div>
+      <div class="stat-card accent">
+        <div class="stat-label">Items This Year</div>
+        <div class="stat-value" id="y-items">—</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Year Good Read %</div>
+        <div class="stat-value" id="y-gr-pct">—<span class="stat-suffix">%</span></div>
+      </div>
+    </div>
+
+    <!-- Sparkline -->
+    <div class="chart-wrap">
+      <div class="chart-title">Items Processed — Last 24 Hours</div>
+      <div class="bar-chart" id="sparkline"></div>
+    </div>
+
+  </main>
+
+  <footer>
+    <span>Systems One Monitoring Platform</span>
+    <span>Updated <span id="last-updated">—</span></span>
+  </footer>
+
+</div>
+
+<script>
+  const REFRESH_MS = 30_000;
+
+  // ── Animated counter ─────────────────────────────────────────────────────
+  function animateTo(el, target, decimals = 0) {
+    const start  = parseFloat(el.dataset.val ?? '0') || 0;
+    const end    = typeof target === 'number' ? target : parseFloat(target) || 0;
+    const dur    = 600;
+    const t0     = performance.now();
+    el.dataset.val = end;
+
+    // preserve suffix span if present
+    const suffix = el.querySelector('.stat-suffix');
+    const sfxHtml = suffix ? suffix.outerHTML : '';
+
+    function step(now) {
+      const p = Math.min((now - t0) / dur, 1);
+      const ease = p < .5 ? 2*p*p : -1+(4-2*p)*p;
+      const v = start + (end - start) * ease;
+      const fmt = decimals > 0
+        ? v.toFixed(decimals)
+        : Math.round(v).toLocaleString();
+      el.innerHTML = fmt + sfxHtml;
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  // ── Sparkline ────────────────────────────────────────────────────────────
+  function renderSparkline(data) {
+    const el = document.getElementById('sparkline');
+    if (!data || !data.length) { el.innerHTML = '<span style="color:var(--muted);font-size:12px">No data yet</span>'; return; }
+    const max = Math.max(...data.map(d => d.value), 1);
+    el.innerHTML = data.map(d => {
+      const pct = Math.max((d.value / max) * 100, 2);
+      return `<div class="bar-col">
+        <div class="bar-fill" style="height:${pct}%"></div>
+        <div class="bar-label">${d.label}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Fetch & render ───────────────────────────────────────────────────────
+  async function refresh() {
+    try {
+      const res = await fetch('/api/stats');
+      if (!res.ok) throw new Error(res.statusText);
+      const d = await res.json();
+
+      document.getElementById('error-banner').style.display = 'none';
+
+      // Fleet
+      document.getElementById('f-online').textContent        = d.fleet.online;
+      document.getElementById('f-offline').textContent       = d.fleet.offline;
+      document.getElementById('f-apps-running').textContent  = d.fleet.apps_running;
+      document.getElementById('f-apps-stopped').textContent  = d.fleet.apps_stopped;
+      document.getElementById('f-total').textContent         = d.fleet.total_machines;
+
+      // Colour offline pill red when > 0
+      document.querySelector('.dot.offline').closest('.fleet-pill')
+        .style.borderColor = d.fleet.offline > 0 ? 'var(--danger)' : '';
+
+      // Today
+      animateTo(document.getElementById('t-items'),   d.today.items);
+      animateTo(document.getElementById('t-gr-pct'),  d.today.good_read_pct, 1);
+      animateTo(document.getElementById('t-good'),    d.today.good_reads);
+      animateTo(document.getElementById('t-noread'),  d.today.no_reads);
+      animateTo(document.getElementById('t-notsent'), d.today.not_sent);
+
+      // Month / Year
+      animateTo(document.getElementById('m-items'),   d.month.items);
+      animateTo(document.getElementById('m-gr-pct'),  d.month.good_read_pct, 1);
+      animateTo(document.getElementById('y-items'),   d.year.items);
+      animateTo(document.getElementById('y-gr-pct'),  d.year.good_read_pct, 1);
+
+      // Sparkline
+      renderSparkline(d.sparkline);
+
+      // Timestamp
+      const ts = new Date(d.generated_at * 1000);
+      document.getElementById('last-updated').textContent =
+        ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    } catch (e) {
+      document.getElementById('error-banner').style.display = 'block';
+      console.error('Stats fetch failed:', e);
+    }
+  }
+
+  refresh();
+  setInterval(refresh, REFRESH_MS);
+</script>
+</body>
+</html>

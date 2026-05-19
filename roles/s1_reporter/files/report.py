@@ -149,7 +149,7 @@ def get_storage(customer=None):
     return query(f"""
         SELECT d.machine_name, d.location, dss.drive, dss.total_gb, dss.used_gb, dss.usage_percent
         FROM devices d JOIN device_storage_status dss ON dss.device_id=d.id
-        WHERE dss.drive='C'{cust}
+        WHERE dss.drive='C:'{cust}
         ORDER BY dss.usage_percent DESC
     """)
 
@@ -278,9 +278,9 @@ def detect_anomalies(trend_rows, customer=None):
 
     storage = get_storage(customer)
     for s in storage:
-        if s["usage_percent"] and float(s["usage_percent"]) > 80:
+        if s["usage_percent"] and float(s["usage_percent"]) > 90:
             alerts.append(("bad",  f"<b>{s['machine_name']} @ {s['location']}</b> — C: drive at <b>{float(s['usage_percent']):.0f}%</b> — action required"))
-        elif s["usage_percent"] and float(s["usage_percent"]) > 70:
+        elif s["usage_percent"] and float(s["usage_percent"]) > 80:
             alerts.append(("warn", f"<b>{s['machine_name']} @ {s['location']}</b> — C: drive at <b>{float(s['usage_percent']):.0f}%</b> — monitor"))
 
     # Offline / late-reporting devices for this customer
@@ -357,14 +357,14 @@ def chart_goodread_trend(rows, title):
                     color=PALETTE[i % len(PALETTE)], linewidth=2, zorder=3)
             # Annotate dips below 98%
             for x, y in pts:
-                if y < 98.0:
+                if y < 97.0:
                     ax.annotate(f"{y:.1f}%", (x, y), textcoords="offset points",
                                 xytext=(0, -14), fontsize=7.5, ha="center",
                                 color=PALETTE[i % len(PALETTE)], fontweight="bold")
         # Reference lines
-        ax.axhline(99, color="#4ade80", linestyle=":", linewidth=1, alpha=0.5, label="99% target")
-        ax.axhline(97, color="#f87171", linestyle=":", linewidth=1, alpha=0.5, label="97% threshold")
-        ax.set_ylim(93, 101)
+        ax.axhline(97, color="#4ade80", linestyle=":", linewidth=1, alpha=0.5, label="97% target")
+        ax.axhline(90, color="#f87171", linestyle=":", linewidth=1, alpha=0.5, label="90% threshold")
+        ax.set_ylim(85, 101)
         ax.set_ylabel("Good Read %", fontsize=10)
         ax.set_title(title, fontsize=13, pad=12, fontweight="bold")
         ax.legend(fontsize=8, ncol=3, loc="lower left", framealpha=0.3)
@@ -423,14 +423,14 @@ def chart_hourly_volume(rows, title):
 # ── HTML helpers ───────────────────────────────────────────────────────────────
 def pct_badge(pct):
     pct = float(pct) if pct else 0
-    if pct >= 99:   return f'<span style="background:#dcfce7;color:#166534;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:600">{pct:.1f}%</span>'
-    elif pct >= 97: return f'<span style="background:#fef9c3;color:#854d0e;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:600">{pct:.1f}%</span>'
+    if pct >= 97:   return f'<span style="background:#dcfce7;color:#166534;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:600">{pct:.1f}%</span>'
+    elif pct >= 90: return f'<span style="background:#fef9c3;color:#854d0e;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:600">{pct:.1f}%</span>'
     else:           return f'<span style="background:#fee2e2;color:#991b1b;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:600">{pct:.1f}%</span>'
 
 def disk_badge(pct):
     pct = float(pct) if pct else 0
-    if pct >= 80:   return f'<span style="background:#fee2e2;color:#991b1b;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:600">{pct:.0f}%</span>'
-    elif pct >= 70: return f'<span style="background:#fef9c3;color:#854d0e;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:600">{pct:.0f}%</span>'
+    if pct >= 90:   return f'<span style="background:#fee2e2;color:#991b1b;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:600">{pct:.0f}%</span>'
+    elif pct >= 80: return f'<span style="background:#fef9c3;color:#854d0e;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:600">{pct:.0f}%</span>'
     else:           return f'<span style="background:#dcfce7;color:#166534;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:600">{pct:.0f}%</span>'
 
 CSS = """<style>

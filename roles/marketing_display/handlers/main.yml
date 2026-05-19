@@ -1,0 +1,4 @@
+- name: restart marketing-display
+  command: docker compose restart marketing-display
+  args:
+    chdir: "{{ marketing_display_dir }}"
