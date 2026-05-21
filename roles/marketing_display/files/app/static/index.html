@@ -124,7 +124,7 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 18px 20px;
+      padding: 18px 20px 12px;
       flex: 1;
       min-height: 0;
       display: flex;
@@ -133,41 +133,21 @@
     }
     .chart-title {
       font-size: 13px; font-weight: 600; color: var(--text);
-      margin-bottom: 14px;
+      margin-bottom: 10px;
       flex-shrink: 0;
     }
 
-    #sparkline {
-      display: flex;
-      align-items: flex-end;
-      gap: 4px;
-      width: 100%;
+    #sparkline-wrap {
       flex: 1;
       min-height: 0;
+      position: relative;
     }
-
-    .bar-col {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: stretch;
-      justify-content: flex-end;
+    #sparkline {
+      position: absolute;
+      inset: 0;
+      width: 100%;
       height: 100%;
-      gap: 0;
-    }
-    .bar-spacer { flex: 1; }
-    .bar-fill {
-      border-radius: 4px 4px 0 0;
-      background: linear-gradient(180deg, #6aa3ff 0%, var(--accent) 60%);
-      min-height: 4px;
-    }
-    .bar-label {
-      margin-top: 6px;
-      font-size: 10px; color: var(--muted);
-      text-align: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      overflow: visible;
     }
 
     /* ── Fleet pills ── */
@@ -358,38 +338,22 @@
       <div class="fleet-pill" style="margin-left:auto"><span id="f-total">—</span>&nbsp;Total Machines</div>
     </div>
 
-    <div class="section-label">Today</div>
+    <div class="section-label">Performance</div>
     <div class="stat-grid">
       <div class="stat-card accent">
-        <div class="stat-label">Items Processed</div>
+        <div class="stat-label">Items Today</div>
         <div class="stat-value" id="t-items">—</div>
       </div>
       <div class="stat-card green">
-        <div class="stat-label">Good Read %</div>
+        <div class="stat-label">Good Read % Today</div>
         <div class="stat-value" id="t-gr-pct">—<span class="stat-suffix">%</span></div>
       </div>
-      <div class="stat-card green">
-        <div class="stat-label">Good Reads</div>
-        <div class="stat-value small" id="t-good">—</div>
-      </div>
-      <div class="stat-card warn">
-        <div class="stat-label">No Reads</div>
-        <div class="stat-value small" id="t-noread">—</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Not Sent</div>
-        <div class="stat-value small" id="t-notsent">—</div>
-      </div>
-    </div>
-
-    <div class="section-label">Month &amp; Year</div>
-    <div class="stat-grid">
       <div class="stat-card accent">
         <div class="stat-label">Items This Month</div>
         <div class="stat-value" id="m-items">—</div>
       </div>
       <div class="stat-card green">
-        <div class="stat-label">Month Good Read %</div>
+        <div class="stat-label">Good Read % Month</div>
         <div class="stat-value" id="m-gr-pct">—<span class="stat-suffix">%</span></div>
       </div>
       <div class="stat-card accent">
@@ -397,14 +361,16 @@
         <div class="stat-value" id="y-items">—</div>
       </div>
       <div class="stat-card green">
-        <div class="stat-label">Year Good Read %</div>
+        <div class="stat-label">Good Read % Year</div>
         <div class="stat-value" id="y-gr-pct">—<span class="stat-suffix">%</span></div>
       </div>
     </div>
 
     <div class="chart-wrap">
       <div class="chart-title">Items Processed — Last 24 Hours</div>
-      <div id="sparkline"></div>
+      <div id="sparkline-wrap">
+        <svg id="sparkline" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"></svg>
+      </div>
     </div>
 
   </main>
@@ -439,24 +405,79 @@
   }
 
   function renderSparkline(data) {
-    const el = document.getElementById('sparkline');
+    const svg = document.getElementById('sparkline');
     if (!data || !data.length) {
-      el.innerHTML = '<span style="color:var(--muted);font-size:13px">No data yet</span>';
+      svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#64748b" font-size="13">No data yet</text>';
       return;
     }
-    const max    = Math.max(...data.map(d => d.value), 1);
-    const totalH = el.offsetHeight;   // reads the fixed 480px
-    const labelH = 24;
-    const barMax = totalH - labelH - 6;
 
-    el.innerHTML = data.map(d => {
-      const px = Math.max(Math.round((d.value / max) * barMax), 4);
-      return `<div class="bar-col">
-        <div class="bar-spacer"></div>
-        <div class="bar-fill" style="height:${px}px"></div>
-        <div class="bar-label">${d.label}</div>
-      </div>`;
-    }).join('');
+    const W = svg.clientWidth  || 800;
+    const H = svg.clientHeight || 300;
+    const PAD = { top: 16, right: 12, bottom: 32, left: 52 };
+    const chartW = W - PAD.left - PAD.right;
+    const chartH = H - PAD.top  - PAD.bottom;
+
+    const values = data.map(d => d.value);
+    const maxV   = Math.max(...values, 1);
+    const GRID_LINES = 5;
+
+    // scale helpers
+    const xOf = i => PAD.left + (i / (data.length - 1)) * chartW;
+    const yOf = v => PAD.top  + chartH - (v / maxV) * chartH;
+
+    let out = '';
+
+    // ── defs: gradient fill under line ──
+    out += `<defs>
+      <linearGradient id="areafill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%"   stop-color="#4f8ef7" stop-opacity="0.25"/>
+        <stop offset="100%" stop-color="#4f8ef7" stop-opacity="0.03"/>
+      </linearGradient>
+      <clipPath id="chartclip">
+        <rect x="${PAD.left}" y="${PAD.top}" width="${chartW}" height="${chartH}"/>
+      </clipPath>
+    </defs>`;
+
+    // ── horizontal grid lines + y-axis labels ──
+    for (let i = 0; i <= GRID_LINES; i++) {
+      const v  = (maxV / GRID_LINES) * i;
+      const y  = yOf(v);
+      const lbl = v >= 1000 ? (v / 1000).toFixed(v % 1000 === 0 ? 0 : 1) + 'k' : Math.round(v);
+      out += `<line x1="${PAD.left}" y1="${y}" x2="${PAD.left + chartW}" y2="${y}"
+                stroke="#1e1e2e" stroke-width="1" />`;
+      out += `<text x="${PAD.left - 8}" y="${y + 4}" text-anchor="end"
+                font-size="10" fill="#64748b" font-family="Inter,system-ui,sans-serif">${lbl}</text>`;
+    }
+
+    // ── area fill ──
+    const linePoints = data.map((d, i) => `${xOf(i)},${yOf(d.value)}`).join(' ');
+    const areaPath   = `M${xOf(0)},${yOf(data[0].value)} ` +
+      data.map((d, i) => `L${xOf(i)},${yOf(d.value)}`).join(' ') +
+      ` L${xOf(data.length - 1)},${PAD.top + chartH} L${xOf(0)},${PAD.top + chartH} Z`;
+    out += `<path d="${areaPath}" fill="url(#areafill)" clip-path="url(#chartclip)"/>`;
+
+    // ── line ──
+    const linePath = `M${xOf(0)},${yOf(data[0].value)} ` +
+      data.map((d, i) => `L${xOf(i)},${yOf(d.value)}`).join(' ');
+    out += `<path d="${linePath}" fill="none" stroke="#4f8ef7" stroke-width="2.5"
+              stroke-linejoin="round" stroke-linecap="round" clip-path="url(#chartclip)"/>`;
+
+    // ── dots on data points ──
+    data.forEach((d, i) => {
+      out += `<circle cx="${xOf(i)}" cy="${yOf(d.value)}" r="3"
+                fill="#4f8ef7" stroke="#13131a" stroke-width="2" clip-path="url(#chartclip)"/>`;
+    });
+
+    // ── x-axis labels (every ~3 points to avoid crowding) ──
+    const step = Math.ceil(data.length / 12);
+    data.forEach((d, i) => {
+      if (i % step !== 0 && i !== data.length - 1) return;
+      out += `<text x="${xOf(i)}" y="${PAD.top + chartH + 20}" text-anchor="middle"
+                font-size="10" fill="#64748b" font-family="Inter,system-ui,sans-serif">${d.label}</text>`;
+    });
+
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.innerHTML = out;
   }
 
   async function refresh() {
@@ -478,9 +499,6 @@
 
       animateTo(document.getElementById('t-items'),   d.today.items);
       animateTo(document.getElementById('t-gr-pct'),  d.today.good_read_pct, 1);
-      animateTo(document.getElementById('t-good'),    d.today.good_reads);
-      animateTo(document.getElementById('t-noread'),  d.today.no_reads);
-      animateTo(document.getElementById('t-notsent'), d.today.not_sent);
 
       animateTo(document.getElementById('m-items'),   d.month.items);
       animateTo(document.getElementById('m-gr-pct'),  d.month.good_read_pct, 1);
@@ -488,6 +506,7 @@
       animateTo(document.getElementById('y-gr-pct'),  d.year.good_read_pct, 1);
 
       renderSparkline(d.sparkline);
+      window._lastSparklineData = d.sparkline;
 
       const ts = new Date(d.generated_at * 1000);
       document.getElementById('last-updated').textContent =
@@ -501,6 +520,9 @@
 
   refresh();
   setInterval(refresh, REFRESH_MS);
+  window.addEventListener('resize', () => {
+    if (window._lastSparklineData) renderSparkline(window._lastSparklineData);
+  });
 </script>
 </body>
 </html>
