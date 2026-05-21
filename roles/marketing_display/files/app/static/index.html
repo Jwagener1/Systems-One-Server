@@ -429,9 +429,9 @@
 
     // ── defs: gradient fill under line ──
     out += `<defs>
-      <linearGradient id="areafill" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%"   stop-color="#4f8ef7" stop-opacity="0.25"/>
-        <stop offset="100%" stop-color="#4f8ef7" stop-opacity="0.03"/>
+      <linearGradient id="bargrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%"   stop-color="#6aa3ff"/>
+        <stop offset="100%" stop-color="#4f8ef7"/>
       </linearGradient>
       <clipPath id="chartclip">
         <rect x="${PAD.left}" y="${PAD.top}" width="${chartW}" height="${chartH}"/>
@@ -449,23 +449,15 @@
                 font-size="10" fill="#64748b" font-family="Inter,system-ui,sans-serif">${lbl}</text>`;
     }
 
-    // ── area fill ──
-    const linePoints = data.map((d, i) => `${xOf(i)},${yOf(d.value)}`).join(' ');
-    const areaPath   = `M${xOf(0)},${yOf(data[0].value)} ` +
-      data.map((d, i) => `L${xOf(i)},${yOf(d.value)}`).join(' ') +
-      ` L${xOf(data.length - 1)},${PAD.top + chartH} L${xOf(0)},${PAD.top + chartH} Z`;
-    out += `<path d="${areaPath}" fill="url(#areafill)" clip-path="url(#chartclip)"/>`;
-
-    // ── line ──
-    const linePath = `M${xOf(0)},${yOf(data[0].value)} ` +
-      data.map((d, i) => `L${xOf(i)},${yOf(d.value)}`).join(' ');
-    out += `<path d="${linePath}" fill="none" stroke="#4f8ef7" stroke-width="2.5"
-              stroke-linejoin="round" stroke-linecap="round" clip-path="url(#chartclip)"/>`;
-
-    // ── dots on data points ──
+    // ── bars ──
+    const barW = Math.max((chartW / data.length) * 0.7, 2);
     data.forEach((d, i) => {
-      out += `<circle cx="${xOf(i)}" cy="${yOf(d.value)}" r="3"
-                fill="#4f8ef7" stroke="#13131a" stroke-width="2" clip-path="url(#chartclip)"/>`;
+      const x  = xOf(i) - barW / 2;
+      const bh = Math.max((d.value / maxV) * chartH, 2);
+      const y  = PAD.top + chartH - bh;
+      out += `<rect x="${x}" y="${y}" width="${barW}" height="${bh}"
+                rx="3" ry="3"
+                fill="url(#bargrad)" clip-path="url(#chartclip)"/>`;
     });
 
     // ── x-axis labels (every ~3 points to avoid crowding) ──
