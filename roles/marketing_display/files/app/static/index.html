@@ -28,7 +28,7 @@
       background: var(--bg);
       color: var(--text);
       font-family: var(--font);
-      font-size: 13px;
+      font-size: 14px;
       line-height: 1.4;
       -webkit-font-smoothing: antialiased;
     }
@@ -37,7 +37,7 @@
       height: 100vh;
       display: grid;
       grid-template-rows: auto 1fr auto;
-      padding: 0 clamp(12px, 3vw, 36px);
+      padding: 0 clamp(16px, 3vw, 40px);
       overflow: hidden;
     }
 
@@ -45,19 +45,19 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 14px 0 12px;
+      padding: 18px 0 14px;
       border-bottom: 1px solid var(--border);
     }
 
     .logo { display: flex; align-items: center; gap: 10px; }
     .logo-mark {
-      width: 30px; height: 30px;
+      width: 34px; height: 34px;
       background: var(--accent);
-      border-radius: 7px;
+      border-radius: 8px;
       display: flex; align-items: center; justify-content: center;
-      font-weight: 800; font-size: 15px; color: #fff;
+      font-weight: 800; font-size: 17px; color: #fff;
     }
-    .logo-text { font-weight: 600; font-size: 14px; letter-spacing: .02em; }
+    .logo-text { font-weight: 600; font-size: 15px; letter-spacing: .02em; }
     .logo-sub  { font-size: 10px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
 
     .live-badge {
@@ -74,26 +74,31 @@
       50%      { opacity: .4; transform: scale(.7); }
     }
 
-    main { padding: 16px 0 10px; overflow: hidden; }
+    main {
+      padding: 20px 0 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
 
     .section-label {
       font-size: 10px; font-weight: 600;
       color: var(--muted); letter-spacing: .1em; text-transform: uppercase;
-      margin-bottom: 8px;
+      margin-bottom: 9px;
     }
 
     .stat-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 8px;
-      margin-bottom: 14px;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
     }
 
     .stat-card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 12px 14px 10px;
+      padding: 14px 16px 12px;
       transition: border-color .25s, box-shadow .25s;
     }
     .stat-card:hover { border-color: var(--accent); box-shadow: var(--glow); }
@@ -105,26 +110,31 @@
     .stat-label {
       font-size: 10px; font-weight: 600;
       color: var(--muted); letter-spacing: .07em; text-transform: uppercase;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
     }
     .stat-value {
-      font-size: 26px; font-weight: 700;
+      font-size: 28px; font-weight: 700;
       letter-spacing: -.02em; line-height: 1;
     }
-    .stat-value.small { font-size: 18px; }
-    .stat-suffix { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 2px; }
+    .stat-value.small { font-size: 20px; }
+    .stat-suffix { font-size: 14px; font-weight: 400; color: var(--muted); margin-left: 2px; }
 
     /* ── Chart ── */
     .chart-wrap {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 16px 18px;
-      margin-bottom: 14px;
+      padding: 18px 20px;
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 0;
     }
     .chart-title {
       font-size: 13px; font-weight: 600; color: var(--text);
-      margin-bottom: 12px;
+      margin-bottom: 14px;
+      flex-shrink: 0;
     }
 
     #sparkline {
@@ -132,7 +142,8 @@
       align-items: flex-end;
       gap: 4px;
       width: 100%;
-      height: 140px;
+      flex: 1;
+      min-height: 0;
     }
 
     .bar-col {
@@ -160,12 +171,12 @@
     }
 
     /* ── Fleet pills ── */
-    .fleet-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .fleet-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
     .fleet-pill {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 99px;
-      padding: 5px 14px;
+      padding: 6px 16px;
       font-size: 12px; font-weight: 500;
       display: flex; align-items: center; gap: 7px;
     }
@@ -176,10 +187,11 @@
     .dot.stopped { background: var(--warn); }
 
     footer {
-      padding: 10px 0;
+      padding: 12px 0;
       border-top: 1px solid var(--border);
       display: flex; align-items: center; justify-content: space-between;
-      font-size: 10px; color: var(--muted);
+      font-size: 11px; color: var(--muted);
+      flex-shrink: 0;
     }
 
     #error-banner {
