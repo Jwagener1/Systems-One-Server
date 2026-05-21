@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Systems One — Live Performance</title>
   <style>
-    /* ── Reset & base ────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
@@ -33,7 +32,6 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ── Layout ──────────────────────────────────────────────────────── */
     .shell {
       min-height: 100vh;
       display: grid;
@@ -49,11 +47,7 @@
       border-bottom: 1px solid var(--border);
     }
 
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
+    .logo { display: flex; align-items: center; gap: 12px; }
     .logo-mark {
       width: 36px; height: 36px;
       background: var(--accent);
@@ -80,14 +74,12 @@
 
     main { padding: 36px 0 24px; }
 
-    /* ── Section headings ────────────────────────────────────────────── */
     .section-label {
       font-size: 11px; font-weight: 600;
       color: var(--muted); letter-spacing: .1em; text-transform: uppercase;
       margin-bottom: 14px;
     }
 
-    /* ── Stat grid ───────────────────────────────────────────────────── */
     .stat-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -100,13 +92,9 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 20px 22px 18px;
-      position: relative;
       transition: border-color .25s, box-shadow .25s;
     }
-    .stat-card:hover {
-      border-color: var(--accent);
-      box-shadow: var(--glow);
-    }
+    .stat-card:hover { border-color: var(--accent); box-shadow: var(--glow); }
     .stat-card.accent  { border-top: 2px solid var(--accent); }
     .stat-card.green   { border-top: 2px solid var(--accent2); }
     .stat-card.warn    { border-top: 2px solid var(--warn); }
@@ -120,59 +108,57 @@
     .stat-value {
       font-size: 32px; font-weight: 700;
       letter-spacing: -.02em; line-height: 1;
-      color: var(--text);
     }
     .stat-value.small { font-size: 22px; }
     .stat-suffix { font-size: 16px; font-weight: 400; color: var(--muted); margin-left: 2px; }
 
-    /* ── Chart area ──────────────────────────────────────────────────── */
+    /* ── Chart ── */
     .chart-wrap {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 24px 24px 20px;
+      padding: 28px;
       margin-bottom: 36px;
     }
     .chart-title {
-      font-size: 13px; font-weight: 600; color: var(--text);
+      font-size: 15px; font-weight: 600; color: var(--text);
       margin-bottom: 20px;
     }
 
-    .bar-chart {
+    #sparkline {
       display: flex;
       align-items: flex-end;
-      gap: 4px;
-      height: 80px;
+      gap: 6px;
+      width: 100%;
+      height: 240px;        /* fixed height the JS reads */
     }
+
     .bar-col {
       flex: 1;
       display: flex;
       flex-direction: column;
-      align-items: center;
+      align-items: stretch;
       justify-content: flex-end;
-      gap: 4px;
       height: 100%;
+      gap: 0;
     }
+    .bar-spacer { flex: 1; }
     .bar-fill {
-      width: 100%;
-      border-radius: 3px 3px 0 0;
-      background: var(--accent);
-      transition: height .6s cubic-bezier(.4,0,.2,1);
-      min-height: 2px;
+      border-radius: 4px 4px 0 0;
+      background: linear-gradient(180deg, #6aa3ff 0%, var(--accent) 60%);
+      min-height: 4px;
     }
     .bar-label {
-      font-size: 9px; color: var(--muted);
-      white-space: nowrap; overflow: hidden;
-      writing-mode: vertical-rl;
-      transform: rotate(180deg);
-      height: 28px; line-height: 1;
+      margin-top: 6px;
+      font-size: 10px; color: var(--muted);
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    /* ── Fleet status row ────────────────────────────────────────────── */
-    .fleet-row {
-      display: flex; gap: 12px; flex-wrap: wrap;
-      margin-bottom: 36px;
-    }
+    /* ── Fleet pills ── */
+    .fleet-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 36px; }
     .fleet-pill {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -181,57 +167,157 @@
       font-size: 13px; font-weight: 500;
       display: flex; align-items: center; gap: 8px;
     }
-    .dot {
-      width: 8px; height: 8px; border-radius: 50%;
-    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
     .dot.online  { background: var(--accent2); }
     .dot.offline { background: var(--danger); }
     .dot.app     { background: var(--accent); }
     .dot.stopped { background: var(--warn); }
 
-    /* ── Footer ──────────────────────────────────────────────────────── */
     footer {
       padding: 16px 0;
       border-top: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      display: flex; align-items: center; justify-content: space-between;
       font-size: 11px; color: var(--muted);
     }
-    #last-updated { font-variant-numeric: tabular-nums; }
 
-    /* ── Error state ─────────────────────────────────────────────────── */
     #error-banner {
       display: none;
       background: rgba(239,68,68,.1);
       border: 1px solid var(--danger);
       border-radius: var(--radius);
-      padding: 12px 18px;
-      margin-bottom: 24px;
+      padding: 12px 18px; margin-bottom: 24px;
       font-size: 13px; color: var(--danger);
     }
 
-    /* ── Skeleton shimmer ────────────────────────────────────────────── */
-    .skeleton {
-      background: linear-gradient(90deg, var(--border) 25%, #2a2a3a 50%, var(--border) 75%);
-      background-size: 200% 100%;
-      animation: shimmer 1.4s infinite;
-      border-radius: 4px;
-      height: 1em;
-      width: 60%;
-    }
-    @keyframes shimmer {
-      0%   { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
-    }
-
-    /* ── Responsive ──────────────────────────────────────────────────── */
     @media (max-width: 480px) {
       .stat-grid { grid-template-columns: 1fr 1fr; }
       .bar-label { display: none; }
+      #sparkline { height: 130px; }
     }
   </style>
 </head>
+<style>
+  #auth-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #auth-overlay.hidden { display: none; }
+
+  .auth-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 44px 48px 40px;
+    width: 100%; max-width: 380px;
+    box-shadow: 0 24px 64px rgba(0,0,0,.5);
+    display: flex; flex-direction: column; align-items: center; gap: 0;
+  }
+
+  .auth-logo {
+    width: 48px; height: 48px;
+    background: var(--accent);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 22px; color: #fff;
+    margin-bottom: 20px;
+  }
+
+  .auth-title {
+    font-size: 20px; font-weight: 700; color: var(--text);
+    margin-bottom: 4px; text-align: center;
+  }
+  .auth-sub {
+    font-size: 13px; color: var(--muted);
+    margin-bottom: 32px; text-align: center;
+  }
+
+  .auth-field {
+    width: 100%; position: relative; margin-bottom: 14px;
+  }
+  .auth-field input {
+    width: 100%; padding: 12px 44px 12px 16px;
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    font-size: 15px; font-family: var(--font);
+    outline: none; transition: border-color .2s;
+  }
+  .auth-field input:focus { border-color: var(--accent); }
+  .auth-field .toggle-vis {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer;
+    color: var(--muted); font-size: 16px; padding: 0; line-height: 1;
+    transition: color .2s;
+  }
+  .auth-field .toggle-vis:hover { color: var(--text); }
+
+  .auth-btn {
+    width: 100%; padding: 13px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: 8px;
+    font-size: 15px; font-weight: 600; font-family: var(--font);
+    cursor: pointer; transition: opacity .2s, transform .1s;
+    margin-top: 4px;
+  }
+  .auth-btn:hover  { opacity: .9; }
+  .auth-btn:active { transform: scale(.98); }
+
+  .auth-error {
+    font-size: 12px; color: var(--danger);
+    min-height: 18px; margin-bottom: 6px; text-align: center;
+  }
+
+  @media (max-width: 440px) {
+    .auth-card { padding: 32px 20px 28px; }
+  }
+</style>
+
+<div id="auth-overlay">
+  <div class="auth-card">
+    <div class="auth-logo">S1</div>
+    <div class="auth-title">Systems One</div>
+    <div class="auth-sub">Fleet Performance Dashboard</div>
+    <div class="auth-field">
+      <input type="password" id="auth-input" placeholder="Enter password" autocomplete="current-password" />
+      <button class="toggle-vis" id="auth-toggle" title="Show/hide password">👁</button>
+    </div>
+    <div class="auth-error" id="auth-error"></div>
+    <button class="auth-btn" id="auth-submit">Unlock</button>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const PW = 'SysOne012!';
+    const SK = 's1_auth';
+    const overlay = document.getElementById('auth-overlay');
+
+    function unlock() { overlay.classList.add('hidden'); }
+
+    if (sessionStorage.getItem(SK) === '1') { unlock(); }
+
+    document.getElementById('auth-submit').addEventListener('click', attempt);
+    document.getElementById('auth-input').addEventListener('keydown', e => { if (e.key === 'Enter') attempt(); });
+    document.getElementById('auth-toggle').addEventListener('click', () => {
+      const inp = document.getElementById('auth-input');
+      inp.type = inp.type === 'password' ? 'text' : 'password';
+    });
+
+    function attempt() {
+      const val = document.getElementById('auth-input').value;
+      const err = document.getElementById('auth-error');
+      if (val === PW) {
+        sessionStorage.setItem(SK, '1');
+        err.textContent = '';
+        unlock();
+      } else {
+        err.textContent = 'Incorrect password. Please try again.';
+        document.getElementById('auth-input').select();
+      }
+    }
+  })();
+</script>
+
 <body>
 <div class="shell">
 
@@ -243,28 +329,23 @@
         <div class="logo-sub">Fleet Performance</div>
       </div>
     </div>
-    <div class="live-badge">
-      <div class="pulse"></div>
-      Live
-    </div>
+    <div class="live-badge"><div class="pulse"></div>Live</div>
   </header>
 
   <main>
     <div id="error-banner">Unable to reach data source. Retrying…</div>
 
-    <!-- Fleet status pills -->
     <div class="section-label">Fleet Status</div>
-    <div class="fleet-row" id="fleet-row">
-      <div class="fleet-pill"><div class="dot online"></div><span id="f-online">—</span> Online</div>
-      <div class="fleet-pill"><div class="dot offline"></div><span id="f-offline">—</span> Offline</div>
-      <div class="fleet-pill"><div class="dot app"></div><span id="f-apps-running">—</span> Apps Running</div>
-      <div class="fleet-pill"><div class="dot stopped"></div><span id="f-apps-stopped">—</span> Apps Stopped</div>
-      <div class="fleet-pill" style="margin-left:auto"><span id="f-total">—</span> Total Machines</div>
+    <div class="fleet-row">
+      <div class="fleet-pill"><div class="dot online"></div><span id="f-online">—</span>&nbsp;Online</div>
+      <div class="fleet-pill"><div class="dot offline"></div><span id="f-offline">—</span>&nbsp;Offline</div>
+      <div class="fleet-pill"><div class="dot app"></div><span id="f-apps-running">—</span>&nbsp;Apps Running</div>
+      <div class="fleet-pill"><div class="dot stopped"></div><span id="f-apps-stopped">—</span>&nbsp;Apps Stopped</div>
+      <div class="fleet-pill" style="margin-left:auto"><span id="f-total">—</span>&nbsp;Total Machines</div>
     </div>
 
-    <!-- Today KPIs -->
     <div class="section-label">Today</div>
-    <div class="stat-grid" id="today-grid">
+    <div class="stat-grid">
       <div class="stat-card accent">
         <div class="stat-label">Items Processed</div>
         <div class="stat-value" id="t-items">—</div>
@@ -287,7 +368,6 @@
       </div>
     </div>
 
-    <!-- Month / Year KPIs -->
     <div class="section-label">Month &amp; Year</div>
     <div class="stat-grid">
       <div class="stat-card accent">
@@ -308,10 +388,9 @@
       </div>
     </div>
 
-    <!-- Sparkline -->
     <div class="chart-wrap">
       <div class="chart-title">Items Processed — Last 24 Hours</div>
-      <div class="bar-chart" id="sparkline"></div>
+      <div id="sparkline"></div>
     </div>
 
   </main>
@@ -326,46 +405,46 @@
 <script>
   const REFRESH_MS = 30_000;
 
-  // ── Animated counter ─────────────────────────────────────────────────────
   function animateTo(el, target, decimals = 0) {
-    const start  = parseFloat(el.dataset.val ?? '0') || 0;
-    const end    = typeof target === 'number' ? target : parseFloat(target) || 0;
-    const dur    = 600;
-    const t0     = performance.now();
+    const start = parseFloat(el.dataset.val ?? '0') || 0;
+    const end   = typeof target === 'number' ? target : parseFloat(target) || 0;
+    const dur   = 600;
+    const t0    = performance.now();
     el.dataset.val = end;
-
-    // preserve suffix span if present
     const suffix = el.querySelector('.stat-suffix');
     const sfxHtml = suffix ? suffix.outerHTML : '';
-
     function step(now) {
-      const p = Math.min((now - t0) / dur, 1);
+      const p    = Math.min((now - t0) / dur, 1);
       const ease = p < .5 ? 2*p*p : -1+(4-2*p)*p;
-      const v = start + (end - start) * ease;
-      const fmt = decimals > 0
-        ? v.toFixed(decimals)
-        : Math.round(v).toLocaleString();
+      const v    = start + (end - start) * ease;
+      const fmt  = decimals > 0 ? v.toFixed(decimals) : Math.round(v).toLocaleString();
       el.innerHTML = fmt + sfxHtml;
       if (p < 1) requestAnimationFrame(step);
     }
     requestAnimationFrame(step);
   }
 
-  // ── Sparkline ────────────────────────────────────────────────────────────
   function renderSparkline(data) {
     const el = document.getElementById('sparkline');
-    if (!data || !data.length) { el.innerHTML = '<span style="color:var(--muted);font-size:12px">No data yet</span>'; return; }
-    const max = Math.max(...data.map(d => d.value), 1);
+    if (!data || !data.length) {
+      el.innerHTML = '<span style="color:var(--muted);font-size:13px">No data yet</span>';
+      return;
+    }
+    const max    = Math.max(...data.map(d => d.value), 1);
+    const totalH = el.offsetHeight;   // reads the fixed 480px
+    const labelH = 24;
+    const barMax = totalH - labelH - 6;
+
     el.innerHTML = data.map(d => {
-      const pct = Math.max((d.value / max) * 100, 2);
+      const px = Math.max(Math.round((d.value / max) * barMax), 4);
       return `<div class="bar-col">
-        <div class="bar-fill" style="height:${pct}%"></div>
+        <div class="bar-spacer"></div>
+        <div class="bar-fill" style="height:${px}px"></div>
         <div class="bar-label">${d.label}</div>
       </div>`;
     }).join('');
   }
 
-  // ── Fetch & render ───────────────────────────────────────────────────────
   async function refresh() {
     try {
       const res = await fetch('/api/stats');
@@ -374,34 +453,28 @@
 
       document.getElementById('error-banner').style.display = 'none';
 
-      // Fleet
-      document.getElementById('f-online').textContent        = d.fleet.online;
-      document.getElementById('f-offline').textContent       = d.fleet.offline;
-      document.getElementById('f-apps-running').textContent  = d.fleet.apps_running;
-      document.getElementById('f-apps-stopped').textContent  = d.fleet.apps_stopped;
-      document.getElementById('f-total').textContent         = d.fleet.total_machines;
+      document.getElementById('f-online').textContent       = d.fleet.online;
+      document.getElementById('f-offline').textContent      = d.fleet.offline;
+      document.getElementById('f-apps-running').textContent = d.fleet.apps_running;
+      document.getElementById('f-apps-stopped').textContent = d.fleet.apps_stopped;
+      document.getElementById('f-total').textContent        = d.fleet.total_machines;
 
-      // Colour offline pill red when > 0
       document.querySelector('.dot.offline').closest('.fleet-pill')
         .style.borderColor = d.fleet.offline > 0 ? 'var(--danger)' : '';
 
-      // Today
       animateTo(document.getElementById('t-items'),   d.today.items);
       animateTo(document.getElementById('t-gr-pct'),  d.today.good_read_pct, 1);
       animateTo(document.getElementById('t-good'),    d.today.good_reads);
       animateTo(document.getElementById('t-noread'),  d.today.no_reads);
       animateTo(document.getElementById('t-notsent'), d.today.not_sent);
 
-      // Month / Year
       animateTo(document.getElementById('m-items'),   d.month.items);
       animateTo(document.getElementById('m-gr-pct'),  d.month.good_read_pct, 1);
       animateTo(document.getElementById('y-items'),   d.year.items);
       animateTo(document.getElementById('y-gr-pct'),  d.year.good_read_pct, 1);
 
-      // Sparkline
       renderSparkline(d.sparkline);
 
-      // Timestamp
       const ts = new Date(d.generated_at * 1000);
       document.getElementById('last-updated').textContent =
         ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
