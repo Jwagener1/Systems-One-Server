@@ -245,21 +245,78 @@ def diff_offline_state(current_offline):
     return newly_offline, recovered, still_offline
 
 # ── Anomaly detection ──────────────────────────────────────────────────────────
+
+# Hardcoded fallback defaults (used when no DB threshold exists)
+_DEFAULT_THRESHOLDS = {
+    "good_read_pct": (95.0, 90.0),   # (warn, bad) — direction: low
+    "no_dim_pct":    (5.0,  10.0),   # (warn, bad) — direction: high
+}
+
+def load_thresholds():
+    """
+    Load all rows from alert_thresholds and return a lookup dict.
+    Keys: (customer, machine_name, location, metric)  — exact device match
+    Also adds (customer, None, None, metric) keys for customer-wide rows
+    (where machine_name IS NULL and location IS NULL in the DB).
+    """
+    thresholds = {}
+    try:
+        rows = query("SELECT customer, machine_name, location, metric, warn_value, bad_value FROM alert_thresholds")
+        for r in rows:
+            key = (r["customer"], r["machine_name"], r["location"], r["metric"])
+            thresholds[key] = (
+                float(r["warn_value"]) if r["warn_value"] is not None else None,
+                float(r["bad_value"])  if r["bad_value"]  is not None else None,
+            )
+            # If this is a customer-wide row (no machine/location) also store under None keys
+            if r["machine_name"] is None and r["location"] is None:
+                thresholds[(r["customer"], None, None, r["metric"])] = thresholds[key]
+    except Exception as e:
+        print(f"⚠️  Could not load thresholds from DB (using hardcoded defaults): {e}")
+    return thresholds
+
+def get_threshold(thresholds, customer, machine_name, location, metric):
+    """
+    Return (warn_value, bad_value) for the given device + metric.
+    Fallback order: device-level → customer-level → hardcoded default.
+    """
+    # 1. Exact device match
+    val = thresholds.get((customer, machine_name, location, metric))
+    if val and val[0] is not None:
+        return val
+    # 2. Customer-wide row
+    val = thresholds.get((customer, None, None, metric))
+    if val and val[0] is not None:
+        return val
+    # 3. Hardcoded default
+    return _DEFAULT_THRESHOLDS.get(metric, (None, None))
+
 def detect_anomalies(trend_rows, customer=None):
-    caps   = get_caps(customer)
-    alerts = []
-    today  = datetime.now().date()
+    caps      = get_caps(customer)
+    alerts    = []
+    today     = datetime.now().date()
     today_rows = [r for r in trend_rows if r["report_date"] == today and (r["daily_items"] or 0) > 100]
 
+    # Load thresholds once
+    thresholds = load_thresholds()
+
     for r in today_rows:
-        if r["good_read_pct"] and float(r["good_read_pct"]) < 97.0:
-            alerts.append(("bad", f"<b>{r['machine_name']} @ {r['location']}</b> — good read dropped to <b>{r['good_read_pct']}%</b> today"))
+        if r["good_read_pct"]:
+            pct = float(r["good_read_pct"])
+            warn, bad = get_threshold(thresholds, r["customer"], r["machine_name"], r["location"], "good_read_pct")
+            if bad is not None and pct < bad:
+                alerts.append(("bad",  f"<b>{r['machine_name']} @ {r['location']}</b> — good read dropped to <b>{pct}%</b> today"))
+            elif warn is not None and pct < warn:
+                alerts.append(("warn", f"<b>{r['machine_name']} @ {r['location']}</b> — good read dropped to <b>{pct}%</b> today"))
 
     if caps["has_dimension"]:
         for r in trend_rows:
             if r["daily_items"] and r["daily_no_dim"]:
                 pct = float(r["daily_no_dim"]) / float(r["daily_items"]) * 100
-                if pct > 3.0:
+                warn, bad = get_threshold(thresholds, r["customer"], r["machine_name"], r["location"], "no_dim_pct")
+                if bad is not None and pct > bad:
+                    alerts.append(("bad",  f"<b>{r['machine_name']} @ {r['location']}</b> — no-dimension spike <b>{pct:.1f}%</b> on {r['report_date']}"))
+                elif warn is not None and pct > warn:
                     alerts.append(("warn", f"<b>{r['machine_name']} @ {r['location']}</b> — no-dimension spike <b>{pct:.1f}%</b> on {r['report_date']}"))
 
     if caps["has_hand_scan"]:
