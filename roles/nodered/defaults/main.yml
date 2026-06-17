@@ -4,6 +4,11 @@
 nodered_port: 1880
 nodered_bind_address: "127.0.0.1"
 
+# Network mode for the Node-RED container.
+# - host: Node-RED shares the host network stack (no Docker port publishing).
+# - bridge: Node-RED joins the shared Docker network and publishes ports explicitly.
+nodered_network_mode: host
+
 # Whether to expose and allow binding to a privileged TCP port for Node-RED TCP server flows.
 # Notes:
 # - Port 69 is a privileged port (<1024). Binding may require extra Linux capabilities.
@@ -13,6 +18,11 @@ nodered_bind_address: "127.0.0.1"
 nodered_tcp_server_enabled: false
 nodered_tcp_server_port: 69
 nodered_tcp_server_bind_address: "0.0.0.0"
+
+# Optional additional TCP ports to publish when using bridge networking.
+# These are published as host_port:container_port (same port number) with /tcp.
+nodered_extra_tcp_ports: []
+nodered_extra_tcp_ports_bind_address: "0.0.0.0"
 
 # Add NET_BIND_SERVICE capability to allow binding to privileged ports (recommended).
 # Keep Node-RED running as its default user.

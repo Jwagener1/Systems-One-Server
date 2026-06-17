@@ -18,6 +18,9 @@ services:
 {% if nodered_tcp_server_enabled | default(false) | bool %}
       - "{{ nodered_tcp_server_bind_address | default('0.0.0.0') }}:{{ nodered_tcp_server_port | default(69) }}:{{ nodered_tcp_server_port | default(69) }}/tcp"
 {% endif %}
+{% for p in nodered_extra_tcp_ports | default([]) %}
+      - "{{ nodered_extra_tcp_ports_bind_address | default('0.0.0.0') }}:{{ p }}:{{ p }}/tcp"
+{% endfor %}
 {% endif %}
     environment:
       TZ: "{{ nodered_timezone | default('UTC') }}"

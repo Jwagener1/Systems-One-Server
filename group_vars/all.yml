@@ -3,6 +3,6 @@
 # each other by container name (e.g. Node-RED -> mssql).
 docker_shared_network: infra
 
-# Run Node-RED in host network mode so it can reach other services via localhost
-# (e.g. localhost:1883 for Mosquitto, localhost:1433 for MSSQL).
+# Run Node-RED in host network mode by default.
+# Individual environments/hosts can override (e.g. staging uses bridge mode to publish ports).
 nodered_network_mode: host
