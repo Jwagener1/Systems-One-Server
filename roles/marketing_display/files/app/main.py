@@ -113,7 +113,9 @@ def _build_stats() -> dict:
         SELECT
             DATEPART(HOUR, DATEADD(HOUR, 2, ts_datetime)) AS hour_of_day,
             CAST(DATEADD(HOUR, 2, ts_datetime) AS date)   AS day,
-            SUM(total_items)                               AS items
+            SUM(total_items)                               AS items,
+            SUM(good_read)                                 AS good_reads,
+            SUM(no_read)                                   AS no_reads
         FROM dbo.device_statistics
         WHERE ts_datetime >= DATEADD(HOUR, -24, GETDATE())
         GROUP BY
@@ -123,7 +125,12 @@ def _build_stats() -> dict:
     """)
 
     sparkline = [
-        {"label": f"{int(r['hour_of_day']):02d}:00", "value": int(r["items"] or 0)}
+        {
+            "label":      f"{int(r['hour_of_day']):02d}:00",
+            "value":      int(r["items"]      or 0),
+            "good_reads": int(r["good_reads"] or 0),
+            "no_reads":   int(r["no_reads"]   or 0),
+        }
         for r in hourly
     ]
 

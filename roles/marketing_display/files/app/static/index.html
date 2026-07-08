@@ -119,35 +119,46 @@
     .stat-value.small { font-size: 20px; }
     .stat-suffix { font-size: 14px; font-weight: 400; color: var(--muted); margin-left: 2px; }
 
-    /* ── Chart ── */
+    /* ── Charts ── */
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      flex: 1;
+      min-height: 0;
+    }
+
     .chart-wrap {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 18px 20px 12px;
-      flex: 1;
+      padding: 12px 14px 10px;
       min-height: 0;
       display: flex;
       flex-direction: column;
-      margin-bottom: 0;
     }
     .chart-title {
-      font-size: 13px; font-weight: 600; color: var(--text);
-      margin-bottom: 10px;
+      font-size: 11px; font-weight: 600; color: var(--text);
+      margin-bottom: 8px;
       flex-shrink: 0;
+      letter-spacing: .03em;
     }
 
-    #sparkline-wrap {
+    .sparkline-wrap {
       flex: 1;
       min-height: 0;
       position: relative;
     }
-    #sparkline {
+    .sparkline-wrap svg {
       position: absolute;
       inset: 0;
       width: 100%;
       height: 100%;
       overflow: visible;
+    }
+
+    @media (max-width: 700px) {
+      .charts-row { grid-template-columns: 1fr; }
     }
 
     /* ── Fleet pills ── */
@@ -366,10 +377,24 @@
       </div>
     </div>
 
-    <div class="chart-wrap">
-      <div class="chart-title">Items Processed — Last 24 Hours</div>
-      <div id="sparkline-wrap">
-        <svg id="sparkline" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"></svg>
+    <div class="charts-row">
+      <div class="chart-wrap">
+        <div class="chart-title">Throughput — Last 24 h</div>
+        <div class="sparkline-wrap">
+          <svg id="chart-throughput" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">Good Read % — Last 24 h</div>
+        <div class="sparkline-wrap">
+          <svg id="chart-goodread" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">Counts — Last 24 h</div>
+        <div class="sparkline-wrap">
+          <svg id="chart-counts" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"></svg>
+        </div>
       </div>
     </div>
 
@@ -404,72 +429,231 @@
     requestAnimationFrame(step);
   }
 
-  function renderSparkline(data) {
-    const svg = document.getElementById('sparkline');
+  // ── Generic bar chart renderer ──────────────────────────────────────────
+  function renderBars(svgId, data, color, gradId) {
+    const svg = document.getElementById(svgId);
     if (!data || !data.length) {
-      svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#64748b" font-size="13">No data yet</text>';
+      svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#64748b" font-size="11">No data</text>';
       return;
     }
-
-    const W = svg.clientWidth  || 800;
-    const H = svg.clientHeight || 300;
-    const PAD = { top: 16, right: 12, bottom: 32, left: 52 };
+    const W = svg.clientWidth  || 300;
+    const H = svg.clientHeight || 160;
+    const PAD = { top: 14, right: 8, bottom: 28, left: 44 };
     const chartW = W - PAD.left - PAD.right;
     const chartH = H - PAD.top  - PAD.bottom;
 
     const values = data.map(d => d.value);
     const maxV   = Math.max(...values, 1);
-    const GRID_LINES = 5;
+    const GRID   = 4;
 
-    // scale helpers
-    const xOf = i => PAD.left + (i / (data.length - 1)) * chartW;
+    const xOf = i => PAD.left + (i / Math.max(data.length - 1, 1)) * chartW;
     const yOf = v => PAD.top  + chartH - (v / maxV) * chartH;
 
-    let out = '';
-
-    // ── defs: gradient fill under line ──
-    out += `<defs>
-      <linearGradient id="bargrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%"   stop-color="#6aa3ff"/>
-        <stop offset="100%" stop-color="#4f8ef7"/>
+    let out = `<defs>
+      <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%"   stop-color="${color}" stop-opacity="1"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity=".6"/>
       </linearGradient>
-      <clipPath id="chartclip">
+      <clipPath id="clip-${gradId}">
         <rect x="${PAD.left}" y="${PAD.top}" width="${chartW}" height="${chartH}"/>
       </clipPath>
     </defs>`;
 
-    // ── horizontal grid lines + y-axis labels ──
-    for (let i = 0; i <= GRID_LINES; i++) {
-      const v  = (maxV / GRID_LINES) * i;
-      const y  = yOf(v);
-      const lbl = v >= 1000 ? (v / 1000).toFixed(v % 1000 === 0 ? 0 : 1) + 'k' : Math.round(v);
-      out += `<line x1="${PAD.left}" y1="${y}" x2="${PAD.left + chartW}" y2="${y}"
-                stroke="#1e1e2e" stroke-width="1" />`;
-      out += `<text x="${PAD.left - 8}" y="${y + 4}" text-anchor="end"
-                font-size="10" fill="#64748b" font-family="Inter,system-ui,sans-serif">${lbl}</text>`;
+    for (let i = 0; i <= GRID; i++) {
+      const v   = (maxV / GRID) * i;
+      const y   = yOf(v);
+      const lbl = v >= 1000 ? (v/1000).toFixed(v%1000===0?0:1)+'k' : Math.round(v);
+      out += `<line x1="${PAD.left}" y1="${y}" x2="${PAD.left+chartW}" y2="${y}"
+                stroke="#1e1e2e" stroke-width="1"/>`;
+      out += `<text x="${PAD.left-6}" y="${y+4}" text-anchor="end"
+                font-size="9" fill="#64748b" font-family="Inter,system-ui,sans-serif">${lbl}</text>`;
     }
 
-    // ── bars ──
     const barW = Math.max((chartW / data.length) * 0.7, 2);
     data.forEach((d, i) => {
-      const x  = xOf(i) - barW / 2;
+      const x  = xOf(i) - barW/2;
       const bh = Math.max((d.value / maxV) * chartH, 2);
       const y  = PAD.top + chartH - bh;
       out += `<rect x="${x}" y="${y}" width="${barW}" height="${bh}"
-                rx="3" ry="3"
-                fill="url(#bargrad)" clip-path="url(#chartclip)"/>`;
+                rx="2" fill="url(#${gradId})" clip-path="url(#clip-${gradId})"/>`;
     });
 
-    // ── x-axis labels (every ~3 points to avoid crowding) ──
-    const step = Math.ceil(data.length / 12);
+    const step = Math.ceil(data.length / 8);
     data.forEach((d, i) => {
       if (i % step !== 0 && i !== data.length - 1) return;
-      out += `<text x="${xOf(i)}" y="${PAD.top + chartH + 20}" text-anchor="middle"
-                font-size="10" fill="#64748b" font-family="Inter,system-ui,sans-serif">${d.label}</text>`;
+      out += `<text x="${xOf(i)}" y="${PAD.top+chartH+18}" text-anchor="middle"
+                font-size="9" fill="#64748b" font-family="Inter,system-ui,sans-serif">${d.label}</text>`;
     });
 
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     svg.innerHTML = out;
+  }
+
+  // ── Good Read % line chart ───────────────────────────────────────────────
+  function renderGoodReadPct(data) {
+    const svg = document.getElementById('chart-goodread');
+    if (!data || !data.length) {
+      svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#64748b" font-size="11">No data</text>';
+      return;
+    }
+    const W = svg.clientWidth  || 300;
+    const H = svg.clientHeight || 160;
+    const PAD = { top: 14, right: 8, bottom: 28, left: 44 };
+    const chartW = W - PAD.left - PAD.right;
+    const chartH = H - PAD.top  - PAD.bottom;
+
+    const pts = data.map(d => ({
+      label: d.label,
+      pct: d.value > 0 ? (d.good_reads / d.value * 100) : null,
+    }));
+
+    const valid = pts.filter(p => p.pct !== null).map(p => p.pct);
+    const minV  = Math.max(0, Math.min(...valid) - 2);
+    const maxV  = Math.min(100, Math.max(...valid) + 2);
+    const range = maxV - minV || 1;
+
+    const xOf = i => PAD.left + (i / Math.max(pts.length - 1, 1)) * chartW;
+    const yOf = v => PAD.top  + chartH - ((v - minV) / range) * chartH;
+
+    let out = `<defs>
+      <linearGradient id="grad-gr" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%"   stop-color="#6ee7b7" stop-opacity=".5"/>
+        <stop offset="100%" stop-color="#6ee7b7" stop-opacity=".05"/>
+      </linearGradient>
+    </defs>`;
+
+    const GRID = 4;
+    for (let i = 0; i <= GRID; i++) {
+      const v = minV + (range / GRID) * i;
+      const y = yOf(v);
+      out += `<line x1="${PAD.left}" y1="${y}" x2="${PAD.left+chartW}" y2="${y}"
+                stroke="#1e1e2e" stroke-width="1"/>`;
+      out += `<text x="${PAD.left-6}" y="${y+4}" text-anchor="end"
+                font-size="9" fill="#64748b" font-family="Inter,system-ui,sans-serif">${v.toFixed(1)}%</text>`;
+    }
+
+    // fill area
+    const validPts = pts.map((p, i) => p.pct !== null ? `${xOf(i)},${yOf(p.pct)}` : null).filter(Boolean);
+    if (validPts.length > 1) {
+      const firstX = xOf(pts.findIndex(p => p.pct !== null));
+      const lastX  = xOf(pts.map((p,i)=>({p,i})).filter(({p})=>p.pct!==null).at(-1).i);
+      const bottom = PAD.top + chartH;
+      out += `<polygon points="${firstX},${bottom} ${validPts.join(' ')} ${lastX},${bottom}"
+                fill="url(#grad-gr)" clip-path="url(#clip-gr)"/>`;
+    }
+
+    out += `<defs><clipPath id="clip-gr">
+      <rect x="${PAD.left}" y="${PAD.top}" width="${chartW}" height="${chartH}"/>
+    </clipPath></defs>`;
+
+    // line segments (skip null gaps)
+    let linePts = [];
+    pts.forEach((p, i) => {
+      if (p.pct !== null) {
+        linePts.push(`${i === 0 || pts[i-1].pct === null ? 'M' : 'L'}${xOf(i)},${yOf(p.pct)}`);
+      }
+    });
+    if (linePts.length) {
+      out += `<path d="${linePts.join(' ')}" fill="none" stroke="#6ee7b7"
+                stroke-width="1.8" stroke-linejoin="round" clip-path="url(#clip-gr)"/>`;
+    }
+
+    // dots
+    pts.forEach((p, i) => {
+      if (p.pct !== null) {
+        out += `<circle cx="${xOf(i)}" cy="${yOf(p.pct)}" r="2.5" fill="#6ee7b7"/>`;
+      }
+    });
+
+    const step = Math.ceil(pts.length / 8);
+    pts.forEach((p, i) => {
+      if (i % step !== 0 && i !== pts.length - 1) return;
+      out += `<text x="${xOf(i)}" y="${PAD.top+chartH+18}" text-anchor="middle"
+                font-size="9" fill="#64748b" font-family="Inter,system-ui,sans-serif">${p.label}</text>`;
+    });
+
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.innerHTML = out;
+  }
+
+  // ── Counts chart: good reads + no reads + total on shared y-axis ─────────
+  function renderCounts(data) {
+    const svg = document.getElementById('chart-counts');
+    if (!data || !data.length) {
+      svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#64748b" font-size="11">No data</text>';
+      return;
+    }
+    const W = svg.clientWidth  || 300;
+    const H = svg.clientHeight || 160;
+    const PAD = { top: 14, right: 8, bottom: 36, left: 44 };
+    const chartW = W - PAD.left - PAD.right;
+    const chartH = H - PAD.top  - PAD.bottom;
+
+    const totals    = data.map(d => d.value);
+    const goods     = data.map(d => d.good_reads);
+    const noreads   = data.map(d => d.no_reads);
+    const maxV      = Math.max(...totals, 1);
+
+    const xOf = i => PAD.left + (i / Math.max(data.length - 1, 1)) * chartW;
+    const yOf = v => PAD.top  + chartH - (v / maxV) * chartH;
+
+    let out = `<defs>
+      <clipPath id="clip-cnt">
+        <rect x="${PAD.left}" y="${PAD.top}" width="${chartW}" height="${chartH}"/>
+      </clipPath>
+    </defs>`;
+
+    const GRID = 4;
+    for (let i = 0; i <= GRID; i++) {
+      const v   = (maxV / GRID) * i;
+      const y   = yOf(v);
+      const lbl = v >= 1000 ? (v/1000).toFixed(v%1000===0?0:1)+'k' : Math.round(v);
+      out += `<line x1="${PAD.left}" y1="${y}" x2="${PAD.left+chartW}" y2="${y}"
+                stroke="#1e1e2e" stroke-width="1"/>`;
+      out += `<text x="${PAD.left-6}" y="${y+4}" text-anchor="end"
+                font-size="9" fill="#64748b" font-family="Inter,system-ui,sans-serif">${lbl}</text>`;
+    }
+
+    function polyline(vals, color, dash='') {
+      const d = vals.map((v,i)=>`${i===0?'M':'L'}${xOf(i)},${yOf(v)}`).join(' ');
+      out += `<path d="${d}" fill="none" stroke="${color}" stroke-width="${dash?1.2:1.8}"
+                stroke-dasharray="${dash}" stroke-linejoin="round" clip-path="url(#clip-cnt)"/>`;
+    }
+
+    polyline(totals,  '#4f8ef7', '4,3');  // total dashed blue
+    polyline(goods,   '#6ee7b7');          // good reads solid green
+    polyline(noreads, '#ef4444');          // no reads solid red
+
+    const step = Math.ceil(data.length / 8);
+    data.forEach((d, i) => {
+      if (i % step !== 0 && i !== data.length - 1) return;
+      out += `<text x="${xOf(i)}" y="${PAD.top+chartH+18}" text-anchor="middle"
+                font-size="9" fill="#64748b" font-family="Inter,system-ui,sans-serif">${d.label}</text>`;
+    });
+
+    // legend
+    const legend = [
+      { color: '#4f8ef7', label: 'Total', dash: true },
+      { color: '#6ee7b7', label: 'Good'  },
+      { color: '#ef4444', label: 'No-read' },
+    ];
+    legend.forEach((l, i) => {
+      const lx = PAD.left + i * (chartW / 3);
+      const ly = PAD.top + chartH + 28;
+      out += `<line x1="${lx}" y1="${ly}" x2="${lx+14}" y2="${ly}"
+                stroke="${l.color}" stroke-width="2" stroke-dasharray="${l.dash?'4,3':''}"/>`;
+      out += `<text x="${lx+18}" y="${ly+4}" font-size="9" fill="#94a3b8"
+                font-family="Inter,system-ui,sans-serif">${l.label}</text>`;
+    });
+
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.innerHTML = out;
+  }
+
+  function renderAllCharts(sparkline) {
+    renderBars('chart-throughput', sparkline, '#4f8ef7', 'grad-thr');
+    renderGoodReadPct(sparkline);
+    renderCounts(sparkline);
   }
 
   async function refresh() {
@@ -491,14 +675,13 @@
 
       animateTo(document.getElementById('t-items'),   d.today.items);
       animateTo(document.getElementById('t-gr-pct'),  d.today.good_read_pct, 1);
-
       animateTo(document.getElementById('m-items'),   d.month.items);
       animateTo(document.getElementById('m-gr-pct'),  d.month.good_read_pct, 1);
       animateTo(document.getElementById('y-items'),   d.year.items);
       animateTo(document.getElementById('y-gr-pct'),  d.year.good_read_pct, 1);
 
-      renderSparkline(d.sparkline);
-      window._lastSparklineData = d.sparkline;
+      renderAllCharts(d.sparkline);
+      window._lastSparkline = d.sparkline;
 
       const ts = new Date(d.generated_at * 1000);
       document.getElementById('last-updated').textContent =
@@ -513,7 +696,7 @@
   refresh();
   setInterval(refresh, REFRESH_MS);
   window.addEventListener('resize', () => {
-    if (window._lastSparklineData) renderSparkline(window._lastSparklineData);
+    if (window._lastSparkline) renderAllCharts(window._lastSparkline);
   });
 </script>
 </body>
