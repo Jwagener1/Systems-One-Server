@@ -7,13 +7,13 @@
     group: root
     mode: "0755"
 
-- name: Install docker-dashboard.py
-  copy:
-    src: docker-dashboard.py
+- name: Install docker-dashboard.py (templated - embeds RM DB login)
+  template:
+    src: docker-dashboard.py.j2
     dest: "{{ s1_dashboard_dir }}/docker-dashboard.py"
     owner: root
-    group: root
-    mode: "0755"
+    group: "{{ s1_dashboard_user }}"
+    mode: "0750"
 
 - name: Render start-dashboard.sh
   template:
