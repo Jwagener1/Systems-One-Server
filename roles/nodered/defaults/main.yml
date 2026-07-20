@@ -1,6 +1,10 @@
 ---
 # Node-RED defaults
 
+# Container image. Pin a version in host_vars to avoid surprise upgrades
+# (e.g. staging pins nodered/node-red:5.0 to match the saved flows).
+nodered_image: nodered/node-red:latest
+
 nodered_port: 1880
 nodered_bind_address: "127.0.0.1"
 

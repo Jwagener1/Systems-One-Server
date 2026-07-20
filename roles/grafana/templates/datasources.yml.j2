@@ -6,12 +6,16 @@ datasources:
 {% else %}
   - name: MSSQL
     type: mssql
+{% if grafana_mssql_datasource_uid | default('') | length > 0 %}
+    uid: {{ grafana_mssql_datasource_uid | to_json }}
+{% endif %}
     access: proxy
     isDefault: true
     url: {{ "mssql:1433" | to_json }}
     user: {{ "sa" | to_json }}
     jsonData:
       database: {{ (grafana_mssql_database | default('master')) | to_json }}
+      timezone: {{ (grafana_mssql_datasource_timezone | default('UTC')) | to_json }}
     secureJsonData:
       password: {{ mssql_sa_password | to_json }}
 {% endif %}
