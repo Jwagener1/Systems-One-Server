@@ -304,3 +304,229 @@ def classify_services(ctrs):
         else:
             detail.append((name, status, FG_RED))
     return ok, detail
+
+
+# -- Render -------------------------------------------------------------------
+
+def _frow(content, inner):
+    return clr("║", FG_DIM) + pad(content, inner) + clr("║", FG_DIM)
+
+
+def _fline(left, ch, right, inner):
+    return clr(left + ch * inner + right, FG_DIM)
+
+
+def pack_entries(entries, inner, gap=3):
+    """Pack '<dot> name' cells into rows that fit the inner width."""
+    rows, cur, cur_w = [], "", 0
+    for name, color in entries:
+        cell = clr("● ", color) + clr(name, FG_WHITE)
+        w = 2 + len(name)
+        if cur and cur_w + gap + w > inner:
+            rows.append(cur)
+            cur, cur_w = "", 0
+        if cur:
+            cur += " " * gap + cell
+            cur_w += gap + w
+        else:
+            cur = "  " + cell
+            cur_w = 2 + w
+    if cur:
+        rows.append(cur)
+    return rows
+
+
+def render(cols, rows, snap):
+    inner = cols - 2
+    lines = []
+    push = lines.append
+
+    # header
+    title = clr("  ⚙  S1  SERVER", BOLD, FG_ACCENT)
+    ts = clr(snap["now"] + "  ", FG_DIM)
+    gap = inner - len(_strip_ansi(title)) - len(_strip_ansi(ts))
+    push(_fline("╔", "═", "╗", inner))
+    push(clr("║", FG_DIM) + title + " " * max(0, gap) + ts + clr("║", FG_DIM))
+    push(_fline("╠", "═", "╣", inner))
+
+    # performance
+    push(_frow(clr("  \U0001F4CA  PERFORMANCE", BOLD, FG_ACCENT), inner))
+    push(_fline("╟", "─", "╢", inner))
+    push(_frow(clr(f"  {'':<12}{'ITEMS':>14}{'GOOD READ':>14}", BOLD, FG_DIM), inner))
+    perf = snap["perf"]
+    for key, label in (("today", "TODAY"), ("week", "THIS WEEK"), ("year", "THIS YEAR")):
+        if perf:
+            row = perf[key]
+            items_s = fmt_int(row["items"])
+            pct = row["pct"]
+            pct_s = f"{pct:.1f}%" if pct is not None else "—"
+            pc = good_read_color(pct) if pct is not None else FG_DIM
+            content = (clr(f"  {label:<12}", BOLD, FG_WHITE)
+                       + clr(f"{items_s:>14}", BOLD, FG_CYAN)
+                       + clr(f"{pct_s:>14}", BOLD, pc))
+        else:
+            content = (clr(f"  {label:<12}", BOLD, FG_WHITE)
+                       + clr(f"{'—':>14}{'—':>14}", FG_DIM))
+        push(_frow(content, inner))
+    if not perf:
+        push(_frow(clr("  DB unavailable", DIM, FG_ORANGE), inner))
+
+    # system
+    push(_fline("╠", "═", "╣", inner))
+    s = snap["sys"]
+    disk = snap["disk"]
+
+    def stat_row(label, b, val, extra=""):
+        return _frow(clr(f" {label:<5}", BOLD, FG_WHITE) + " " + b + " "
+                     + clr(val, BOLD, FG_CYAN) + clr(f"  {extra}", FG_DIM), inner)
+
+    if s:
+        push(stat_row("CPU", bar(s["cpu_pct"]), f"{s['cpu_pct']:5.1f}%",
+                      f"load {s['load']}   uptime {s['uptime']}"))
+        push(stat_row("MEM", bar(s["mem_pct"]),
+                      f"{s['mem_used']:5.0f} / {s['mem_total']:.0f} MB", f"{s['mem_pct']:.1f}%"))
+        push(stat_row("SWAP", bar(s["swap_pct"]),
+                      f"{s['swap_used']:5.0f} / {s['swap_total']:.0f} MB", f"{s['swap_pct']:.1f}%"))
+    else:
+        push(_frow(clr("  system stats unavailable", DIM, FG_ORANGE), inner))
+    if disk:
+        push(stat_row("DISK", bar(disk["pct"]),
+                      f"{disk['used']:.1f} / {disk['total']:.1f} GB",
+                      f"{disk['pct']:.1f}%  {disk['mount']}"))
+
+    # services
+    push(_fline("╠", "═", "╣", inner))
+    ctrs = snap["ctrs"]
+    ok, detail = classify_services(ctrs)
+    push(_frow(clr("  \U0001F433  SERVICES  ", BOLD, FG_GREEN)
+               + clr(f"{len(ok)}/{len(ctrs)} ok", FG_DIM), inner))
+    push(_fline("╟", "─", "╢", inner))
+    for row in pack_entries(ok, inner):
+        push(_frow(row, inner))
+    for name, status, color in detail:
+        push(_frow(clr("  ● ", color) + clr(f"{truncate(name, 24):<24}", BOLD, FG_WHITE)
+                   + clr(truncate(status, max(1, inner - 30)), color), inner))
+        d = snap["health"].get(name)
+        if d:
+            push(_frow(clr(f"     ⚠  {truncate(d, inner - 8)}", FG_ORANGE), inner))
+
+    # problems
+    push(_fline("╠", "═", "╣", inner))
+    push(_frow(clr("  ⚠  PROBLEMS  (last 30 min)", BOLD, FG_YELLOW), inner))
+    push(_fline("╟", "─", "╢", inner))
+    FOOTER = 3
+    avail = max(1, rows - len(lines) - FOOTER)
+    problems = snap["problems"]
+    if problems:
+        for ts, svc, msg in problems[-avail:]:
+            tss = ts[11:19] if len(ts) >= 19 and "T" in ts else "        "
+            head = f"  {tss} [{svc}] "
+            content = (clr(f"  {tss} ", FG_DIM) + clr(f"[{svc}] ", FG_PURPLE)
+                       + clr(truncate(msg, max(1, inner - len(head))), FG_WHITE))
+            push(_frow(content, inner))
+    else:
+        push(_frow(clr("  ✓  all services healthy — no errors in last 30 min", FG_GREEN), inner))
+
+    while len(lines) < rows - FOOTER:
+        push(_frow("", inner))
+    lines[:] = lines[: rows - FOOTER]
+
+    # footer
+    push(_fline("╠", "═", "╣", inner))
+    push(_frow(clr("  Ctrl+C to exit   render 5s   stats 60s   problems 30s", FG_DIM), inner))
+    push(_fline("╚", "═", "╝", inner))
+    return "\n".join(lines)
+
+
+# -- Snapshot -----------------------------------------------------------------
+
+def gather():
+    ctrs = get_containers()
+    names = [c[0] for c in ctrs]
+    health = {}
+    for name, status, _image in ctrs:
+        low = status.lower()
+        if low.startswith("up") and "(" in low and "(healthy)" not in low:
+            d = get_health_detail(name)
+            if d:
+                health[name] = d
+    problems = list(CACHE.get("problems", PROBLEMS_TTL, lambda: scan_problems(names)))
+    for name, d in health.items():
+        problems.append(("", name, f"healthcheck: {d}"))
+    return {
+        "now": datetime.now().strftime("%a %d %b %Y  %H:%M:%S"),
+        "sys": get_system_stats(),
+        "disk": get_disk_stats(),
+        "ctrs": ctrs,
+        "health": health,
+        "perf": CACHE.get("perf", PERF_TTL, fetch_perf),
+        "problems": problems,
+    }
+
+
+def demo_snapshot():
+    return {
+        "now": "Sun 20 Jul 2026  09:45:12",
+        "sys": {"cpu_pct": 4.2, "load": "0.17  0.22  0.25",
+                "mem_used": 4800, "mem_total": 7800, "mem_pct": 61.5,
+                "swap_used": 120, "swap_total": 2048, "swap_pct": 5.9,
+                "uptime": "2d 8h 4m"},
+        "disk": {"total": 97.9, "used": 40.2, "free": 57.7, "pct": 41.1, "mount": "/"},
+        "ctrs": [
+            ("grafana", "Up 2 days (healthy)", ""),
+            ("mssql", "Up 2 days (healthy)", ""),
+            ("nodered", "Up 2 days (healthy)", ""),
+            ("s1_reporter", "Up 2 days (healthy)", ""),
+            ("marketing_display", "Up 2 days (healthy)", ""),
+            ("wetty", "Up 2 days", ""),
+            ("mosquitto", "Up 2 days (unhealthy)", ""),
+        ],
+        "health": {"mosquitto": "exit=1  pgrep not found"},
+        "perf": {
+            "today": {"items": 12345, "pct": 98.2},
+            "week": {"items": 81002, "pct": 97.9},
+            "year": {"items": 4102388, "pct": 91.1},
+        },
+        "problems": [
+            ("2026-07-20T07:15:01.000000000Z", "systems_one_ingest", "WARN reconnecting to broker"),
+            ("2026-07-20T07:16:44.000000000Z", "mosquitto", "Error: healthcheck failed"),
+        ],
+    }
+
+
+# -- Main ---------------------------------------------------------------------
+
+def main():
+    ap = argparse.ArgumentParser(description="S1 TTY1 dashboard")
+    ap.add_argument("--demo", action="store_true",
+                    help="render one frame with canned data and exit")
+    args = ap.parse_args()
+
+    if args.demo:
+        try:
+            sz = os.get_terminal_size()
+            cols, rows = sz.columns, sz.lines
+        except Exception:
+            cols, rows = 120, 40
+        print(render(cols, rows - 2, demo_snapshot()))
+        return
+
+    print("\033[?25l\033[H\033[J", end="", flush=True)
+    try:
+        while True:
+            try:
+                sz = os.get_terminal_size()
+                cols, rows = sz.columns, sz.lines
+            except Exception:
+                cols, rows = 120, 40
+            output = render(cols, rows - 2, gather())
+            print("\033[H\033[J", end="")
+            print("\n\n" + output, flush=True)
+            time.sleep(5)
+    except KeyboardInterrupt:
+        print("\033[?25h\033[H\033[J")
+        print("Dashboard closed.")
+
+
+if __name__ == "__main__":
+    main()

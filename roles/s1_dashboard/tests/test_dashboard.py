@@ -145,5 +145,45 @@ class TemplateJinjaSafety(unittest.TestCase):
                 self.assertNotIn("{" + "{", line, f"literal Jinja braces on line {n}")
 
 
+class PackEntries(unittest.TestCase):
+    def test_packs_within_width(self):
+        entries = [(f"svc{i}", dash.FG_GREEN) for i in range(8)]
+        rows = dash.pack_entries(entries, inner=40)
+        self.assertTrue(len(rows) >= 2)
+        for row in rows:
+            self.assertLessEqual(len(dash._strip_ansi(row)), 40)
+
+    def test_single_row_when_fits(self):
+        rows = dash.pack_entries([("a", dash.FG_GREEN), ("b", dash.FG_CYAN)], inner=120)
+        self.assertEqual(len(rows), 1)
+
+
+class RenderSmoke(unittest.TestCase):
+    def test_demo_render_shape(self):
+        out = dash.render(100, 40, dash.demo_snapshot())
+        lines = out.split("\n")
+        self.assertEqual(len(lines), 40)
+        for line in lines:
+            self.assertEqual(len(dash._strip_ansi(line)), 100, repr(line[:40]))
+        text = dash._strip_ansi(out)
+        self.assertIn("PERFORMANCE", text)
+        self.assertIn("THIS WEEK", text)
+        self.assertIn("SERVICES", text)
+        self.assertIn("PROBLEMS", text)
+        self.assertNotIn("OPENCLAW", text)
+
+    def test_render_with_db_down(self):
+        snap = dash.demo_snapshot()
+        snap["perf"] = None
+        text = dash._strip_ansi(dash.render(100, 40, snap))
+        self.assertIn("DB unavailable", text)
+
+    def test_render_no_problems(self):
+        snap = dash.demo_snapshot()
+        snap["problems"] = []
+        text = dash._strip_ansi(dash.render(100, 40, snap))
+        self.assertIn("all services healthy", text)
+
+
 if __name__ == "__main__":
     unittest.main()
