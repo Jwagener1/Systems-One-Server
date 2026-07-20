@@ -67,10 +67,13 @@ def _coerce(v):
     return v
 
 
-def _query(sql: str) -> list[dict]:
+def _query(sql: str, params: tuple = ()) -> list[dict]:
     with pyodbc.connect(CONN_STR, timeout=8) as conn:
         cur = conn.cursor()
-        cur.execute(sql)
+        if params:
+            cur.execute(sql, params)
+        else:
+            cur.execute(sql)
         cols = [c[0] for c in cur.description]
         return [_coerce(dict(zip(cols, row))) for row in cur.fetchall()]
 
@@ -525,8 +528,11 @@ async def get_history(date_from: str, date_to: str, customer: str = "", machine:
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format; use YYYY-MM-DD")
 
-    cust_filter = f"AND d.customer = '{customer}'" if customer else ""
-    mach_filter = f"AND d.machine_name = '{machine}'" if machine else ""
+    cust_filter = "AND d.customer = ?" if customer else ""
+    mach_filter = "AND d.machine_name = ?" if machine else ""
+    filter_params = (date_from, date_to) \
+        + ((customer,) if customer else ()) \
+        + ((machine,) if machine else ())
 
     def _run():
         # Daily per-machine stats
@@ -545,11 +551,11 @@ async def get_history(date_from: str, date_to: str, customer: str = "", machine:
                     AS DECIMAL(5,1))          AS good_read_pct
             FROM dbo.device_statistics s
             JOIN dbo.devices d ON d.id = s.device_id
-            WHERE CAST(s.ts_datetime AS DATE) BETWEEN '{date_from}' AND '{date_to}'
+            WHERE CAST(s.ts_datetime AS DATE) BETWEEN ? AND ?
               {cust_filter} {mach_filter}
             GROUP BY CAST(s.ts_datetime AS DATE), d.machine_name, d.customer, d.location
             ORDER BY day, d.customer, d.machine_name
-        """)
+        """, filter_params)
 
         # Daily fleet totals
         fleet_daily = _query(f"""
@@ -563,11 +569,11 @@ async def get_history(date_from: str, date_to: str, customer: str = "", machine:
                     AS DECIMAL(5,1))        AS good_read_pct
             FROM dbo.device_statistics s
             JOIN dbo.devices d ON d.id = s.device_id
-            WHERE CAST(s.ts_datetime AS DATE) BETWEEN '{date_from}' AND '{date_to}'
+            WHERE CAST(s.ts_datetime AS DATE) BETWEEN ? AND ?
               {cust_filter} {mach_filter}
             GROUP BY CAST(s.ts_datetime AS DATE)
             ORDER BY day
-        """)
+        """, filter_params)
 
         # Period summary per machine
         machine_summary = _query(f"""
@@ -584,11 +590,11 @@ async def get_history(date_from: str, date_to: str, customer: str = "", machine:
                     AS DECIMAL(5,1)) AS good_read_pct
             FROM dbo.device_statistics s
             JOIN dbo.devices d ON d.id = s.device_id
-            WHERE CAST(s.ts_datetime AS DATE) BETWEEN '{date_from}' AND '{date_to}'
+            WHERE CAST(s.ts_datetime AS DATE) BETWEEN ? AND ?
               {cust_filter} {mach_filter}
             GROUP BY d.machine_name, d.customer, d.location
             ORDER BY good_read_pct ASC
-        """)
+        """, filter_params)
 
         # Customer daily rollup
         customer_daily = _query(f"""
@@ -601,11 +607,11 @@ async def get_history(date_from: str, date_to: str, customer: str = "", machine:
                     AS DECIMAL(5,1))        AS good_read_pct
             FROM dbo.device_statistics s
             JOIN dbo.devices d ON d.id = s.device_id
-            WHERE CAST(s.ts_datetime AS DATE) BETWEEN '{date_from}' AND '{date_to}'
+            WHERE CAST(s.ts_datetime AS DATE) BETWEEN ? AND ?
               {cust_filter} {mach_filter}
             GROUP BY CAST(s.ts_datetime AS DATE), d.customer
             ORDER BY day, d.customer
-        """)
+        """, filter_params)
 
         # Available filter options
         customers_list = _query("""
