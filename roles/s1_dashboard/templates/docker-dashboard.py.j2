@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""S1 Server Dashboard - full-screen console display on TTY1.
+
+Rendered by Ansible from templates/docker-dashboard.py.j2.
+The only Jinja substitutions are the two DB_* constants below;
+the file is valid Python as-is, which keeps it unit-testable.
+"""
+
+import argparse
+import os
+import re
+import subprocess
+import time
+from datetime import date, datetime, timedelta, timezone
+
+# -- DB credentials (Ansible-injected) ----------------------------------------
+DB_USER = "{{ mssql_rm_admin_login }}"
+DB_PASS = "{{ mssql_rm_admin_password }}"
+DB_NAME = "S1_Remote_Monitoring"
+
+SAST = timezone(timedelta(hours=2))
+PERF_TTL = 60.0
+PROBLEMS_TTL = 30.0
+PROBLEM_RE = re.compile(r"error|warn|exception|traceback|fail", re.IGNORECASE)
+
+# -- ANSI ---------------------------------------------------------------------
+RESET     = "\033[0m"
+BOLD      = "\033[1m"
+DIM       = "\033[2m"
+BG_BAR    = "\033[48;5;236m"
+
+FG_CYAN   = "\033[38;5;87m"
+FG_GREEN  = "\033[38;5;84m"
+FG_YELLOW = "\033[38;5;220m"
+FG_RED    = "\033[38;5;203m"
+FG_ORANGE = "\033[38;5;214m"
+FG_WHITE  = "\033[38;5;252m"
+FG_DIM    = "\033[38;5;240m"
+FG_ACCENT = "\033[38;5;213m"
+FG_PURPLE = "\033[38;5;177m"
+
+ANSI_RE = re.compile(r"\033\[[0-9;]*m")
+
+
+def clr(text, *codes):
+    return "".join(codes) + text + RESET
+
+
+def _strip_ansi(s):
+    return ANSI_RE.sub("", s)
+
+
+def pad(text, width):
+    visible = len(_strip_ansi(text))
+    if visible < width:
+        return text + " " * (width - visible)
+    return text
+
+
+def truncate(text, max_len):
+    if len(text) > max_len:
+        return text[: max_len - 1] + "…"
+    return text
+
+
+def bar(pct, width=24):
+    filled = min(int(width * pct / 100), width)
+    empty = width - filled
+    fc = FG_RED if pct > 85 else (FG_ORANGE if pct > 60 else FG_GREEN)
+    return BG_BAR + fc + "█" * filled + FG_DIM + "░" * empty + RESET
+
+
+# -- Pure logic ---------------------------------------------------------------
+
+def fmt_int(n):
+    return f"{n:,}".replace(",", " ")
+
+
+def good_read_color(pct):
+    if pct >= 97.0:
+        return FG_GREEN
+    if pct >= 90.0:
+        return FG_ORANGE
+    return FG_RED
+
+
+def period_starts(today):
+    """(today, monday-of-week, jan-1) as ISO date strings."""
+    monday = today - timedelta(days=today.weekday())
+    jan1 = date(today.year, 1, 1)
+    return today.isoformat(), monday.isoformat(), jan1.isoformat()
+
+
+def build_perf_query(today_s, week_s, year_s):
+    return (
+        "SET NOCOUNT ON; "
+        "SELECT "
+        f"COALESCE(SUM(CASE WHEN d >= '{today_s}' THEN total_items END),0), "
+        f"COALESCE(SUM(CASE WHEN d >= '{today_s}' THEN good_read END),0), "
+        f"COALESCE(SUM(CASE WHEN d >= '{week_s}' THEN total_items END),0), "
+        f"COALESCE(SUM(CASE WHEN d >= '{week_s}' THEN good_read END),0), "
+        "COALESCE(SUM(total_items),0), "
+        "COALESCE(SUM(good_read),0) "
+        "FROM (SELECT CAST(DATEADD(HOUR,2,ts_datetime) AS date) AS d, "
+        "total_items, good_read FROM dbo.device_statistics "
+        f"WHERE DATEADD(HOUR,2,ts_datetime) >= '{year_s}') x;"
+    )
+
+
+def parse_perf_output(text):
+    """Parse `sqlcmd -h -1 -W -s "|"` output: one 6-int row. None if absent."""
+    for line in (l.strip() for l in text.splitlines()):
+        parts = [p.strip() for p in line.split("|")]
+        if len(parts) == 6 and all(p.isdigit() for p in parts):
+            v = list(map(int, parts))
+
+            def entry(items, good):
+                pct = round(100.0 * good / items, 1) if items > 0 else None
+                return {"items": items, "pct": pct}
+
+            return {
+                "today": entry(v[0], v[1]),
+                "week": entry(v[2], v[3]),
+                "year": entry(v[4], v[5]),
+            }
+    return None
+
+
+def is_problem_line(line):
+    return bool(PROBLEM_RE.search(line))
+
+
+class TTLCache:
+    def __init__(self):
+        self._data = {}
+
+    def get(self, key, ttl, fn, clock=time.monotonic):
+        now = clock()
+        hit = self._data.get(key)
+        if hit is not None and now - hit[0] < ttl:
+            return hit[1]
+        val = fn()
+        self._data[key] = (now, val)
+        return val
