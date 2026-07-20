@@ -1,11 +1,64 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any, Optional
 
 from .db_client import MSSQLConnector
 from .ingest_models import IngestEvent
+
+# ── Validation constants ───────────────────────────────────────────────────
+KNOWN_CUSTOMERS = {"PEPKOR", "PEP"}
+KNOWN_LOCATIONS = {"HDH", "HPH", "JBH", "WRH"}
+# A real serial looks like "018389-01-8" — not a machine name like "DIM5"
+# Must contain at least one digit and a non-alpha character (dash), min length 5
+SERIAL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9\-]{4,}$")
+MACHINE_NAME_ONLY_RE = re.compile(r"^(DIM|STATIC)\d+$", re.IGNORECASE)
+
+
+def _validate_device(
+    serial_number: str,
+    customer: str,
+    location: str,
+    machine_name: str,
+    logger: logging.Logger,
+) -> bool:
+    """Return True if the device fields look legitimate, False to reject."""
+
+    # Serial must not look like a machine name (e.g. "DIM5")
+    if MACHINE_NAME_ONLY_RE.match(serial_number):
+        logger.warning(
+            "Rejecting device: serial_number looks like a machine name (serial=%s customer=%s location=%s machine=%s)",
+            serial_number, customer, location, machine_name,
+        )
+        return False
+
+    # Serial must match expected format
+    if not SERIAL_RE.match(serial_number):
+        logger.warning(
+            "Rejecting device: serial_number failed format check (serial=%s customer=%s location=%s machine=%s)",
+            serial_number, customer, location, machine_name,
+        )
+        return False
+
+    # Customer must be known
+    if customer.upper() not in KNOWN_CUSTOMERS:
+        logger.warning(
+            "Rejecting device: unknown customer (serial=%s customer=%s location=%s machine=%s)",
+            serial_number, customer, location, machine_name,
+        )
+        return False
+
+    # Location must be known
+    if location.upper() not in KNOWN_LOCATIONS:
+        logger.warning(
+            "Rejecting device: unknown location (serial=%s customer=%s location=%s machine=%s)",
+            serial_number, customer, location, machine_name,
+        )
+        return False
+
+    return True
 
 
 @dataclass(frozen=True)
@@ -58,6 +111,9 @@ class DeviceStore:
         customer = (event.customer or "").strip()
         location = (event.location or "").strip()
         machine_name = (event.machine or "").strip()
+
+        if not _validate_device(serial, customer, location, machine_name, self._logger):
+            return None
 
         return self.upsert_device(
             serial_number=serial,
