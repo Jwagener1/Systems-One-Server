@@ -115,5 +115,26 @@ class CacheTest(unittest.TestCase):
         self.assertEqual(c.get("k", 60, fn, clock=lambda: t[0]), 2)
 
 
+class ClassifyServices(unittest.TestCase):
+    CTRS = [
+        ("grafana", "Up 2 days (healthy)", "img"),
+        ("wetty", "Up 2 days", "img"),
+        ("mosquitto", "Up 2 days (unhealthy)", "img"),
+        ("nodered", "Up 10 seconds (health: starting)", "img"),
+        ("oldjob", "Exited (1) 3 days ago", "img"),
+    ]
+
+    def test_split(self):
+        ok, detail = dash.classify_services(self.CTRS)
+        self.assertEqual([n for n, _ in ok], ["grafana", "wetty"])
+        self.assertEqual(ok[0][1], dash.FG_GREEN)   # healthy
+        self.assertEqual(ok[1][1], dash.FG_CYAN)    # up, no healthcheck
+        names = [d[0] for d in detail]
+        self.assertEqual(names, ["mosquitto", "nodered", "oldjob"])
+        self.assertEqual(detail[0][2], dash.FG_ORANGE)  # unhealthy
+        self.assertEqual(detail[1][2], dash.FG_ORANGE)  # starting
+        self.assertEqual(detail[2][2], dash.FG_RED)     # exited
+
+
 if __name__ == "__main__":
     unittest.main()
