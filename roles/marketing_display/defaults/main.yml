@@ -1,0 +1,13 @@
+marketing_display_image: "marketing-display:latest"
+marketing_display_dir:   "/opt/marketing-display"
+marketing_display_port:  8090
+# Bind to loopback — expose publicly via Cloudflare tunnel only
+marketing_display_bind_address: "127.0.0.1"
+
+marketing_display_db_host: "mssql"
+marketing_display_db_port: 1433
+marketing_display_db_name: "S1_Remote_Monitoring"
+marketing_display_db_user: "{{ mssql_rm_admin_login | default('admin') }}"
+marketing_display_db_pass: "{{ mssql_rm_admin_password | default('') }}"
+
+marketing_display_cache_ttl: 30

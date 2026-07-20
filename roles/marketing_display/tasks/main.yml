@@ -1,0 +1,35 @@
+- name: Ensure marketing-display directory exists
+  file:
+    path: "{{ marketing_display_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Copy application source
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ marketing_display_dir }}/{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode | default('0644') }}"
+  loop:
+    - { src: Dockerfile,         dest: Dockerfile }
+    - { src: app/,               dest: app/ }
+  notify: restart marketing-display
+
+- name: Render docker-compose file
+  template:
+    src: docker-compose.marketing_display.yml.j2
+    dest: "{{ marketing_display_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart marketing-display
+
+- name: Build and start marketing-display container
+  command: docker compose up -d --build
+  args:
+    chdir: "{{ marketing_display_dir }}"
+  register: compose_result
+  changed_when: "'Started' in compose_result.stdout or 'Recreated' in compose_result.stdout or compose_result.rc == 0"
