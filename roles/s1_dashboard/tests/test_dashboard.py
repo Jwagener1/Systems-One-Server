@@ -136,5 +136,14 @@ class ClassifyServices(unittest.TestCase):
         self.assertEqual(detail[2][2], dash.FG_RED)     # exited
 
 
+class TemplateJinjaSafety(unittest.TestCase):
+    def test_no_stray_jinja_outside_credentials(self):
+        with open(TEMPLATE, encoding="utf-8") as f:
+            for n, line in enumerate(f, 1):
+                if "mssql_rm_admin" in line:
+                    continue
+                self.assertNotIn("{" + "{", line, f"literal Jinja braces on line {n}")
+
+
 if __name__ == "__main__":
     unittest.main()
