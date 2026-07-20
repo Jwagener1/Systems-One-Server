@@ -184,6 +184,19 @@ class RenderSmoke(unittest.TestCase):
         text = dash._strip_ansi(dash.render(100, 40, snap))
         self.assertIn("all services healthy", text)
 
+    def test_width_at_80_cols(self):
+        out = dash.render(80, 22, dash.demo_snapshot())
+        lines = out.split("\n")
+        self.assertEqual(len(lines), 22)
+        for line in lines:
+            self.assertEqual(len(dash._strip_ansi(line)), 80, repr(line[:40]))
+
+    def test_narrow_and_tiny_terminals_keep_frame(self):
+        for cols, rows in ((60, 15), (100, 2)):
+            out = dash.render(cols, rows, dash.demo_snapshot())
+            for line in out.split("\n"):
+                self.assertEqual(len(dash._strip_ansi(line)), cols)
+
 
 if __name__ == "__main__":
     unittest.main()
