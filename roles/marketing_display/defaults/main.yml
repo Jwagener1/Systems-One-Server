@@ -1,6 +1,7 @@
 marketing_display_image: "marketing-display:latest"
 marketing_display_dir:   "/opt/marketing-display"
 marketing_display_port:  8090
+# Bind to loopback — expose publicly via Cloudflare tunnel only
 marketing_display_bind_address: "127.0.0.1"
 
 marketing_display_db_host: "mssql"
