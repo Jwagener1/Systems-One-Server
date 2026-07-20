@@ -51,6 +51,7 @@ class BuildPerfQuery(unittest.TestCase):
         self.assertIn("'2026-01-01'", q)
         self.assertIn("dbo.device_statistics", q)
         self.assertIn("SET NOCOUNT ON", q)
+        self.assertIn("DATEADD(HOUR,2,", q)
 
 
 class ParsePerfOutput(unittest.TestCase):
