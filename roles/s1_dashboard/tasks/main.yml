@@ -40,9 +40,11 @@
     mode: "0644"
   notify: Restart getty tty1
 
-- name: Launch dashboard from .bash_profile on TTY1
+# Note: hook lives in .profile (not .bash_profile) so bash keeps sourcing
+# the distro-provided .profile for PATH etc. on normal SSH logins.
+- name: Launch dashboard from .profile on TTY1
   blockinfile:
-    path: "/home/{{ s1_dashboard_user }}/.bash_profile"
+    path: "/home/{{ s1_dashboard_user }}/.profile"
     create: true
     owner: "{{ s1_dashboard_user }}"
     group: "{{ s1_dashboard_user }}"
