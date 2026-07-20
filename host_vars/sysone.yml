@@ -52,9 +52,5 @@ grafana_users:
       - name: "Main Org."
         role: "Viewer"
 
-# OpenClaw
-openclaw_msteams_enabled: true
-openclaw_gateway_auth_token: "{{ vault_openclaw_gateway_token }}"
-openclaw_msteams_app_id: "8ca45be8-6a85-49bd-a2bb-283f65006175"
-openclaw_msteams_app_password: "{{ vault_openclaw_msteams_app_password }}"
-openclaw_msteams_tenant_id: "2cacbdf2-278e-4cca-b6c2-e17094934b7b"
+# Grafana MSSQL datasource identity (referenced by dashboards)
+grafana_mssql_datasource_uid: "PAAAEB8D7872B0C49"

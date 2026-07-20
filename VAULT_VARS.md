@@ -15,8 +15,6 @@ To edit: `ansible-vault edit group_vars/vault.yml`
 | `vault_grafana_pkluser_password` | Grafana `pkluser` (PKL User Group) password |
 | `vault_grafana_git_sync_token` | GitHub PAT for Grafana Git Sync (repo: Jwagener1/grafana) |
 | `vault_cloudflare_tunnel_token` | Cloudflare tunnel token |
-| `vault_openclaw_gateway_token` | OpenClaw gateway auth token |
-| `vault_openclaw_msteams_app_password` | MS Teams bot app password |
 
 ## Grafana Git Sync Notes
 

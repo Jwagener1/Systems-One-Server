@@ -52,12 +52,8 @@ grafana_users:
       - name: "Main Org."
         role: "Viewer"
 
-# OpenClaw
-openclaw_msteams_enabled: false
-openclaw_gateway_auth_token: "{{ vault_openclaw_gateway_token }}"
-openclaw_msteams_app_id: ""
-openclaw_msteams_app_password: ""
-openclaw_msteams_tenant_id: ""
+# Grafana MSSQL datasource identity (referenced by dashboards)
+grafana_mssql_datasource_uid: "PAAAEB8D7872B0C49"
 
 # MQTT Broker (local)
 mqtt_username: 'admin'
@@ -67,6 +63,8 @@ mqtt_password: 'admin'
 cloudflared_network_mode: host
 
 # Node-RED (ingest)
+# Pinned to the major version the live flows were built/saved with.
+nodered_image: 'nodered/node-red:5.0'
 nodered_bind_address: '0.0.0.0'
 nodered_port: 1880
 

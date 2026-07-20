@@ -1,0 +1,56 @@
+---
+- name: Ensure dashboard directory exists
+  file:
+    path: "{{ s1_dashboard_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install docker-dashboard.py
+  copy:
+    src: docker-dashboard.py
+    dest: "{{ s1_dashboard_dir }}/docker-dashboard.py"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render start-dashboard.sh
+  template:
+    src: start-dashboard.sh.j2
+    dest: "{{ s1_dashboard_dir }}/start-dashboard.sh"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Ensure getty@tty1 drop-in directory exists
+  file:
+    path: /etc/systemd/system/getty@tty1.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configure TTY1 autologin for dashboard user
+  template:
+    src: autologin.conf.j2
+    dest: /etc/systemd/system/getty@tty1.service.d/autologin.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart getty tty1
+
+- name: Launch dashboard from .bash_profile on TTY1
+  blockinfile:
+    path: "/home/{{ s1_dashboard_user }}/.bash_profile"
+    create: true
+    owner: "{{ s1_dashboard_user }}"
+    group: "{{ s1_dashboard_user }}"
+    mode: "0644"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - s1_dashboard"
+    block: |
+      # Auto-launch dashboard on tty1
+      if [ "$(tty)" = "/dev/tty1" ]; then
+          exec {{ s1_dashboard_dir }}/start-dashboard.sh
+      fi
+  when: s1_dashboard_enabled | bool

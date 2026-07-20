@@ -1,0 +1,11 @@
+---
+# S1 Docker Dashboard — full-screen container/system status on the physical
+# console (TTY1). Replaces the dashboard previously shipped by the openclaw role.
+
+s1_dashboard_enabled: true
+
+# User that auto-logs-in on TTY1 and runs the dashboard.
+s1_dashboard_user: "{{ ansible_user | default('s1') }}"
+
+# Where the dashboard scripts are installed.
+s1_dashboard_dir: /opt/s1-dashboard

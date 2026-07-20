@@ -26,8 +26,5 @@
     systems_one_ingest_db_name: "Systems_One"
     systems_one_ingest_db_user: "TestUser"
     systems_one_ingest_db_password: "TestPassword123!"
-    openclaw_gateway_auth_token: "test-token-12345"
-    openclaw_msteams_enabled: false
-    openclaw_dashboard_enabled: false
   roles:
     - role: docker

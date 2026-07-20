@@ -1,0 +1,14 @@
+#!/bin/bash
+# Wait for docker to be ready
+until docker info >/dev/null 2>&1; do
+    sleep 2
+done
+
+# Clear the terminal
+clear
+
+# Run the dashboard (restart on exit so it comes back if it crashes)
+while true; do
+    python3 {{ s1_dashboard_dir }}/docker-dashboard.py
+    sleep 2
+done

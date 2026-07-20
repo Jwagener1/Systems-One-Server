@@ -23,6 +23,6 @@
     - mqtt
     - nodered
     - systems_one_ingest
-    - openclaw
+    - s1_dashboard
     - s1_reporter
     - marketing_display
