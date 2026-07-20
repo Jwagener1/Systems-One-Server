@@ -14,8 +14,8 @@ import time
 from datetime import date, datetime, timedelta, timezone
 
 # -- DB credentials (Ansible-injected) ----------------------------------------
-DB_USER = "{{ mssql_rm_admin_login }}"
-DB_PASS = "{{ mssql_rm_admin_password }}"
+DB_USER = "{{ mssql_rm_admin_login | replace('\\\\', '\\\\\\\\') | replace('\"', '\\\\\"') }}"
+DB_PASS = "{{ mssql_rm_admin_password | replace('\\\\', '\\\\\\\\') | replace('\"', '\\\\\"') }}"
 DB_NAME = "S1_Remote_Monitoring"
 
 SAST = timezone(timedelta(hours=2))

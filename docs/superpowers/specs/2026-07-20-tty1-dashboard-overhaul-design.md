@@ -19,6 +19,7 @@ The dead OpenClaw panel is removed (the service it polled no longer exists).
 - No changes to the marketing web display.
 - No TUI framework / pip dependencies — stays a single stdlib-only Python file.
 - No historical charts on the console; totals only.
+- No per-container CPU/MEM (`docker stats`) — dropped during implementation: no panel displays it and it was the slowest call on the render path.
 
 ## Architecture
 
@@ -29,7 +30,6 @@ comes from subprocess calls (`docker …`), matching the existing pattern.
 |---|---|---|
 | System stats (CPU/MEM/SWAP/DISK/load/uptime) | `/proc`, `statvfs` | every render (5 s) |
 | Container list + status | `docker ps -a` | every render |
-| Container CPU/MEM | `docker stats --no-stream` | every render |
 | Performance totals | `docker exec mssql sqlcmd` (see below) | cached 60 s |
 | Problems scan | `docker logs --since 30m` + healthcheck logs | cached 30 s |
 

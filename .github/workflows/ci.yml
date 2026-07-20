@@ -27,6 +27,9 @@ jobs:
       - name: Run yamllint
         run: yamllint -d relaxed .
 
+      - name: Run s1_dashboard unit tests
+        run: python roles/s1_dashboard/tests/test_dashboard.py
+
       - name: Run ansible-lint
         run: ansible-lint --profile=min site.yml
         continue-on-error: true
