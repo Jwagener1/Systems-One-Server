@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S1 Remote Monitoring — History</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0f1117;
+  --panel: #161b22;
+  --border: #21262d;
+  --row-bg: #1a1f28;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --green: #1D9E75;
+  --red: #E24B4A;
+  --amber: #EF9F27;
+  --blue: #378ADD;
+  --purple: #9b59b6;
+  --grey: #6b7280;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* TOP BAR */
+#topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #0d1117;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 48px;
+  backdrop-filter: blur(8px);
+}
+
+.topbar-left { display: flex; align-items: center; gap: 10px; }
+.topbar-icon { font-size: 18px; color: var(--blue); }
+.topbar-title { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: 0.01em; }
+.pill-dws {
+  background: rgba(29,158,117,0.15);
+  border: 1px solid rgba(29,158,117,0.4);
+  color: var(--green);
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.page-tag {
+  background: rgba(55,138,221,0.12);
+  border: 1px solid rgba(55,138,221,0.35);
+  color: var(--blue);
+  border-radius: 4px;
+  padding: 2px 9px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.topbar-right { display: flex; align-items: center; gap: 14px; }
+#utc-clock {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+}
+
+/* CONTROLS BAR */
+#controls-bar {
+  background: var(--row-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.ctrl-group { display: flex; flex-direction: column; gap: 4px; }
+.ctrl-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+input[type="date"], select.ctrl-select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+  cursor: pointer;
+  height: 30px;
+}
+input[type="date"]:focus, select.ctrl-select:focus { border-color: var(--blue); }
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.6);
+  cursor: pointer;
+}
+
+/* Quick range pills */
+.quick-ranges {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+.qr-btn {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'Inter', sans-serif;
+}
+.qr-btn:hover, .qr-btn.active {
+  background: rgba(55,138,221,0.15);
+  border-color: rgba(55,138,221,0.5);
+  color: var(--blue);
+}
+
+#btn-load {
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 0 16px;
+  height: 30px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: background 0.15s;
+  align-self: flex-end;
+}
+#btn-load:hover { background: #5aa0e8; }
+#btn-load:disabled { background: var(--grey); cursor: default; }
+
+/* MAIN */
+#main { padding: 0 20px 40px; }
+
+.row-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--row-bg);
+  padding: 8px 14px;
+  margin: 20px -20px 14px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.row-divider .chevron { color: var(--blue); font-size: 12px; }
+.row-divider .label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.4);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+.panel-header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--accent-color, var(--blue));
+}
+.panel-title { font-size: 12px; font-weight: 600; color: var(--text); letter-spacing: 0.02em; }
+.panel-sub { font-size: 10px; color: var(--muted); }
+.panel-body { padding: 12px 14px; }
+
+.two-col { display: grid; gap: 10px; }
+.two-col-5050 { grid-template-columns: 1fr 1fr; }
+
+/* STAT CARDS ROW */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.stat-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  height: 82px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 16px;
+  position: relative;
+  overflow: hidden;
+}
+.stat-panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--accent-color, var(--grey));
+  border-radius: 6px 6px 0 0;
+}
+.stat-value { font-size: 24px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat-label { font-size: 10px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px; }
+
+/* TABLE */
+.tbl-wrap { overflow-x: auto; overflow-y: auto; max-height: 460px; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead th {
+  position: sticky; top: 0;
+  background: #1a1f28;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+  padding: 7px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  z-index: 2;
+}
+tbody tr:nth-child(odd) { background: var(--panel); }
+tbody tr:nth-child(even) { background: var(--bg); }
+tbody tr:hover { background: rgba(55,138,221,0.08); }
+tbody td { padding: 6px 10px; border-bottom: 1px solid rgba(33,38,45,0.5); white-space: nowrap; vertical-align: middle; }
+tfoot tr { background: #1e2530 !important; }
+tfoot td { padding: 7px 10px; font-weight: 700; font-size: 12px; border-top: 2px solid var(--border); }
+
+.pill { display: inline-block; border-radius: 4px; padding: 2px 7px; font-size: 11px; font-weight: 600; }
+.pill-green { background: rgba(29,158,117,0.15); color: var(--green); }
+.pill-red { background: rgba(226,75,74,0.15); color: var(--red); }
+.pill-amber { background: rgba(239,159,39,0.15); color: var(--amber); }
+.pill-grey { background: rgba(107,114,128,0.15); color: var(--grey); }
+
+.no-data { text-align: center; color: var(--muted); padding: 40px; font-size: 13px; }
+.loading-msg { text-align: center; color: var(--muted); padding: 60px; font-size: 14px; }
+
+canvas { display: block; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+@media (max-width: 900px) {
+  .stat-grid { grid-template-columns: repeat(3, 1fr); }
+  .two-col-5050 { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div class="topbar-left">
+    <span class="topbar-icon">⚙</span>
+    <span class="pill-dws">DWS</span>
+    <span class="topbar-title">S1 Remote Monitoring</span>
+    <span class="page-tag">📈 History</span>
+  </div>
+  <div class="topbar-right">
+    <a href="/" style="display:inline-flex;align-items:center;gap:6px;background:rgba(55,138,221,0.08);border:1px solid rgba(55,138,221,0.25);color:#378ADD;border-radius:5px;padding:4px 12px;font-size:12px;font-weight:600;text-decoration:none;">
+      ← Live Dashboard
+    </a>
+    <span id="utc-clock">--:--:-- UTC</span>
+  </div>
+</div>
+
+<!-- CONTROLS -->
+<div id="controls-bar">
+  <div class="ctrl-group">
+    <span class="ctrl-label">From</span>
+    <input type="date" id="date-from">
+  </div>
+  <div class="ctrl-group">
+    <span class="ctrl-label">To</span>
+    <input type="date" id="date-to">
+  </div>
+  <div class="ctrl-group">
+    <span class="ctrl-label">Customer</span>
+    <select class="ctrl-select" id="filter-customer" style="min-width:150px">
+      <option value="">All Customers</option>
+    </select>
+  </div>
+  <div class="ctrl-group">
+    <span class="ctrl-label">Machine</span>
+    <select class="ctrl-select" id="filter-machine" style="min-width:160px">
+      <option value="">All Machines</option>
+    </select>
+  </div>
+  <button id="btn-load" onclick="loadHistory()">Load</button>
+
+  <div class="quick-ranges">
+    <button class="qr-btn" onclick="setRange(7)">7 Days</button>
+    <button class="qr-btn active" onclick="setRange(30)">30 Days</button>
+    <button class="qr-btn" onclick="setRange(90)">90 Days</button>
+    <button class="qr-btn" onclick="setRange(180)">6 Months</button>
+    <button class="qr-btn" onclick="setRange(365)">1 Year</button>
+    <button class="qr-btn" onclick="setThisMonth()">This Month</button>
+    <button class="qr-btn" onclick="setLastMonth()">Last Month</button>
+  </div>
+</div>
+
+<!-- MAIN CONTENT (filled on load) -->
+<div id="main">
+  <div class="loading-msg" id="empty-state">
+    Select a date range above and click <strong>Load</strong> to view historical performance.
+  </div>
+  <div id="results" style="display:none"></div>
+</div>
+
+<script>
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+const GREEN='#1D9E75', RED='#E24B4A', AMBER='#EF9F27', BLUE='#378ADD', PURPLE='#9b59b6', GREY='#6b7280';
+const CUSTOMER_COLORS = {
+  PEPKOR: BLUE, DCB: RED, MADIBANA: AMBER, BEX: PURPLE, PEP: GREEN,
+  'PEP AFRICA': '#e67e22', SNOWSOFT: GREY
+};
+
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.borderColor = '#21262d';
+Chart.defaults.font.family = 'Inter, sans-serif';
+Chart.defaults.font.size = 11;
+
+let charts = {};
+let allMachines = [];
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+const fmt = n => (n==null) ? '—' : typeof n==='number' ? n.toLocaleString() : n;
+const fmtPct = v => v==null ? '—' : Number(v).toFixed(1)+'%';
+const grColor = v => { if(v==null) return GREY; if(v>=98) return GREEN; if(v>=90) return AMBER; return RED; };
+const grPill = v => {
+  const cls = v==null ? 'pill-grey' : v>=98 ? 'pill-green' : v>=90 ? 'pill-amber' : 'pill-red';
+  return `<span class="pill ${cls}">${fmtPct(v)}</span>`;
+};
+
+function todayStr() {
+  return new Date().toISOString().slice(0,10);
+}
+function offsetDate(days) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0,10);
+}
+function firstOfMonth(offset=0) {
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() - offset);
+  return d.toISOString().slice(0,10);
+}
+function lastOfMonth(offset=0) {
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() - offset + 1);
+  d.setDate(0);
+  return d.toISOString().slice(0,10);
+}
+
+function setRange(days) {
+  document.getElementById('date-from').value = offsetDate(days);
+  document.getElementById('date-to').value = todayStr();
+  document.querySelectorAll('.qr-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+function setThisMonth() {
+  document.getElementById('date-from').value = firstOfMonth(0);
+  document.getElementById('date-to').value = todayStr();
+  document.querySelectorAll('.qr-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+function setLastMonth() {
+  document.getElementById('date-from').value = firstOfMonth(1);
+  document.getElementById('date-to').value = lastOfMonth(1);
+  document.querySelectorAll('.qr-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+// ─── CLOCK ────────────────────────────────────────────────────────────────────
+const clockEl = document.getElementById('utc-clock');
+setInterval(()=>{
+  const n = new Date();
+  clockEl.textContent = [n.getUTCHours(),n.getUTCMinutes(),n.getUTCSeconds()].map(v=>String(v).padStart(2,'0')).join(':') + ' UTC';
+},1000);
+
+// ─── INIT DEFAULTS ───────────────────────────────────────────────────────────
+document.getElementById('date-from').value = offsetDate(30);
+document.getElementById('date-to').value = todayStr();
+
+// ─── LOAD FILTERS FROM API ───────────────────────────────────────────────────
+async function loadFilters() {
+  try {
+    const today = todayStr();
+    const res = await fetch(`/api/history?date_from=${offsetDate(7)}&date_to=${today}`);
+    if(!res.ok) return;
+    const data = await res.json();
+
+    // Populate customer dropdown
+    const custSel = document.getElementById('filter-customer');
+    custSel.innerHTML = '<option value="">All Customers</option>';
+    (data.customers||[]).forEach(c=>{
+      const o = document.createElement('option');
+      o.value = c; o.textContent = c;
+      custSel.appendChild(o);
+    });
+
+    allMachines = data.machines || [];
+    updateMachineDropdown();
+
+    custSel.addEventListener('change', updateMachineDropdown);
+  } catch(e) {
+    console.warn('Could not preload filters:', e);
+  }
+}
+
+function updateMachineDropdown() {
+  const customer = document.getElementById('filter-customer').value;
+  const machSel = document.getElementById('filter-machine');
+  const filtered = customer ? allMachines.filter(m=>m.customer===customer) : allMachines;
+  machSel.innerHTML = '<option value="">All Machines</option>';
+  filtered.forEach(m=>{
+    const o = document.createElement('option');
+    o.value = m.machine_name;
+    o.textContent = `${m.machine_name}${customer?'':' · '+m.customer}`;
+    machSel.appendChild(o);
+  });
+}
+
+// ─── LOAD HISTORY ────────────────────────────────────────────────────────────
+async function loadHistory() {
+  const from = document.getElementById('date-from').value;
+  const to = document.getElementById('date-to').value;
+  const customer = document.getElementById('filter-customer').value;
+  const machine = document.getElementById('filter-machine').value;
+
+  if(!from || !to) { alert('Please select both dates.'); return; }
+  if(from > to) { alert('From date must be before To date.'); return; }
+
+  const btn = document.getElementById('btn-load');
+  btn.disabled = true;
+  btn.textContent = 'Loading…';
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('results').style.display = 'none';
+
+  // Destroy old charts
+  Object.values(charts).forEach(c=>c.destroy());
+  charts = {};
+
+  try {
+    const params = new URLSearchParams({ date_from: from, date_to: to });
+    if(customer) params.append('customer', customer);
+    if(machine) params.append('machine', machine);
+
+    const res = await fetch('/api/history?' + params);
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+
+    renderResults(data);
+    document.getElementById('results').style.display = '';
+  } catch(e) {
+    document.getElementById('empty-state').textContent = '⚠ Failed to load data: ' + e.message;
+    document.getElementById('empty-state').style.display = '';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Load';
+  }
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function renderResults(d) {
+  const container = document.getElementById('results');
+
+  // Compute totals
+  const tot = (d.machineSummary||[]).reduce((acc,r)=>({
+    total_items: acc.total_items+(r.total_items||0),
+    good_read: acc.good_read+(r.good_read||0),
+    no_read: acc.no_read+(r.no_read||0),
+    hand_scanned: acc.hand_scanned+(r.hand_scanned||0),
+    not_sent: acc.not_sent+(r.not_sent||0),
+  }), {total_items:0,good_read:0,no_read:0,hand_scanned:0,not_sent:0});
+  const totGrPct = tot.total_items > 0 ? (tot.good_read / tot.total_items * 100) : null;
+  const days = (d.fleetDaily||[]).length;
+
+  container.innerHTML = `
+    <!-- KPI Row -->
+    <div class="row-divider" style="margin-top:14px">
+      <span class="chevron">▸</span>
+      <span class="label">Period Summary — ${d.date_from} to ${d.date_to}</span>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-panel" style="--accent-color:var(--blue)">
+        <div class="stat-value" style="color:var(--blue)" id="kpi-items">${fmt(tot.total_items)}</div>
+        <div class="stat-label">Total Items</div>
+      </div>
+      <div class="stat-panel" style="--accent-color:${grColor(totGrPct)}">
+        <div class="stat-value" style="color:${grColor(totGrPct)}">${fmtPct(totGrPct)}</div>
+        <div class="stat-label">Good Read %</div>
+      </div>
+      <div class="stat-panel" style="--accent-color:${(tot.no_read>0)?RED:GREY}">
+        <div class="stat-value" style="color:${(tot.no_read>0)?RED:GREY}">${fmt(tot.no_read)}</div>
+        <div class="stat-label">No Reads</div>
+      </div>
+      <div class="stat-panel" style="--accent-color:var(--amber)">
+        <div class="stat-value" style="color:var(--amber)">${fmt(tot.hand_scanned)}</div>
+        <div class="stat-label">Hand Scanned</div>
+      </div>
+      <div class="stat-panel" style="--accent-color:var(--grey)">
+        <div class="stat-value" style="color:var(--muted)">${days}</div>
+        <div class="stat-label">Days with Data</div>
+      </div>
+    </div>
+
+    <!-- Fleet daily trend -->
+    <div class="row-divider">
+      <span class="chevron">▸</span>
+      <span class="label">Daily Fleet Performance</span>
+    </div>
+
+    <div class="panel" style="--accent-color:var(--blue)">
+      <div class="panel-header">
+        <span class="panel-title">Daily Items &amp; Good Read % — Fleet Total</span>
+      </div>
+      <div class="panel-body">
+        <canvas id="chart-fleet-daily" height="220"></canvas>
+      </div>
+    </div>
+
+    <!-- Customer GR% trends -->
+    <div class="row-divider">
+      <span class="chevron">▸</span>
+      <span class="label">Customer Trends</span>
+    </div>
+
+    <div class="two-col two-col-5050">
+      <div class="panel" style="--accent-color:var(--green)">
+        <div class="panel-header">
+          <span class="panel-title">Good Read % by Customer</span>
+          <span class="panel-sub">Daily</span>
+        </div>
+        <div class="panel-body">
+          <canvas id="chart-cust-gr" height="220"></canvas>
+        </div>
+      </div>
+      <div class="panel" style="--accent-color:var(--blue)">
+        <div class="panel-header">
+          <span class="panel-title">Daily Items by Customer</span>
+          <span class="panel-sub">Stacked</span>
+        </div>
+        <div class="panel-body">
+          <canvas id="chart-cust-vol" height="220"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Machine summary table -->
+    <div class="row-divider">
+      <span class="chevron">▸</span>
+      <span class="label">Machine Summary — Period Totals</span>
+    </div>
+
+    <div class="panel" style="--accent-color:var(--blue)">
+      <div class="panel-header">
+        <span class="panel-title">All Machines</span>
+        <span class="panel-sub">${d.date_from} → ${d.date_to}</span>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Machine</th>
+              <th>Customer</th>
+              <th>Site</th>
+              <th style="text-align:right">Items</th>
+              <th style="text-align:center">Good %</th>
+              <th style="text-align:right">No Read</th>
+              <th style="text-align:right">Hand Scan</th>
+              <th style="text-align:right">Not Sent</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-machine-summary"></tbody>
+          <tfoot id="tfoot-machine-summary"></tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- Per-machine GR% chart -->
+    <div class="row-divider">
+      <span class="chevron">▸</span>
+      <span class="label">Machine Good Read % — Period Average</span>
+    </div>
+
+    <div class="panel" style="--accent-color:var(--green)">
+      <div class="panel-header">
+        <span class="panel-title">Good Read % by Machine</span>
+        <span class="panel-sub">Sorted ascending — period average</span>
+      </div>
+      <div class="panel-body" id="machine-gr-wrap">
+        <canvas id="chart-machine-gr"></canvas>
+      </div>
+    </div>
+  `;
+
+  // Now render charts & tables
+  renderFleetDailyChart(d);
+  renderCustomerCharts(d);
+  renderMachineSummaryTable(d);
+  renderMachineGrChart(d);
+}
+
+function renderFleetDailyChart(d) {
+  const daily = [...(d.fleetDaily||[])].sort((a,b)=>a.day.localeCompare(b.day));
+  const labels = daily.map(r=>r.day);
+  const items = daily.map(r=>r.total_items||0);
+  const grPcts = daily.map(r=>r.total_items>0 ? (r.good_read/r.total_items*100) : null);
+  const lastGr = grPcts.filter(v=>v!=null).pop();
+  const grLine = grColor(lastGr);
+
+  const ctx = document.getElementById('chart-fleet-daily').getContext('2d');
+  charts.fleetDaily = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Total Items',
+          data: items,
+          borderColor: BLUE,
+          backgroundColor: BLUE+'22',
+          fill: 'origin',
+          tension: 0.3,
+          yAxisID: 'y',
+          pointRadius: labels.length > 60 ? 0 : 3,
+          borderWidth: 2
+        },
+        {
+          label: 'Good Read %',
+          data: grPcts,
+          borderColor: grLine,
+          backgroundColor: 'transparent',
+          tension: 0.3,
+          yAxisID: 'y2',
+          pointRadius: labels.length > 60 ? 0 : 3,
+          borderWidth: 2.5,
+          borderDash: [4,3],
+          spanGaps: true
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode:'index', intersect:false },
+      plugins: { legend: { position:'top', labels:{boxWidth:12, padding:12} } },
+      scales: {
+        x: { grid:{color:'#21262d'}, ticks:{maxTicksLimit:20, maxRotation:45} },
+        y: { grid:{color:'#21262d'}, ticks:{callback: v=>v>=1000?(v/1000).toFixed(0)+'k':v}, position:'left' },
+        y2: { grid:{display:false}, position:'right', min:80, max:100, ticks:{callback:v=>v+'%', color:grLine} }
+      },
+      animation: false
+    }
+  });
+}
+
+function renderCustomerCharts(d) {
+  const custDaily = d.customerDaily||[];
+  const allDays = [...new Set(custDaily.map(r=>r.day))].sort();
+  const customers = [...new Set(custDaily.map(r=>r.customer))];
+
+  // GR% chart
+  const grDatasets = customers.map(cust => {
+    const color = CUSTOMER_COLORS[cust] || GREY;
+    return {
+      label: cust,
+      data: allDays.map(day=>{ const r=custDaily.find(x=>x.day===day&&x.customer===cust); return r?r.good_read_pct:null; }),
+      borderColor: color,
+      backgroundColor: color+'33',
+      tension: 0.3,
+      spanGaps: true,
+      pointRadius: allDays.length > 60 ? 0 : 3,
+      borderWidth: 2
+    };
+  });
+  grDatasets.push({ label:'98% Target', data:allDays.map(()=>98), borderColor:GREEN+'88', borderDash:[5,4], borderWidth:1.5, pointRadius:0, fill:false });
+  grDatasets.push({ label:'90% Min', data:allDays.map(()=>90), borderColor:AMBER+'88', borderDash:[5,4], borderWidth:1.5, pointRadius:0, fill:false });
+
+  charts.custGr = new Chart(document.getElementById('chart-cust-gr').getContext('2d'), {
+    type:'line',
+    data:{ labels: allDays, datasets: grDatasets },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{position:'top',labels:{boxWidth:12,padding:10}} },
+      scales:{
+        x:{grid:{color:'#21262d'},ticks:{maxTicksLimit:15,maxRotation:45}},
+        y:{min:0,max:100,grid:{color:'#21262d'},ticks:{callback:v=>v+'%'}}
+      },
+      animation:false
+    }
+  });
+
+  // Volume chart
+  const volDatasets = customers.map(cust=>{
+    const color = CUSTOMER_COLORS[cust] || GREY;
+    return {
+      label:cust,
+      data:allDays.map(day=>{ const r=custDaily.find(x=>x.day===day&&x.customer===cust); return r?r.total_items:0; }),
+      backgroundColor:color+'cc',
+      borderRadius:2,
+      stack:'s'
+    };
+  });
+
+  charts.custVol = new Chart(document.getElementById('chart-cust-vol').getContext('2d'), {
+    type:'bar',
+    data:{ labels: allDays, datasets: volDatasets },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{position:'top',labels:{boxWidth:12,padding:10}} },
+      scales:{
+        x:{stacked:true,grid:{color:'#21262d'},ticks:{maxTicksLimit:15,maxRotation:45}},
+        y:{stacked:true,grid:{color:'#21262d'},ticks:{callback:v=>v>=1000?Math.round(v/1000)+'k':v}}
+      },
+      animation:false
+    }
+  });
+}
+
+function renderMachineSummaryTable(d) {
+  const rows = [...(d.machineSummary||[])].sort((a,b)=>b.total_items-a.total_items);
+  const tbody = document.getElementById('tbody-machine-summary');
+  const tfoot = document.getElementById('tfoot-machine-summary');
+
+  tbody.innerHTML = rows.map((r,i)=>{
+    const ns = r.not_sent||0;
+    return `<tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td style="font-weight:600">${r.machine_name||'—'}</td>
+      <td>${r.customer||'—'}</td>
+      <td>${r.location||'—'}</td>
+      <td style="text-align:right">${fmt(r.total_items)}</td>
+      <td style="text-align:center">${grPill(r.good_read_pct)}</td>
+      <td style="text-align:right;color:${(r.no_read||0)>0?RED:GREY}">${fmt(r.no_read)}</td>
+      <td style="text-align:right">${fmt(r.hand_scanned)}</td>
+      <td style="text-align:right;${ns>0?'color:'+RED+';font-weight:700':''}">${ns>0?fmt(ns):'—'}</td>
+    </tr>`;
+  }).join('');
+
+  // Totals
+  const tot = rows.reduce((acc,r)=>({
+    total_items:acc.total_items+(r.total_items||0),
+    good_read:acc.good_read+(r.good_read||0),
+    no_read:acc.no_read+(r.no_read||0),
+    hand_scanned:acc.hand_scanned+(r.hand_scanned||0),
+    not_sent:acc.not_sent+(r.not_sent||0)
+  }),{total_items:0,good_read:0,no_read:0,hand_scanned:0,not_sent:0});
+  const tGr = tot.total_items>0?(tot.good_read/tot.total_items*100):null;
+  tfoot.innerHTML = `<tr>
+    <td colspan="4">PERIOD TOTAL</td>
+    <td style="text-align:right">${fmt(tot.total_items)}</td>
+    <td style="text-align:center">${grPill(tGr)}</td>
+    <td style="text-align:right;color:${tot.no_read>0?RED:GREY}">${fmt(tot.no_read)}</td>
+    <td style="text-align:right">${fmt(tot.hand_scanned)}</td>
+    <td style="text-align:right;${tot.not_sent>0?'color:'+RED+';font-weight:700':''}">${tot.not_sent>0?fmt(tot.not_sent):'—'}</td>
+  </tr>`;
+}
+
+function renderMachineGrChart(d) {
+  const machines = [...(d.machineSummary||[])].filter(m=>m.total_items>0).sort((a,b)=>a.good_read_pct-b.good_read_pct);
+  const labels = machines.map(m=>`${m.machine_name} · ${m.customer}`);
+  const values = machines.map(m=>m.good_read_pct);
+  const colors = values.map(v=>v>=98?GREEN:v>=90?AMBER:RED);
+
+  const dynH = Math.max(200, machines.length * 26);
+  const canvas = document.getElementById('chart-machine-gr');
+  canvas.height = dynH;
+
+  charts.machineGr = new Chart(canvas.getContext('2d'), {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{
+        data:values,
+        backgroundColor:colors,
+        borderRadius:3,
+        borderSkipped:false,
+        barThickness:14
+      }]
+    },
+    options:{
+      indexAxis:'y',
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{ callbacks:{ label: ctx=>`${ctx.parsed.x.toFixed(1)}%` } }
+      },
+      scales:{
+        x:{min:0,max:100,grid:{color:'#21262d'},ticks:{callback:v=>v+'%'}},
+        y:{grid:{display:false},ticks:{color:'#94a3b8',font:{size:10}}}
+      },
+      animation:false
+    },
+    plugins:[{
+      id:'valLabels',
+      afterDatasetsDraw(chart){
+        const ctx=chart.ctx;
+        chart.data.datasets[0].data.forEach((val,i)=>{
+          const meta=chart.getDatasetMeta(0);
+          const bar=meta.data[i];
+          ctx.save();
+          ctx.fillStyle='#e2e8f0';
+          ctx.font='600 10px Inter,sans-serif';
+          ctx.textAlign='left';
+          ctx.textBaseline='middle';
+          ctx.fillText(val.toFixed(1)+'%',bar.x+4,bar.y);
+          ctx.restore();
+        });
+      }
+    }]
+  });
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+loadFilters();
+</script>
+</body>
+</html>

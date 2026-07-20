@@ -1,703 +1,1892 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Systems One — Live Performance</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg:        #0a0a0f;
-      --surface:   #13131a;
-      --border:    #1e1e2e;
-      --accent:    #4f8ef7;
-      --accent2:   #6ee7b7;
-      --warn:      #f59e0b;
-      --danger:    #ef4444;
-      --text:      #e2e8f0;
-      --muted:     #64748b;
-      --font:      'Inter', system-ui, sans-serif;
-      --radius:    12px;
-      --glow:      0 0 24px rgba(79,142,247,.15);
-    }
-
-    html, body {
-      height: 100%;
-      overflow: hidden;
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--font);
-      font-size: 14px;
-      line-height: 1.4;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    .shell {
-      height: 100vh;
-      display: grid;
-      grid-template-rows: auto 1fr auto;
-      padding: 0 clamp(16px, 3vw, 40px);
-      overflow: hidden;
-    }
-
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 18px 0 14px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .logo { display: flex; align-items: center; gap: 10px; }
-    .logo-mark {
-      width: 34px; height: 34px;
-      background: var(--accent);
-      border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 800; font-size: 17px; color: #fff;
-    }
-    .logo-text { font-weight: 600; font-size: 15px; letter-spacing: .02em; }
-    .logo-sub  { font-size: 10px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
-
-    .live-badge {
-      display: flex; align-items: center; gap: 7px;
-      font-size: 11px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase;
-    }
-    .pulse {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: var(--accent2);
-      animation: pulse 2s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0%,100% { opacity: 1; transform: scale(1); }
-      50%      { opacity: .4; transform: scale(.7); }
-    }
-
-    main {
-      padding: 20px 0 12px;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .section-label {
-      font-size: 10px; font-weight: 600;
-      color: var(--muted); letter-spacing: .1em; text-transform: uppercase;
-      margin-bottom: 9px;
-    }
-
-    .stat-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-
-    .stat-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px 16px 12px;
-      transition: border-color .25s, box-shadow .25s;
-    }
-    .stat-card:hover { border-color: var(--accent); box-shadow: var(--glow); }
-    .stat-card.accent  { border-top: 2px solid var(--accent); }
-    .stat-card.green   { border-top: 2px solid var(--accent2); }
-    .stat-card.warn    { border-top: 2px solid var(--warn); }
-    .stat-card.danger  { border-top: 2px solid var(--danger); }
-
-    .stat-label {
-      font-size: 10px; font-weight: 600;
-      color: var(--muted); letter-spacing: .07em; text-transform: uppercase;
-      margin-bottom: 8px;
-    }
-    .stat-value {
-      font-size: 28px; font-weight: 700;
-      letter-spacing: -.02em; line-height: 1;
-    }
-    .stat-value.small { font-size: 20px; }
-    .stat-suffix { font-size: 14px; font-weight: 400; color: var(--muted); margin-left: 2px; }
-
-    /* ── Charts ── */
-    .charts-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 10px;
-      flex: 1;
-      min-height: 0;
-    }
-
-    .chart-wrap {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 12px 14px 10px;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-    }
-    .chart-title {
-      font-size: 11px; font-weight: 600; color: var(--text);
-      margin-bottom: 8px;
-      flex-shrink: 0;
-      letter-spacing: .03em;
-    }
-
-    .sparkline-wrap {
-      flex: 1;
-      min-height: 0;
-      position: relative;
-    }
-    .sparkline-wrap svg {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      overflow: visible;
-    }
-
-    @media (max-width: 700px) {
-      .charts-row { grid-template-columns: 1fr; }
-    }
-
-    /* ── Fleet pills ── */
-    .fleet-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
-    .fleet-pill {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 99px;
-      padding: 6px 16px;
-      font-size: 12px; font-weight: 500;
-      display: flex; align-items: center; gap: 7px;
-    }
-    .dot { width: 8px; height: 8px; border-radius: 50%; }
-    .dot.online  { background: var(--accent2); }
-    .dot.offline { background: var(--danger); }
-    .dot.app     { background: var(--accent); }
-    .dot.stopped { background: var(--warn); }
-
-    footer {
-      padding: 12px 0;
-      border-top: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: space-between;
-      font-size: 11px; color: var(--muted);
-      flex-shrink: 0;
-    }
-
-    #error-banner {
-      display: none;
-      background: rgba(239,68,68,.1);
-      border: 1px solid var(--danger);
-      border-radius: var(--radius);
-      padding: 8px 14px; margin-bottom: 12px;
-      font-size: 12px; color: var(--danger);
-    }
-
-    @media (max-width: 480px) {
-      .stat-grid { grid-template-columns: 1fr 1fr; }
-      .bar-label { display: none; }
-      #sparkline { height: 80px; }
-    }
-  </style>
-</head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S1 Remote Monitoring</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
-  #auth-overlay {
-    position: fixed; inset: 0; z-index: 9999;
-    background: var(--bg);
-    display: flex; align-items: center; justify-content: center;
-  }
-  #auth-overlay.hidden { display: none; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  .auth-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 44px 48px 40px;
-    width: 100%; max-width: 380px;
-    box-shadow: 0 24px 64px rgba(0,0,0,.5);
-    display: flex; flex-direction: column; align-items: center; gap: 0;
-  }
+:root {
+  --bg: #0f1117;
+  --panel: #161b22;
+  --border: #21262d;
+  --row-bg: #1a1f28;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --green: #1D9E75;
+  --red: #E24B4A;
+  --amber: #EF9F27;
+  --blue: #378ADD;
+  --purple: #9b59b6;
+  --grey: #6b7280;
+}
 
-  .auth-logo {
-    width: 48px; height: 48px;
-    background: var(--accent);
-    border-radius: 12px;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 800; font-size: 22px; color: #fff;
-    margin-bottom: 20px;
-  }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
 
-  .auth-title {
-    font-size: 20px; font-weight: 700; color: var(--text);
-    margin-bottom: 4px; text-align: center;
-  }
-  .auth-sub {
-    font-size: 13px; color: var(--muted);
-    margin-bottom: 32px; text-align: center;
-  }
+/* TOP BAR */
+#topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #0d1117;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 48px;
+  backdrop-filter: blur(8px);
+}
 
-  .auth-field {
-    width: 100%; position: relative; margin-bottom: 14px;
-  }
-  .auth-field input {
-    width: 100%; padding: 12px 44px 12px 16px;
-    background: var(--bg); color: var(--text);
-    border: 1px solid var(--border); border-radius: 8px;
-    font-size: 15px; font-family: var(--font);
-    outline: none; transition: border-color .2s;
-  }
-  .auth-field input:focus { border-color: var(--accent); }
-  .auth-field .toggle-vis {
-    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
-    background: none; border: none; cursor: pointer;
-    color: var(--muted); font-size: 16px; padding: 0; line-height: 1;
-    transition: color .2s;
-  }
-  .auth-field .toggle-vis:hover { color: var(--text); }
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 
-  .auth-btn {
-    width: 100%; padding: 13px;
-    background: var(--accent); color: #fff;
-    border: none; border-radius: 8px;
-    font-size: 15px; font-weight: 600; font-family: var(--font);
-    cursor: pointer; transition: opacity .2s, transform .1s;
-    margin-top: 4px;
-  }
-  .auth-btn:hover  { opacity: .9; }
-  .auth-btn:active { transform: scale(.98); }
+.topbar-icon {
+  font-size: 18px;
+  color: var(--blue);
+}
 
-  .auth-error {
-    font-size: 12px; color: var(--danger);
-    min-height: 18px; margin-bottom: 6px; text-align: center;
-  }
+.pill-dws {
+  background: rgba(29, 158, 117, 0.15);
+  border: 1px solid rgba(29, 158, 117, 0.4);
+  color: var(--green);
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
 
-  @media (max-width: 440px) {
-    .auth-card { padding: 32px 20px 28px; }
-  }
+.topbar-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+#alert-badge {
+  background: var(--red);
+  color: #fff;
+  border-radius: 20px;
+  padding: 2px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 24px;
+  text-align: center;
+  display: none;
+}
+
+#alert-badge.visible { display: inline-block; }
+#alert-badge.zero { background: var(--grey); }
+
+.live-dot-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(29,158,117,0.6); }
+  50% { box-shadow: 0 0 0 5px rgba(29,158,117,0); }
+}
+
+#utc-clock {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+}
+
+/* MAIN CONTENT */
+#main {
+  padding: 0 20px 40px;
+}
+
+/* ROW DIVIDER */
+.row-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--row-bg);
+  padding: 8px 14px;
+  margin: 20px -20px 14px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.row-divider .chevron {
+  color: var(--blue);
+  font-size: 12px;
+}
+
+.row-divider .label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* STAT PANELS */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.stat-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.4);
+  height: 90px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 16px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: default;
+}
+
+.stat-panel:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.5);
+}
+
+.stat-panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--accent-color, var(--grey));
+  border-radius: 6px 6px 0 0;
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--accent-color, var(--text));
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 4px;
+}
+
+/* PANEL */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.4);
+  overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.panel-header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--accent-color, var(--blue));
+}
+
+.panel-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.panel-timestamp {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.panel-body {
+  padding: 12px 14px;
+}
+
+/* CHARTS LAYOUT */
+.two-col {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.two-col-perf { grid-template-columns: 58fr 42fr; }
+.two-col-scan { grid-template-columns: 62fr 38fr; }
+
+/* ALERT CARDS */
+#alerts-section { margin-bottom: 10px; }
+
+.alerts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.alert-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  border-left: 4px solid var(--red);
+  padding: 12px 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.4);
+}
+
+.alert-card.warn { border-left-color: var(--amber); }
+.alert-card.bad { border-left-color: var(--red); }
+
+.alert-machine {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.alert-meta {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.alert-metric {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+.alert-values {
+  display: flex;
+  gap: 14px;
+  margin-top: 6px;
+  font-size: 11px;
+}
+
+.alert-val-current {
+  color: var(--red);
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.alert-val-label {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.alert-progress-wrap {
+  margin-top: 8px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  height: 5px;
+  overflow: hidden;
+}
+
+.alert-progress-bar {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--red);
+  transition: width 0.5s ease;
+}
+
+/* TABLES */
+.tbl-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 480px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  background: #1a1f28;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+  padding: 7px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  z-index: 2;
+}
+
+tbody tr:nth-child(odd) { background: var(--panel); }
+tbody tr:nth-child(even) { background: var(--bg); }
+tbody tr:hover { background: rgba(55, 138, 221, 0.08); }
+
+tbody td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(33,38,45,0.5);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+tfoot tr { background: #1e2530 !important; }
+tfoot td {
+  padding: 7px 10px;
+  font-weight: 700;
+  font-size: 12px;
+  border-top: 2px solid var(--border);
+}
+
+/* PILLS */
+.pill {
+  display: inline-block;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pill-green { background: rgba(29,158,117,0.15); color: var(--green); }
+.pill-red { background: rgba(226,75,74,0.15); color: var(--red); }
+.pill-amber { background: rgba(239,159,39,0.15); color: var(--amber); }
+.pill-blue { background: rgba(55,138,221,0.15); color: var(--blue); }
+.pill-grey { background: rgba(107,114,128,0.15); color: var(--grey); }
+
+/* DISK BAR */
+.disk-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.disk-bar-track {
+  width: 60px;
+  height: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.disk-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+/* DOUGHNUT CENTER LABEL */
+.doughnut-wrap {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.doughnut-center {
+  position: absolute;
+  text-align: center;
+  pointer-events: none;
+}
+
+.doughnut-center-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+.doughnut-center-label {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* BREAKDOWN STATS */
+.breakdown-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+}
+
+.breakdown-label { color: var(--muted); }
+
+/* CUSTOMER TRENDS */
+.chart-stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* MINI STAT GRID FOR MQTT */
+.mini-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.mini-stat {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 7px 10px;
+}
+
+.mini-stat-label {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.mini-stat-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 2px;
+}
+
+/* PIPELINE ROWS */
+.pipeline-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(33,38,45,0.5);
+  font-size: 12px;
+}
+
+.pipeline-row:last-child { border-bottom: none; }
+.pipeline-key { color: var(--muted); font-size: 11px; }
+.pipeline-val { font-weight: 600; color: var(--text); text-align: right; }
+.pipeline-age { font-size: 10px; color: var(--muted); }
+
+/* FLEET INSIGHTS */
+.insight-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(33,38,45,0.5);
+  font-size: 12px;
+}
+
+.insight-row:last-child { border-bottom: none; }
+.insight-label { color: var(--muted); font-size: 11px; }
+.insight-value { font-weight: 600; }
+
+/* FILTER ROW */
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid var(--border);
+}
+
+.filter-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+select.filter-select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+  cursor: pointer;
+}
+
+select.filter-select:focus {
+  border-color: var(--blue);
+}
+
+/* 3-col system health */
+.three-col {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+/* Responsive tweaks */
+@media (max-width: 1100px) {
+  .two-col-perf, .two-col-scan { grid-template-columns: 1fr; }
+  .three-col { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 768px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .three-col { grid-template-columns: 1fr; }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #30363d; }
+
+canvas { display: block; }
+
+.no-data {
+  text-align: center;
+  color: var(--muted);
+  padding: 30px;
+  font-size: 12px;
+}
+
+.loading-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--muted);
+  font-size: 13px;
+}
 </style>
+</head>
+<body>
 
-<div id="auth-overlay">
-  <div class="auth-card">
-    <div class="auth-logo">S1</div>
-    <div class="auth-title">Systems One</div>
-    <div class="auth-sub">Fleet Performance Dashboard</div>
-    <div class="auth-field">
-      <input type="password" id="auth-input" placeholder="Enter password" autocomplete="current-password" />
-      <button class="toggle-vis" id="auth-toggle" title="Show/hide password">👁</button>
+<!-- TOP BAR -->
+<div id="topbar">
+  <div class="topbar-left">
+    <span class="topbar-icon">⚙</span>
+    <span class="pill-dws">DWS</span>
+    <span class="topbar-title">S1 Remote Monitoring</span>
+  </div>
+  <div class="topbar-right">
+    <a href="/static/history.html" style="display:inline-flex;align-items:center;gap:6px;background:rgba(55,138,221,0.12);border:1px solid rgba(55,138,221,0.35);color:#378ADD;border-radius:5px;padding:4px 12px;font-size:12px;font-weight:600;text-decoration:none;letter-spacing:0.03em;" title="Performance over time with date range selector">
+      📈 History
+    </a>
+    <span id="alert-badge">0</span>
+    <div class="live-dot-wrap">
+      <div class="live-dot"></div>
+      <span>LIVE</span>
     </div>
-    <div class="auth-error" id="auth-error"></div>
-    <button class="auth-btn" id="auth-submit">Unlock</button>
+    <span id="utc-clock">--:--:-- UTC</span>
   </div>
 </div>
 
+<div id="main">
+
+  <!-- FLEET OVERVIEW -->
+  <div class="row-divider">
+    <span class="chevron">▸</span>
+    <span class="label">Fleet Overview</span>
+  </div>
+
+  <!-- Row 1: Year stats -->
+  <div class="stat-grid" id="stat-row1">
+    <div class="stat-panel" style="--accent-color: var(--blue)">
+      <div class="stat-value" id="s-year-items">—</div>
+      <div class="stat-label">Year Parcels</div>
+    </div>
+    <div class="stat-panel" id="sp-year-gr" style="--accent-color: var(--green)">
+      <div class="stat-value" id="s-year-gr">—</div>
+      <div class="stat-label">Year Good Read %</div>
+    </div>
+    <div class="stat-panel" style="--accent-color: var(--blue)">
+      <div class="stat-value" id="s-month-items">—</div>
+      <div class="stat-label">Month Parcels</div>
+    </div>
+    <div class="stat-panel" id="sp-month-gr" style="--accent-color: var(--green)">
+      <div class="stat-value" id="s-month-gr">—</div>
+      <div class="stat-label">Month Good Read %</div>
+    </div>
+  </div>
+
+  <!-- Row 2: Today stats -->
+  <div class="stat-grid">
+    <div class="stat-panel" style="--accent-color: var(--blue)">
+      <div class="stat-value" id="s-today-items">—</div>
+      <div class="stat-label">Today Items</div>
+    </div>
+    <div class="stat-panel" id="sp-today-gr" style="--accent-color: var(--green)">
+      <div class="stat-value" id="s-today-gr">—</div>
+      <div class="stat-label">Today Good Read %</div>
+    </div>
+    <div class="stat-panel" id="sp-no-read" style="--accent-color: var(--grey)">
+      <div class="stat-value" id="s-no-read">—</div>
+      <div class="stat-label">No Reads Today</div>
+    </div>
+    <div class="stat-panel" style="--accent-color: var(--amber)">
+      <div class="stat-value" style="color: var(--amber)" id="s-hand-scanned">—</div>
+      <div class="stat-label">Hand Scanned</div>
+    </div>
+  </div>
+
+  <!-- Row 3: Fleet stats -->
+  <div class="stat-grid">
+    <div class="stat-panel" style="--accent-color: var(--grey)">
+      <div class="stat-value" style="color: var(--grey)" id="s-total-devices">—</div>
+      <div class="stat-label">Total Devices</div>
+    </div>
+    <div class="stat-panel" id="sp-online" style="--accent-color: var(--green)">
+      <div class="stat-value" id="s-online">—</div>
+      <div class="stat-label">Online</div>
+    </div>
+    <div class="stat-panel" id="sp-offline" style="--accent-color: var(--green)">
+      <div class="stat-value" id="s-offline">—</div>
+      <div class="stat-label">Offline</div>
+    </div>
+    <div class="stat-panel" id="sp-apps-stopped" style="--accent-color: var(--green)">
+      <div class="stat-value" id="s-apps-stopped">—</div>
+      <div class="stat-label">Apps Stopped</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px;">Not Sent: <span id="s-not-sent" style="font-weight:700">—</span></div>
+    </div>
+  </div>
+
+  <!-- ACTIVE ALERTS -->
+  <div id="alerts-section" style="display:none;">
+    <div class="row-divider" style="border-left: 3px solid var(--red);">
+      <span class="chevron" style="color:var(--red)">▸</span>
+      <span class="label" style="color:var(--red)">⚠ Active Alerts</span>
+    </div>
+    <div class="alerts-grid" id="alerts-grid"></div>
+  </div>
+
+  <!-- PERFORMANCE -->
+  <div class="row-divider">
+    <span class="chevron">▸</span>
+    <span class="label">Performance</span>
+  </div>
+
+  <div class="two-col two-col-perf">
+    <div class="panel" style="--accent-color: var(--green)">
+      <div class="panel-header">
+        <span class="panel-title">Good Read % by Machine — Today</span>
+        <span class="panel-timestamp" id="ts-machineperf">—</span>
+      </div>
+      <div class="panel-body" style="padding: 10px;">
+        <canvas id="chart-machine-gr" style="max-height:360px;"></canvas>
+      </div>
+    </div>
+    <div class="panel" style="--accent-color: var(--blue)">
+      <div class="panel-header">
+        <span class="panel-title">Customer Summary</span>
+        <span class="panel-timestamp" id="ts-custsummary">—</span>
+      </div>
+      <div class="tbl-wrap" style="max-height:420px;">
+        <table id="tbl-customer-summary">
+          <thead>
+            <tr>
+              <th>Customer</th>
+              <th>Machines</th>
+              <th style="text-align:right">Items</th>
+              <th style="text-align:center">Good%</th>
+              <th style="text-align:right">No Read</th>
+              <th style="text-align:right">Hand Scan</th>
+              <th style="text-align:right">Not Sent</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-customer-summary"></tbody>
+          <tfoot id="tfoot-customer-summary"></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCAN VOLUME -->
+  <div class="row-divider">
+    <span class="chevron">▸</span>
+    <span class="label">Scan Volume</span>
+  </div>
+
+  <div class="two-col two-col-scan">
+    <div class="panel" style="--accent-color: var(--green)">
+      <div class="panel-header">
+        <span class="panel-title">Hourly Scan Volume — Today</span>
+        <span class="panel-timestamp" id="ts-hourly">—</span>
+      </div>
+      <div class="panel-body">
+        <canvas id="chart-hourly" height="200"></canvas>
+      </div>
+    </div>
+    <div class="panel" style="--accent-color: var(--blue)">
+      <div class="panel-header">
+        <span class="panel-title">Today's Breakdown</span>
+      </div>
+      <div class="panel-body">
+        <div class="doughnut-wrap">
+          <canvas id="chart-doughnut" width="200" height="200" style="max-width:200px;max-height:200px;"></canvas>
+          <div class="doughnut-center">
+            <div class="doughnut-center-value" id="doughnut-total">—</div>
+            <div class="doughnut-center-label">Total</div>
+          </div>
+        </div>
+        <div class="breakdown-stats">
+          <div class="breakdown-row">
+            <span class="breakdown-label">No Dimension</span>
+            <span id="bd-no-dim" class="pill pill-grey">—</span>
+          </div>
+          <div class="breakdown-row">
+            <span class="breakdown-label">Multi Item</span>
+            <span id="bd-multi" class="pill pill-amber">—</span>
+          </div>
+          <div class="breakdown-row">
+            <span class="breakdown-label">Out of Spec</span>
+            <span id="bd-oos" class="pill pill-red">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEVICE FLEET -->
+  <div class="row-divider">
+    <span class="chevron">▸</span>
+    <span class="label">Device Fleet</span>
+  </div>
+
+  <div class="panel" style="--accent-color: var(--blue); margin-bottom: 10px;">
+    <div class="panel-header">
+      <span class="panel-title">All Machines — Today</span>
+      <span class="panel-timestamp" id="ts-fleet">—</span>
+    </div>
+    <div class="filter-row">
+      <span class="filter-label">Customer:</span>
+      <select class="filter-select" id="fleet-customer-filter" onchange="applyFleetFilter()">
+        <option value="">All Customers</option>
+      </select>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Machine</th>
+            <th>Customer</th>
+            <th>Site</th>
+            <th>Status</th>
+            <th>App</th>
+            <th>OS</th>
+            <th style="text-align:right">Items</th>
+            <th style="text-align:center">Good%</th>
+            <th style="text-align:right">No Read</th>
+            <th style="text-align:right">Not Sent</th>
+            <th style="text-align:right">CPU</th>
+            <th style="text-align:right">Mem</th>
+            <th style="text-align:right">Temp</th>
+            <th>Uptime</th>
+            <th>C: Disk</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-fleet"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 7-DAY CUSTOMER TRENDS -->
+  <div class="row-divider">
+    <span class="chevron">▸</span>
+    <span class="label">7-Day Customer Trends</span>
+  </div>
+
+  <div class="panel" style="--accent-color: var(--purple); margin-bottom: 10px;">
+    <div class="panel-header">
+      <span class="panel-title">Good Read % by Customer — Last 7 Days</span>
+      <span class="panel-timestamp" id="ts-custtrend">—</span>
+    </div>
+    <div class="panel-body">
+      <canvas id="chart-cust-gr" height="200"></canvas>
+    </div>
+  </div>
+
+  <div class="panel" style="--accent-color: var(--blue); margin-bottom: 10px;">
+    <div class="panel-header">
+      <span class="panel-title">Daily Items Volume by Customer — Last 7 Days</span>
+    </div>
+    <div class="panel-body">
+      <canvas id="chart-cust-vol" height="160"></canvas>
+    </div>
+  </div>
+
+  <!-- 14-DAY FLEET TREND -->
+  <div class="row-divider">
+    <span class="chevron">▸</span>
+    <span class="label">14-Day Fleet Trend</span>
+  </div>
+
+  <div class="panel" style="--accent-color: var(--blue); margin-bottom: 10px;">
+    <div class="panel-header">
+      <span class="panel-title">14-Day Scan Trend — Fleet Total</span>
+      <span class="panel-timestamp" id="ts-dailytrend">—</span>
+    </div>
+    <div class="panel-body">
+      <canvas id="chart-daily-trend" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- STORAGE -->
+  <div class="row-divider">
+    <span class="chevron">▸</span>
+    <span class="label">Storage</span>
+  </div>
+
+  <div class="panel" style="--accent-color: var(--amber); margin-bottom: 10px;">
+    <div class="panel-header">
+      <span class="panel-title">Drive Storage — All Devices</span>
+      <span class="panel-timestamp" id="ts-storage">—</span>
+    </div>
+    <div class="tbl-wrap">
+      <table id="tbl-storage">
+        <thead>
+          <tr>
+            <th>Machine</th>
+            <th>Customer</th>
+            <th>Site</th>
+            <th>Drive</th>
+            <th>Used %</th>
+            <th style="text-align:right">Total GB</th>
+            <th style="text-align:right">Free GB</th>
+            <th style="text-align:center">Status</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-storage"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SYSTEM HEALTH -->
+  <div class="row-divider">
+    <span class="chevron">▸</span>
+    <span class="label">System Health</span>
+  </div>
+
+  <div class="three-col">
+    <!-- MQTT Broker -->
+    <div class="panel" style="--accent-color: var(--purple)">
+      <div class="panel-header">
+        <span class="panel-title">🔌 MQTT Broker</span>
+      </div>
+      <div class="panel-body">
+        <div class="mini-stat-grid" id="mqtt-grid"></div>
+      </div>
+    </div>
+
+    <!-- Pipeline & Ingest -->
+    <div class="panel" style="--accent-color: var(--blue)">
+      <div class="panel-header">
+        <span class="panel-title">⚡ Pipeline &amp; Ingest</span>
+      </div>
+      <div class="panel-body">
+        <div id="pipeline-rows"></div>
+        <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border);">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span class="insight-label">Dead Letter Queue</span>
+            <span id="deadletter-badge">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fleet Insights -->
+    <div class="panel" style="--accent-color: var(--green)">
+      <div class="panel-header">
+        <span class="panel-title">📊 Fleet Insights</span>
+      </div>
+      <div class="panel-body">
+        <div id="fleet-insights"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
 <script>
-  (function () {
-    const PW = 'SysOne012!';
-    const SK = 's1_auth';
-    const overlay = document.getElementById('auth-overlay');
+// ─── COLOR CONSTANTS ─────────────────────────────────────────────────────────
+const GREEN='#1D9E75', RED='#E24B4A', AMBER='#EF9F27', BLUE='#378ADD', PURPLE='#9b59b6', GREY='#6b7280';
+const CUSTOMER_COLORS = {
+  PEPKOR: BLUE, DCB: RED, MADIBANA: AMBER, BEX: PURPLE, PEP: GREEN,
+  'PEP AFRICA': '#e67e22', SNOWSOFT: GREY
+};
 
-    function unlock() { overlay.classList.add('hidden'); }
+// ─── CHART.JS GLOBALS ────────────────────────────────────────────────────────
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.borderColor = '#21262d';
+Chart.defaults.font.family = 'Inter, sans-serif';
+Chart.defaults.font.size = 11;
 
-    if (sessionStorage.getItem(SK) === '1') { unlock(); }
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+const fmt = (n, dec=0) => (n==null || n===undefined) ? '—' : typeof n==='number' ? n.toLocaleString(undefined,{minimumFractionDigits:dec,maximumFractionDigits:dec}) : n;
+const pct = v => (v==null) ? '—' : v.toFixed(1)+'%';
+const fmtBytes = b => {
+  if(b==null) return '—';
+  if(b < 1024) return b+'B';
+  if(b < 1048576) return (b/1024).toFixed(1)+'KB';
+  if(b < 1073741824) return (b/1048576).toFixed(1)+'MB';
+  return (b/1073741824).toFixed(2)+'GB';
+};
+const fmtUptime = s => {
+  if(s==null || s===undefined) return '—';
+  s = Math.floor(s);
+  if(s < 60) return s+'s';
+  if(s < 3600) return Math.floor(s/60)+'m';
+  if(s < 86400) return Math.floor(s/3600)+'h '+Math.floor((s%3600)/60)+'m';
+  return Math.floor(s/86400)+'d '+Math.floor((s%86400)/3600)+'h';
+};
+const fmtAge = isoStr => {
+  if(!isoStr) return '—';
+  const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 60000);
+  if(diff < 1) return 'just now';
+  if(diff < 60) return diff+'m ago';
+  if(diff < 1440) return Math.floor(diff/60)+'h ago';
+  return Math.floor(diff/1440)+'d ago';
+};
+const grColor = v => {
+  if(v==null) return GREY;
+  if(v >= 98) return GREEN;
+  if(v >= 90) return AMBER;
+  return RED;
+};
+const grPillClass = v => {
+  if(v==null) return 'pill-grey';
+  if(v >= 98) return 'pill-green';
+  if(v >= 90) return 'pill-amber';
+  return 'pill-red';
+};
+const cpuColor = v => {
+  if(v==null) return GREY;
+  if(v > 85) return RED;
+  if(v > 60) return AMBER;
+  return GREEN;
+};
+const tempColor = v => {
+  if(v==null) return GREY;
+  if(v > 80) return RED;
+  if(v > 65) return AMBER;
+  return GREEN;
+};
+const diskColor = v => {
+  if(v==null) return GREY;
+  if(v > 80) return RED;
+  if(v > 70) return AMBER;
+  return GREEN;
+};
+const statusOsVersion = ver => {
+  if(!ver) return {text:'—', color: GREY};
+  const stripped = ver.replace('Microsoft Windows NT ','Win ');
+  const match = ver.match(/(\d+\.\d+\.\d+)/);
+  const isOld = match && parseFloat(match[1]) < 10.019;
+  return {text: stripped, color: isOld ? AMBER : GREY};
+};
+const nowTs = () => new Date().toLocaleTimeString('en-GB',{timeZone:'UTC',hour12:false});
 
-    document.getElementById('auth-submit').addEventListener('click', attempt);
-    document.getElementById('auth-input').addEventListener('keydown', e => { if (e.key === 'Enter') attempt(); });
-    document.getElementById('auth-toggle').addEventListener('click', () => {
-      const inp = document.getElementById('auth-input');
-      inp.type = inp.type === 'password' ? 'text' : 'password';
-    });
+// ─── UTC CLOCK ────────────────────────────────────────────────────────────────
+const clockEl = document.getElementById('utc-clock');
+setInterval(()=>{
+  const now = new Date();
+  const h = String(now.getUTCHours()).padStart(2,'0');
+  const m = String(now.getUTCMinutes()).padStart(2,'0');
+  const s = String(now.getUTCSeconds()).padStart(2,'0');
+  clockEl.textContent = `${h}:${m}:${s} UTC`;
+},1000);
 
-    function attempt() {
-      const val = document.getElementById('auth-input').value;
-      const err = document.getElementById('auth-error');
-      if (val === PW) {
-        sessionStorage.setItem(SK, '1');
-        err.textContent = '';
-        unlock();
-      } else {
-        err.textContent = 'Incorrect password. Please try again.';
-        document.getElementById('auth-input').select();
-      }
-    }
-  })();
-</script>
+// ─── CHART INSTANCES ─────────────────────────────────────────────────────────
+let charts = {};
+let lastData = null;
+let fleetFilterCustomer = '';
 
-<body>
-<div class="shell">
+// ─── RENDER FUNCTIONS ────────────────────────────────────────────────────────
+function setStatPanel(id, value, color) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.textContent = value;
+  if(color) el.style.color = color;
+}
+function setPanelAccent(id, color) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.style.setProperty('--accent-color', color);
+}
 
-  <header>
-    <div class="logo">
-      <div class="logo-mark">S1</div>
-      <div>
-        <div class="logo-text">Systems One</div>
-        <div class="logo-sub">Fleet Performance</div>
-      </div>
-    </div>
-    <div class="live-badge"><div class="pulse"></div>Live</div>
-  </header>
+function renderStats(d) {
+  const y = d.year || {};
+  const t = d.totals || {};
+  const fl = d.fleet || {};
 
-  <main>
-    <div id="error-banner">Unable to reach data source. Retrying…</div>
+  // Row 1: Year
+  setStatPanel('s-year-items', fmt(y.items_year), BLUE);
+  const ygrC = grColor(y.good_read_pct_year);
+  setStatPanel('s-year-gr', y.good_read_pct_year!=null ? y.good_read_pct_year.toFixed(1)+'%' : '—', ygrC);
+  setPanelAccent('sp-year-gr', ygrC);
+  setStatPanel('s-month-items', fmt(y.items_month), BLUE);
+  const mgrC = grColor(y.good_read_pct_month);
+  setStatPanel('s-month-gr', y.good_read_pct_month!=null ? y.good_read_pct_month.toFixed(1)+'%' : '—', mgrC);
+  setPanelAccent('sp-month-gr', mgrC);
 
-    <div class="section-label">Fleet Status</div>
-    <div class="fleet-row">
-      <div class="fleet-pill"><div class="dot online"></div><span id="f-online">—</span>&nbsp;Online</div>
-      <div class="fleet-pill"><div class="dot offline"></div><span id="f-offline">—</span>&nbsp;Offline</div>
-      <div class="fleet-pill"><div class="dot app"></div><span id="f-apps-running">—</span>&nbsp;Apps Running</div>
-      <div class="fleet-pill"><div class="dot stopped"></div><span id="f-apps-stopped">—</span>&nbsp;Apps Stopped</div>
-      <div class="fleet-pill" style="margin-left:auto"><span id="f-total">—</span>&nbsp;Total Machines</div>
-    </div>
+  // Row 2: Today
+  setStatPanel('s-today-items', fmt(t.total_items), BLUE);
+  const grTotal = t.total_items > 0 ? (t.good_read / t.total_items * 100) : null;
+  const tgrC = grColor(grTotal);
+  setStatPanel('s-today-gr', grTotal!=null ? grTotal.toFixed(1)+'%' : '—', tgrC);
+  setPanelAccent('sp-today-gr', tgrC);
+  const noRead = t.no_read || 0;
+  setStatPanel('s-no-read', fmt(noRead), noRead > 0 ? RED : GREY);
+  setPanelAccent('sp-no-read', noRead > 0 ? RED : GREY);
+  setStatPanel('s-hand-scanned', fmt(t.hand_scanned), AMBER);
 
-    <div class="section-label">Performance</div>
-    <div class="stat-grid">
-      <div class="stat-card accent">
-        <div class="stat-label">Items Today</div>
-        <div class="stat-value" id="t-items">—</div>
-      </div>
-      <div class="stat-card green">
-        <div class="stat-label">Good Read % Today</div>
-        <div class="stat-value" id="t-gr-pct">—<span class="stat-suffix">%</span></div>
-      </div>
-      <div class="stat-card accent">
-        <div class="stat-label">Items This Month</div>
-        <div class="stat-value" id="m-items">—</div>
-      </div>
-      <div class="stat-card green">
-        <div class="stat-label">Good Read % Month</div>
-        <div class="stat-value" id="m-gr-pct">—<span class="stat-suffix">%</span></div>
-      </div>
-      <div class="stat-card accent">
-        <div class="stat-label">Items This Year</div>
-        <div class="stat-value" id="y-items">—</div>
-      </div>
-      <div class="stat-card green">
-        <div class="stat-label">Good Read % Year</div>
-        <div class="stat-value" id="y-gr-pct">—<span class="stat-suffix">%</span></div>
-      </div>
-    </div>
+  // Row 3: Fleet
+  setStatPanel('s-total-devices', fmt(fl.total_machines), GREY);
+  const allOnline = fl.offline === 0;
+  setStatPanel('s-online', fmt(fl.online), allOnline ? GREEN : AMBER);
+  setPanelAccent('sp-online', allOnline ? GREEN : AMBER);
+  const offlineN = fl.offline || 0;
+  setStatPanel('s-offline', fmt(offlineN), offlineN > 0 ? RED : GREEN);
+  setPanelAccent('sp-offline', offlineN > 0 ? RED : GREEN);
+  const stoppedN = fl.apps_stopped || 0;
+  setStatPanel('s-apps-stopped', fmt(stoppedN), stoppedN > 0 ? RED : GREEN);
+  setPanelAccent('sp-apps-stopped', stoppedN > 0 ? RED : GREEN);
+  const notSentEl = document.getElementById('s-not-sent');
+  if(notSentEl) {
+    const ns = t.not_sent || 0;
+    notSentEl.textContent = fmt(ns);
+    notSentEl.style.color = ns > 0 ? RED : GREY;
+  }
 
-    <div class="charts-row">
-      <div class="chart-wrap">
-        <div class="chart-title">Throughput — Last 24 h</div>
-        <div class="sparkline-wrap">
-          <svg id="chart-throughput" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"></svg>
+  // Alert badge
+  const alertCount = (d.thresholdBreaches||[]).length + offlineN;
+  const badge = document.getElementById('alert-badge');
+  if(alertCount > 0) {
+    badge.textContent = alertCount;
+    badge.classList.add('visible');
+    badge.classList.remove('zero');
+  } else {
+    badge.textContent = '0';
+    badge.classList.add('visible','zero');
+  }
+}
+
+function renderAlerts(d) {
+  const breaches = d.thresholdBreaches || [];
+  const offlineDevices = (d.devices||[]).filter(dv=>dv.status==='offline');
+  const section = document.getElementById('alerts-section');
+  const grid = document.getElementById('alerts-grid');
+
+  const hasAlerts = breaches.length > 0 || offlineDevices.length > 0;
+  section.style.display = hasAlerts ? '' : 'none';
+  if(!hasAlerts) return;
+
+  let html = '';
+
+  breaches.forEach(b => {
+    const isBad = b.current_pct < b.bad_value;
+    const cls = isBad ? 'bad' : 'warn';
+    const borderColor = isBad ? RED : AMBER;
+    const barPct = Math.min(100, Math.max(0, (b.current_pct / b.baseline_mean) * 100));
+    html += `
+    <div class="alert-card ${cls}">
+      <div class="alert-machine">${b.machine_name||'—'}</div>
+      <div class="alert-meta">${b.customer||'—'} · ${b.location||'—'}</div>
+      <div class="alert-metric">${(b.metric||'').replace(/_/g,' ')}</div>
+      <div style="display:flex;align-items:flex-end;gap:18px;margin-top:6px;">
+        <div>
+          <div class="alert-val-current" style="color:${borderColor}">${b.current_pct!=null?b.current_pct.toFixed(1)+'%':'—'}</div>
+          <div class="alert-val-label">Current</div>
+        </div>
+        <div style="font-size:11px;">
+          <div style="color:${AMBER};font-weight:600">${b.warn_value!=null?b.warn_value.toFixed(1)+'%':'—'}</div>
+          <div class="alert-val-label">Warn</div>
+        </div>
+        <div style="font-size:11px;">
+          <div style="color:var(--muted);font-weight:600">${b.baseline_mean!=null?b.baseline_mean.toFixed(1)+'%':'—'}</div>
+          <div class="alert-val-label">Baseline</div>
         </div>
       </div>
-      <div class="chart-wrap">
-        <div class="chart-title">Good Read % — Last 24 h</div>
-        <div class="sparkline-wrap">
-          <svg id="chart-goodread" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"></svg>
-        </div>
+      <div class="alert-progress-wrap">
+        <div class="alert-progress-bar" style="width:${barPct.toFixed(1)}%;background:${borderColor}"></div>
       </div>
-      <div class="chart-wrap">
-        <div class="chart-title">Counts — Last 24 h</div>
-        <div class="sparkline-wrap">
-          <svg id="chart-counts" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"></svg>
-        </div>
-      </div>
-    </div>
-
-  </main>
-
-  <footer>
-    <span>Systems One Monitoring Platform</span>
-    <span>Updated <span id="last-updated">—</span></span>
-  </footer>
-
-</div>
-
-<script>
-  const REFRESH_MS = 30_000;
-
-  function animateTo(el, target, decimals = 0) {
-    const start = parseFloat(el.dataset.val ?? '0') || 0;
-    const end   = typeof target === 'number' ? target : parseFloat(target) || 0;
-    const dur   = 600;
-    const t0    = performance.now();
-    el.dataset.val = end;
-    const suffix = el.querySelector('.stat-suffix');
-    const sfxHtml = suffix ? suffix.outerHTML : '';
-    function step(now) {
-      const p    = Math.min((now - t0) / dur, 1);
-      const ease = p < .5 ? 2*p*p : -1+(4-2*p)*p;
-      const v    = start + (end - start) * ease;
-      const fmt  = decimals > 0 ? v.toFixed(decimals) : Math.round(v).toLocaleString();
-      el.innerHTML = fmt + sfxHtml;
-      if (p < 1) requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
-  }
-
-  // ── Generic bar chart renderer ──────────────────────────────────────────
-  function renderBars(svgId, data, color, gradId) {
-    const svg = document.getElementById(svgId);
-    if (!data || !data.length) {
-      svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#64748b" font-size="11">No data</text>';
-      return;
-    }
-    const W = svg.clientWidth  || 300;
-    const H = svg.clientHeight || 160;
-    const PAD = { top: 14, right: 8, bottom: 28, left: 44 };
-    const chartW = W - PAD.left - PAD.right;
-    const chartH = H - PAD.top  - PAD.bottom;
-
-    const values = data.map(d => d.value);
-    const maxV   = Math.max(...values, 1);
-    const GRID   = 4;
-
-    const xOf = i => PAD.left + (i / Math.max(data.length - 1, 1)) * chartW;
-    const yOf = v => PAD.top  + chartH - (v / maxV) * chartH;
-
-    let out = `<defs>
-      <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%"   stop-color="${color}" stop-opacity="1"/>
-        <stop offset="100%" stop-color="${color}" stop-opacity=".6"/>
-      </linearGradient>
-      <clipPath id="clip-${gradId}">
-        <rect x="${PAD.left}" y="${PAD.top}" width="${chartW}" height="${chartH}"/>
-      </clipPath>
-    </defs>`;
-
-    for (let i = 0; i <= GRID; i++) {
-      const v   = (maxV / GRID) * i;
-      const y   = yOf(v);
-      const lbl = v >= 1000 ? (v/1000).toFixed(v%1000===0?0:1)+'k' : Math.round(v);
-      out += `<line x1="${PAD.left}" y1="${y}" x2="${PAD.left+chartW}" y2="${y}"
-                stroke="#1e1e2e" stroke-width="1"/>`;
-      out += `<text x="${PAD.left-6}" y="${y+4}" text-anchor="end"
-                font-size="9" fill="#64748b" font-family="Inter,system-ui,sans-serif">${lbl}</text>`;
-    }
-
-    const barW = Math.max((chartW / data.length) * 0.7, 2);
-    data.forEach((d, i) => {
-      const x  = xOf(i) - barW/2;
-      const bh = Math.max((d.value / maxV) * chartH, 2);
-      const y  = PAD.top + chartH - bh;
-      out += `<rect x="${x}" y="${y}" width="${barW}" height="${bh}"
-                rx="2" fill="url(#${gradId})" clip-path="url(#clip-${gradId})"/>`;
-    });
-
-    const step = Math.ceil(data.length / 8);
-    data.forEach((d, i) => {
-      if (i % step !== 0 && i !== data.length - 1) return;
-      out += `<text x="${xOf(i)}" y="${PAD.top+chartH+18}" text-anchor="middle"
-                font-size="9" fill="#64748b" font-family="Inter,system-ui,sans-serif">${d.label}</text>`;
-    });
-
-    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    svg.innerHTML = out;
-  }
-
-  // ── Good Read % line chart ───────────────────────────────────────────────
-  function renderGoodReadPct(data) {
-    const svg = document.getElementById('chart-goodread');
-    if (!data || !data.length) {
-      svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#64748b" font-size="11">No data</text>';
-      return;
-    }
-    const W = svg.clientWidth  || 300;
-    const H = svg.clientHeight || 160;
-    const PAD = { top: 14, right: 8, bottom: 28, left: 44 };
-    const chartW = W - PAD.left - PAD.right;
-    const chartH = H - PAD.top  - PAD.bottom;
-
-    const pts = data.map(d => ({
-      label: d.label,
-      pct: d.value > 0 ? (d.good_reads / d.value * 100) : null,
-    }));
-
-    const valid = pts.filter(p => p.pct !== null).map(p => p.pct);
-    const minV  = Math.max(0, Math.min(...valid) - 2);
-    const maxV  = Math.min(100, Math.max(...valid) + 2);
-    const range = maxV - minV || 1;
-
-    const xOf = i => PAD.left + (i / Math.max(pts.length - 1, 1)) * chartW;
-    const yOf = v => PAD.top  + chartH - ((v - minV) / range) * chartH;
-
-    let out = `<defs>
-      <linearGradient id="grad-gr" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%"   stop-color="#6ee7b7" stop-opacity=".5"/>
-        <stop offset="100%" stop-color="#6ee7b7" stop-opacity=".05"/>
-      </linearGradient>
-    </defs>`;
-
-    const GRID = 4;
-    for (let i = 0; i <= GRID; i++) {
-      const v = minV + (range / GRID) * i;
-      const y = yOf(v);
-      out += `<line x1="${PAD.left}" y1="${y}" x2="${PAD.left+chartW}" y2="${y}"
-                stroke="#1e1e2e" stroke-width="1"/>`;
-      out += `<text x="${PAD.left-6}" y="${y+4}" text-anchor="end"
-                font-size="9" fill="#64748b" font-family="Inter,system-ui,sans-serif">${v.toFixed(1)}%</text>`;
-    }
-
-    // fill area
-    const validPts = pts.map((p, i) => p.pct !== null ? `${xOf(i)},${yOf(p.pct)}` : null).filter(Boolean);
-    if (validPts.length > 1) {
-      const firstX = xOf(pts.findIndex(p => p.pct !== null));
-      const lastX  = xOf(pts.map((p,i)=>({p,i})).filter(({p})=>p.pct!==null).at(-1).i);
-      const bottom = PAD.top + chartH;
-      out += `<polygon points="${firstX},${bottom} ${validPts.join(' ')} ${lastX},${bottom}"
-                fill="url(#grad-gr)" clip-path="url(#clip-gr)"/>`;
-    }
-
-    out += `<defs><clipPath id="clip-gr">
-      <rect x="${PAD.left}" y="${PAD.top}" width="${chartW}" height="${chartH}"/>
-    </clipPath></defs>`;
-
-    // line segments (skip null gaps)
-    let linePts = [];
-    pts.forEach((p, i) => {
-      if (p.pct !== null) {
-        linePts.push(`${i === 0 || pts[i-1].pct === null ? 'M' : 'L'}${xOf(i)},${yOf(p.pct)}`);
-      }
-    });
-    if (linePts.length) {
-      out += `<path d="${linePts.join(' ')}" fill="none" stroke="#6ee7b7"
-                stroke-width="1.8" stroke-linejoin="round" clip-path="url(#clip-gr)"/>`;
-    }
-
-    // dots
-    pts.forEach((p, i) => {
-      if (p.pct !== null) {
-        out += `<circle cx="${xOf(i)}" cy="${yOf(p.pct)}" r="2.5" fill="#6ee7b7"/>`;
-      }
-    });
-
-    const step = Math.ceil(pts.length / 8);
-    pts.forEach((p, i) => {
-      if (i % step !== 0 && i !== pts.length - 1) return;
-      out += `<text x="${xOf(i)}" y="${PAD.top+chartH+18}" text-anchor="middle"
-                font-size="9" fill="#64748b" font-family="Inter,system-ui,sans-serif">${p.label}</text>`;
-    });
-
-    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    svg.innerHTML = out;
-  }
-
-  // ── Counts chart: good reads + no reads + total on shared y-axis ─────────
-  function renderCounts(data) {
-    const svg = document.getElementById('chart-counts');
-    if (!data || !data.length) {
-      svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#64748b" font-size="11">No data</text>';
-      return;
-    }
-    const W = svg.clientWidth  || 300;
-    const H = svg.clientHeight || 160;
-    const PAD = { top: 14, right: 8, bottom: 36, left: 44 };
-    const chartW = W - PAD.left - PAD.right;
-    const chartH = H - PAD.top  - PAD.bottom;
-
-    const totals    = data.map(d => d.value);
-    const goods     = data.map(d => d.good_reads);
-    const noreads   = data.map(d => d.no_reads);
-    const maxV      = Math.max(...totals, 1);
-
-    const xOf = i => PAD.left + (i / Math.max(data.length - 1, 1)) * chartW;
-    const yOf = v => PAD.top  + chartH - (v / maxV) * chartH;
-
-    let out = `<defs>
-      <clipPath id="clip-cnt">
-        <rect x="${PAD.left}" y="${PAD.top}" width="${chartW}" height="${chartH}"/>
-      </clipPath>
-    </defs>`;
-
-    const GRID = 4;
-    for (let i = 0; i <= GRID; i++) {
-      const v   = (maxV / GRID) * i;
-      const y   = yOf(v);
-      const lbl = v >= 1000 ? (v/1000).toFixed(v%1000===0?0:1)+'k' : Math.round(v);
-      out += `<line x1="${PAD.left}" y1="${y}" x2="${PAD.left+chartW}" y2="${y}"
-                stroke="#1e1e2e" stroke-width="1"/>`;
-      out += `<text x="${PAD.left-6}" y="${y+4}" text-anchor="end"
-                font-size="9" fill="#64748b" font-family="Inter,system-ui,sans-serif">${lbl}</text>`;
-    }
-
-    function polyline(vals, color, dash='') {
-      const d = vals.map((v,i)=>`${i===0?'M':'L'}${xOf(i)},${yOf(v)}`).join(' ');
-      out += `<path d="${d}" fill="none" stroke="${color}" stroke-width="${dash?1.2:1.8}"
-                stroke-dasharray="${dash}" stroke-linejoin="round" clip-path="url(#clip-cnt)"/>`;
-    }
-
-    polyline(totals,  '#4f8ef7', '4,3');  // total dashed blue
-    polyline(goods,   '#6ee7b7');          // good reads solid green
-    polyline(noreads, '#ef4444');          // no reads solid red
-
-    const step = Math.ceil(data.length / 8);
-    data.forEach((d, i) => {
-      if (i % step !== 0 && i !== data.length - 1) return;
-      out += `<text x="${xOf(i)}" y="${PAD.top+chartH+18}" text-anchor="middle"
-                font-size="9" fill="#64748b" font-family="Inter,system-ui,sans-serif">${d.label}</text>`;
-    });
-
-    // legend
-    const legend = [
-      { color: '#4f8ef7', label: 'Total', dash: true },
-      { color: '#6ee7b7', label: 'Good'  },
-      { color: '#ef4444', label: 'No-read' },
-    ];
-    legend.forEach((l, i) => {
-      const lx = PAD.left + i * (chartW / 3);
-      const ly = PAD.top + chartH + 28;
-      out += `<line x1="${lx}" y1="${ly}" x2="${lx+14}" y2="${ly}"
-                stroke="${l.color}" stroke-width="2" stroke-dasharray="${l.dash?'4,3':''}"/>`;
-      out += `<text x="${lx+18}" y="${ly+4}" font-size="9" fill="#94a3b8"
-                font-family="Inter,system-ui,sans-serif">${l.label}</text>`;
-    });
-
-    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    svg.innerHTML = out;
-  }
-
-  function renderAllCharts(sparkline) {
-    renderBars('chart-throughput', sparkline, '#4f8ef7', 'grad-thr');
-    renderGoodReadPct(sparkline);
-    renderCounts(sparkline);
-  }
-
-  async function refresh() {
-    try {
-      const res = await fetch('/api/stats');
-      if (!res.ok) throw new Error(res.statusText);
-      const d = await res.json();
-
-      document.getElementById('error-banner').style.display = 'none';
-
-      document.getElementById('f-online').textContent       = d.fleet.online;
-      document.getElementById('f-offline').textContent      = d.fleet.offline;
-      document.getElementById('f-apps-running').textContent = d.fleet.apps_running;
-      document.getElementById('f-apps-stopped').textContent = d.fleet.apps_stopped;
-      document.getElementById('f-total').textContent        = d.fleet.total_machines;
-
-      document.querySelector('.dot.offline').closest('.fleet-pill')
-        .style.borderColor = d.fleet.offline > 0 ? 'var(--danger)' : '';
-
-      animateTo(document.getElementById('t-items'),   d.today.items);
-      animateTo(document.getElementById('t-gr-pct'),  d.today.good_read_pct, 1);
-      animateTo(document.getElementById('m-items'),   d.month.items);
-      animateTo(document.getElementById('m-gr-pct'),  d.month.good_read_pct, 1);
-      animateTo(document.getElementById('y-items'),   d.year.items);
-      animateTo(document.getElementById('y-gr-pct'),  d.year.good_read_pct, 1);
-
-      renderAllCharts(d.sparkline);
-      window._lastSparkline = d.sparkline;
-
-      const ts = new Date(d.generated_at * 1000);
-      document.getElementById('last-updated').textContent =
-        ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-    } catch (e) {
-      document.getElementById('error-banner').style.display = 'block';
-      console.error('Stats fetch failed:', e);
-    }
-  }
-
-  refresh();
-  setInterval(refresh, REFRESH_MS);
-  window.addEventListener('resize', () => {
-    if (window._lastSparkline) renderAllCharts(window._lastSparkline);
+    </div>`;
   });
+
+  offlineDevices.forEach(dv => {
+    const age = dv.offline_since ? fmtAge(dv.offline_since) : 'unknown';
+    html += `
+    <div class="alert-card bad">
+      <div class="alert-machine">${dv.machine_name||'—'}</div>
+      <div class="alert-meta">${dv.customer||'—'} · ${dv.location||'—'}</div>
+      <div class="alert-metric">Device Offline</div>
+      <div style="margin-top:6px;">
+        <div class="alert-val-current" style="color:${RED}">OFFLINE</div>
+        <div class="alert-val-label">Since: ${age}</div>
+      </div>
+    </div>`;
+  });
+
+  grid.innerHTML = html;
+}
+
+function renderCustomerSummary(d) {
+  const rows = [...(d.customerSummary||[])].sort((a,b)=>b.total_items-a.total_items);
+  const tbody = document.getElementById('tbody-customer-summary');
+  const tfoot = document.getElementById('tfoot-customer-summary');
+
+  tbody.innerHTML = rows.map(r => {
+    const grP = r.good_read_pct!=null ? r.good_read_pct : (r.total_items>0 ? r.good_read/r.total_items*100 : null);
+    const pillC = grPillClass(grP);
+    const ns = r.not_sent||0;
+    return `<tr>
+      <td style="font-weight:600">${r.customer||'—'}</td>
+      <td>${fmt(r.machines)}</td>
+      <td style="text-align:right">${fmt(r.total_items)}</td>
+      <td style="text-align:center"><span class="pill ${pillC}">${grP!=null?grP.toFixed(1)+'%':'—'}</span></td>
+      <td style="text-align:right;color:${r.no_read>0?RED:GREY}">${fmt(r.no_read)}</td>
+      <td style="text-align:right">${fmt(r.hand_scanned)}</td>
+      <td style="text-align:right;${ns>0?'color:'+RED+';font-weight:700':''}">${ns>0?fmt(ns):'—'}</td>
+    </tr>`;
+  }).join('');
+
+  // Fleet total
+  const tot = rows.reduce((acc,r)=>({
+    machines: acc.machines+(r.machines||0),
+    total_items: acc.total_items+(r.total_items||0),
+    good_read: acc.good_read+(r.good_read||0),
+    no_read: acc.no_read+(r.no_read||0),
+    hand_scanned: acc.hand_scanned+(r.hand_scanned||0),
+    not_sent: acc.not_sent+(r.not_sent||0)
+  }), {machines:0,total_items:0,good_read:0,no_read:0,hand_scanned:0,not_sent:0});
+  const totGr = tot.total_items > 0 ? (tot.good_read/tot.total_items*100) : null;
+  const tpc = grPillClass(totGr);
+  tfoot.innerHTML = `<tr>
+    <td>FLEET TOTAL</td>
+    <td>${fmt(tot.machines)}</td>
+    <td style="text-align:right">${fmt(tot.total_items)}</td>
+    <td style="text-align:center"><span class="pill ${tpc}">${totGr!=null?totGr.toFixed(1)+'%':'—'}</span></td>
+    <td style="text-align:right;color:${tot.no_read>0?RED:GREY}">${fmt(tot.no_read)}</td>
+    <td style="text-align:right">${fmt(tot.hand_scanned)}</td>
+    <td style="text-align:right;${tot.not_sent>0?'color:'+RED+';font-weight:700':''}">${tot.not_sent>0?fmt(tot.not_sent):'—'}</td>
+  </tr>`;
+
+  document.getElementById('ts-custsummary').textContent = 'Updated '+nowTs();
+}
+
+function renderMachineGoodReadChart(d) {
+  const machines = [...(d.machineGoodRead||[])].filter(m=>m.total_items>0).sort((a,b)=>a.good_read_pct-b.good_read_pct);
+  const thresholds = d.thresholds||[];
+
+  const labels = machines.map(m=>`${m.machine_name} · ${m.customer}`);
+  const values = machines.map(m=>m.good_read_pct);
+  const colors = values.map(v=>v>=98?GREEN:v>=90?AMBER:RED);
+
+  const warnLines = machines.map(m=>{
+    const thr = thresholds.find(t=>t.machine_name===m.machine_name&&t.customer===m.customer&&t.metric==='good_read_pct');
+    return thr ? thr.warn_value : null;
+  });
+
+  const ctx = document.getElementById('chart-machine-gr').getContext('2d');
+
+  if(charts.machineGr) {
+    charts.machineGr.data.labels = labels;
+    charts.machineGr.data.datasets[0].data = values;
+    charts.machineGr.data.datasets[0].backgroundColor = colors;
+    charts.machineGr.options.scales.y.ticks.count = labels.length;
+    charts.machineGr.update();
+  } else {
+    const dynH = Math.max(200, machines.length * 28);
+    ctx.canvas.height = dynH;
+
+    charts.machineGr = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: colors,
+          borderRadius: 3,
+          borderSkipped: false,
+          barThickness: 16,
+          datalabels: {display:false}
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {display:false},
+          tooltip: {
+            callbacks: {
+              label: ctx => `${ctx.parsed.x.toFixed(1)}%`
+            }
+          }
+        },
+        scales: {
+          x: {
+            min: 0,
+            max: 100,
+            grid: { color: '#21262d' },
+            ticks: { callback: v => v+'%' }
+          },
+          y: {
+            grid: { display: false },
+            ticks: { color: '#94a3b8', font: {size:10} }
+          }
+        },
+        animation: false
+      },
+      plugins: [{
+        id: 'valueLabels',
+        afterDatasetsDraw(chart) {
+          const ctx = chart.ctx;
+          chart.data.datasets[0].data.forEach((val, i) => {
+            const meta = chart.getDatasetMeta(0);
+            const bar = meta.data[i];
+            ctx.save();
+            ctx.fillStyle = '#e2e8f0';
+            ctx.font = '600 10px Inter, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(val.toFixed(1)+'%', bar.x + 4, bar.y);
+            ctx.restore();
+          });
+          // Draw warn threshold lines
+          warnLines.forEach((wl, i) => {
+            if(wl == null) return;
+            const meta = chart.getDatasetMeta(0);
+            const bar = meta.data[i];
+            const xScale = chart.scales.x;
+            const x = xScale.getPixelForValue(wl);
+            ctx.save();
+            ctx.strokeStyle = AMBER;
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([3,3]);
+            ctx.beginPath();
+            ctx.moveTo(x, bar.y - 10);
+            ctx.lineTo(x, bar.y + 10);
+            ctx.stroke();
+            ctx.restore();
+          });
+        }
+      }]
+    });
+  }
+
+  document.getElementById('ts-machineperf').textContent = 'Updated '+nowTs();
+}
+
+function renderHourlyChart(d) {
+  const hourlyMap = {};
+  (d.hourly||[]).forEach(h=>{ hourlyMap[h.hr] = h; });
+
+  const labels = Array.from({length:24},(_,i)=>String(i).padStart(2,'0')+':00');
+  const goodData = [], noReadData = [], handData = [], totalLabels = [];
+
+  for(let i=0;i<24;i++) {
+    const h = hourlyMap[i] || {good:0,no_read:0,hand_scanned:0,items:0};
+    goodData.push(h.good||0);
+    noReadData.push(h.no_read||0);
+    handData.push(h.hand_scanned||0);
+    totalLabels.push((h.good||0)+(h.no_read||0)+(h.hand_scanned||0));
+  }
+
+  const ctx = document.getElementById('chart-hourly').getContext('2d');
+
+  if(charts.hourly) {
+    charts.hourly.data.datasets[0].data = goodData;
+    charts.hourly.data.datasets[1].data = noReadData;
+    charts.hourly.data.datasets[2].data = handData;
+    charts.hourly.update();
+  } else {
+    charts.hourly = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label:'Good', data: goodData, backgroundColor: GREEN+'cc', stack:'s' },
+          { label:'No Read', data: noReadData, backgroundColor: RED+'cc', stack:'s' },
+          { label:'Hand Scanned', data: handData, backgroundColor: AMBER+'cc', stack:'s' }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position:'top', labels:{boxWidth:12, padding:12} }
+        },
+        scales: {
+          x: { stacked:true, grid:{color:'#21262d'}, ticks:{maxRotation:45, minRotation:45, font:{size:9}} },
+          y: { stacked:true, grid:{color:'#21262d'} }
+        },
+        animation: false
+      },
+      plugins: [{
+        id: 'totalLabels',
+        afterDatasetsDraw(chart) {
+          const ctx = chart.ctx;
+          const meta0 = chart.getDatasetMeta(0);
+          const meta1 = chart.getDatasetMeta(1);
+          const meta2 = chart.getDatasetMeta(2);
+          totalLabels.forEach((total, i) => {
+            if(total === 0) return;
+            const bars = [meta0.data[i], meta1.data[i], meta2.data[i]].filter(b=>b);
+            let minY = Infinity;
+            bars.forEach(b => { if(b.y < minY) minY = b.y; });
+            ctx.save();
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '500 9px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(total > 0 ? total.toLocaleString() : '', meta0.data[i].x, minY - 4);
+            ctx.restore();
+          });
+        }
+      }]
+    });
+  }
+
+  document.getElementById('ts-hourly').textContent = 'Updated '+nowTs();
+}
+
+function renderDoughnut(d) {
+  const t = d.totals||{};
+  const good = t.good_read||0, noRead = t.no_read||0, hand = t.hand_scanned||0;
+  const total = t.total_items||0;
+
+  document.getElementById('doughnut-total').textContent = total.toLocaleString();
+  document.getElementById('bd-no-dim').textContent = fmt(t.no_dimension);
+  document.getElementById('bd-multi').textContent = fmt(t.multi_item);
+  document.getElementById('bd-oos').textContent = fmt(t.out_of_spec);
+
+  const ctx = document.getElementById('chart-doughnut').getContext('2d');
+
+  if(charts.doughnut) {
+    charts.doughnut.data.datasets[0].data = [good, noRead, hand];
+    charts.doughnut.update();
+  } else {
+    charts.doughnut = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Good Reads','No Reads','Hand Scanned'],
+        datasets:[{
+          data: [good, noRead, hand],
+          backgroundColor: [GREEN+'dd', RED+'dd', AMBER+'dd'],
+          borderColor: '#161b22',
+          borderWidth: 2,
+          hoverOffset: 4
+        }]
+      },
+      options: {
+        responsive: false,
+        cutout: '68%',
+        plugins: {
+          legend: { position:'bottom', labels:{boxWidth:10, padding:8, font:{size:10}} }
+        },
+        animation: false
+      }
+    });
+  }
+}
+
+function renderFleetTable(d) {
+  const devices = (d.devices||[]).slice().sort((a,b)=>(a.machine_name||'').localeCompare(b.machine_name||''));
+
+  // Populate filter dropdown
+  const filterSel = document.getElementById('fleet-customer-filter');
+  const currentFilter = filterSel.value;
+  const customers = [...new Set(devices.map(dv=>dv.customer).filter(Boolean))].sort();
+  filterSel.innerHTML = '<option value="">All Customers</option>' +
+    customers.map(c=>`<option value="${c}" ${c===currentFilter?'selected':''}>${c}</option>`).join('');
+
+  renderFleetRows(devices);
+
+  document.getElementById('ts-fleet').textContent = 'Updated '+nowTs();
+}
+
+function renderFleetRows(devices) {
+  const filter = document.getElementById('fleet-customer-filter').value;
+  const filtered = filter ? devices.filter(dv=>dv.customer===filter) : devices;
+
+  const tbody = document.getElementById('tbody-fleet');
+  tbody.innerHTML = filtered.map((dv,idx)=>{
+    // Status
+    let statusHtml;
+    if(dv.status==='online') {
+      statusHtml = `<span class="pill pill-green">Online</span>`;
+    } else {
+      const offSince = dv.offline_since ? (Date.now()-new Date(dv.offline_since).getTime())/1000 : 0;
+      const isStale = offSince > 86400;
+      statusHtml = `<span class="pill ${isStale?'pill-amber':'pill-red'}">${isStale?'Stale':'Offline'}</span>`;
+    }
+
+    // App
+    let appHtml;
+    if(dv.application_running) {
+      appHtml = `<span style="color:${GREEN}">● Running</span>`;
+    } else {
+      const age = dv.stopped_since ? fmtAge(dv.stopped_since) : '';
+      appHtml = `<span style="color:${RED}">✕ Stopped${age?' '+age:''}</span>`;
+    }
+
+    // OS
+    const osInfo = statusOsVersion(dv.os_version);
+    const osHtml = `<span style="color:${osInfo.color};font-size:11px">${osInfo.text}</span>`;
+
+    // Good%
+    const grP = dv.total_items > 0 ? (dv.good_read/dv.total_items*100) : null;
+    const grHtml = grP!=null ? `<span class="pill ${grPillClass(grP)}">${grP.toFixed(1)}%</span>` : '—';
+
+    // Not sent
+    const ns = dv.not_sent||0;
+    const nsHtml = ns > 0 ? `<span style="color:${RED};font-weight:700">${fmt(ns)}</span>` : '—';
+
+    // CPU
+    const cpuHtml = dv.cpu_percent!=null ? `<span style="color:${cpuColor(dv.cpu_percent)}">${dv.cpu_percent.toFixed(1)}%</span>` : '—';
+
+    // Mem
+    const memHtml = dv.mem_usage_pct!=null ? `<span style="color:${cpuColor(dv.mem_usage_pct)}">${dv.mem_usage_pct.toFixed(1)}%</span>` : '—';
+
+    // Temp
+    const tempHtml = dv.temp_celsius!=null ? `<span style="color:${tempColor(dv.temp_celsius)}">${dv.temp_celsius.toFixed(1)}°C</span>` : '—';
+
+    // Disk
+    const diskPct = dv.c_disk_pct;
+    const diskHtml = diskPct!=null ? `
+      <div class="disk-bar-wrap">
+        <div class="disk-bar-track"><div class="disk-bar-fill" style="width:${diskPct}%;background:${diskColor(diskPct)}"></div></div>
+        <span style="color:${diskColor(diskPct)};font-size:11px">${diskPct.toFixed(0)}%</span>
+      </div>` : '—';
+
+    return `<tr>
+      <td style="color:var(--muted)">${idx+1}</td>
+      <td style="font-weight:600">${dv.machine_name||'—'}</td>
+      <td>${dv.customer||'—'}</td>
+      <td>${dv.location||'—'}</td>
+      <td>${statusHtml}</td>
+      <td>${appHtml}</td>
+      <td>${osHtml}</td>
+      <td style="text-align:right">${fmt(dv.total_items)}</td>
+      <td style="text-align:center">${grHtml}</td>
+      <td style="text-align:right;color:${(dv.no_read||0)>0?RED:GREY}">${fmt(dv.no_read)||'0'}</td>
+      <td style="text-align:right">${nsHtml}</td>
+      <td style="text-align:right">${cpuHtml}</td>
+      <td style="text-align:right">${memHtml}</td>
+      <td style="text-align:right">${tempHtml}</td>
+      <td>${fmtUptime(dv.uptime_seconds)}</td>
+      <td>${diskHtml}</td>
+    </tr>`;
+  }).join('');
+}
+
+function applyFleetFilter() {
+  if(!lastData) return;
+  const devices = (lastData.devices||[]).slice().sort((a,b)=>(a.machine_name||'').localeCompare(b.machine_name||''));
+  renderFleetRows(devices);
+}
+
+function renderCustomerTrends(d) {
+  const trend = d.customerTrend||[];
+  // Get last 7 unique days
+  const allDays = [...new Set(trend.map(r=>r.day))].sort().slice(-7);
+  const customers = [...new Set(trend.map(r=>r.customer))];
+
+  // Build datasets for GR% chart
+  const grDatasets = customers.map(cust => {
+    const color = CUSTOMER_COLORS[cust] || GREY;
+    return {
+      label: cust,
+      data: allDays.map(day => {
+        const row = trend.find(r=>r.day===day&&r.customer===cust);
+        return row ? row.good_read_pct : null;
+      }),
+      borderColor: color,
+      backgroundColor: color+'33',
+      tension: 0.3,
+      spanGaps: true,
+      pointRadius: 3,
+      borderWidth: 2
+    };
+  });
+
+  // Reference lines
+  const ref98 = {
+    label: '98% Target',
+    data: allDays.map(()=>98),
+    borderColor: GREEN+'88',
+    borderDash: [5,4],
+    borderWidth: 1.5,
+    pointRadius: 0,
+    fill: false
+  };
+  const ref90 = {
+    label: '90% Min',
+    data: allDays.map(()=>90),
+    borderColor: AMBER+'88',
+    borderDash: [5,4],
+    borderWidth: 1.5,
+    pointRadius: 0,
+    fill: false
+  };
+
+  const ctx1 = document.getElementById('chart-cust-gr').getContext('2d');
+  if(charts.custGr) {
+    charts.custGr.data.labels = allDays;
+    charts.custGr.data.datasets = [...grDatasets, ref98, ref90];
+    charts.custGr.update();
+  } else {
+    charts.custGr = new Chart(ctx1, {
+      type: 'line',
+      data: { labels: allDays, datasets: [...grDatasets, ref98, ref90] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position:'top', labels:{boxWidth:12, padding:12} }
+        },
+        scales: {
+          x: { grid:{color:'#21262d'} },
+          y: { min:0, max:100, grid:{color:'#21262d'}, ticks:{callback:v=>v+'%'} }
+        },
+        animation: false
+      }
+    });
+  }
+
+  // Volume chart
+  const volDatasets = customers.map(cust => {
+    const color = CUSTOMER_COLORS[cust] || GREY;
+    return {
+      label: cust,
+      data: allDays.map(day => {
+        const row = trend.find(r=>r.day===day&&r.customer===cust);
+        return row ? row.items : 0;
+      }),
+      backgroundColor: color+'cc',
+      borderRadius: 2
+    };
+  });
+
+  const ctx2 = document.getElementById('chart-cust-vol').getContext('2d');
+  if(charts.custVol) {
+    charts.custVol.data.labels = allDays;
+    charts.custVol.data.datasets = volDatasets;
+    charts.custVol.update();
+  } else {
+    charts.custVol = new Chart(ctx2, {
+      type: 'bar',
+      data: { labels: allDays, datasets: volDatasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position:'top', labels:{boxWidth:12, padding:12} }
+        },
+        scales: {
+          x: { grid:{color:'#21262d'} },
+          y: { grid:{color:'#21262d'}, ticks:{callback: v=>v>=1000?Math.round(v/1000)+'k':v} }
+        },
+        animation: false
+      }
+    });
+  }
+
+  document.getElementById('ts-custtrend').textContent = 'Updated '+nowTs();
+}
+
+function renderDailyTrend(d) {
+  const daily = [...(d.dailyTrend||[])].sort((a,b)=>a.day.localeCompare(b.day)).slice(-14);
+  const labels = daily.map(r=>r.day);
+  const items = daily.map(r=>r.items||0);
+  const goodReads = daily.map(r=>r.good_read||0);
+  const grPcts = daily.map(r=>r.items>0 ? (r.good_read/r.items*100) : null);
+
+  // Determine GR% color (use last value)
+  const lastGrPct = grPcts.filter(v=>v!=null).pop();
+  const grLineColor = grColor(lastGrPct);
+
+  const ctx = document.getElementById('chart-daily-trend').getContext('2d');
+
+  if(charts.dailyTrend) {
+    charts.dailyTrend.data.labels = labels;
+    charts.dailyTrend.data.datasets[0].data = items;
+    charts.dailyTrend.data.datasets[1].data = goodReads;
+    charts.dailyTrend.data.datasets[2].data = grPcts;
+    charts.dailyTrend.data.datasets[2].borderColor = grLineColor;
+    charts.dailyTrend.update();
+  } else {
+    charts.dailyTrend = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Total Items',
+            data: items,
+            borderColor: BLUE,
+            backgroundColor: BLUE+'26',
+            fill: 'origin',
+            tension: 0.3,
+            yAxisID: 'y',
+            pointRadius: 3,
+            borderWidth: 2
+          },
+          {
+            label: 'Good Reads',
+            data: goodReads,
+            borderColor: GREEN,
+            backgroundColor: 'transparent',
+            tension: 0.3,
+            yAxisID: 'y',
+            pointRadius: 3,
+            borderWidth: 2
+          },
+          {
+            label: 'Good Read %',
+            data: grPcts,
+            borderColor: grLineColor,
+            backgroundColor: 'transparent',
+            tension: 0.3,
+            yAxisID: 'y2',
+            pointRadius: 3,
+            borderWidth: 2,
+            borderDash: [4,3],
+            spanGaps: true
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode:'index', intersect:false },
+        plugins: {
+          legend: { position:'top', labels:{boxWidth:12, padding:12} }
+        },
+        scales: {
+          x: { grid:{color:'#21262d'} },
+          y: {
+            grid:{color:'#21262d'},
+            ticks:{callback: v=>v>=1000?Math.round(v/1000)+'k':v},
+            position:'left'
+          },
+          y2: {
+            grid:{display:false},
+            position:'right',
+            min:0, max:100,
+            ticks:{callback:v=>v+'%', color: grLineColor}
+          }
+        },
+        animation: false
+      }
+    });
+  }
+
+  document.getElementById('ts-dailytrend').textContent = 'Updated '+nowTs();
+}
+
+function renderStorage(d) {
+  const rows = [...(d.allStorage||[])].sort((a,b)=>b.usage_percent-a.usage_percent);
+  const tbody = document.getElementById('tbody-storage');
+
+  tbody.innerHTML = rows.map(r => {
+    const pct = r.usage_percent||0;
+    const dc = diskColor(pct);
+    const statusText = pct>80?'Critical':pct>70?'Warning':'OK';
+    const statusPill = pct>80?'pill-red':pct>70?'pill-amber':'pill-green';
+    return `<tr>
+      <td style="font-weight:600">${r.machine_name||'—'}</td>
+      <td>${r.customer||'—'}</td>
+      <td>${r.location||'—'}</td>
+      <td style="font-family:monospace;font-size:11px">${r.drive||'—'}</td>
+      <td>
+        <div class="disk-bar-wrap">
+          <div class="disk-bar-track" style="width:80px">
+            <div class="disk-bar-fill" style="width:${pct.toFixed(1)}%;background:${dc}"></div>
+          </div>
+          <span style="color:${dc};font-size:11px">${pct.toFixed(1)}%</span>
+        </div>
+      </td>
+      <td style="text-align:right">${r.total_gb!=null?r.total_gb.toFixed(1):' —'}</td>
+      <td style="text-align:right">${r.free_gb!=null?r.free_gb.toFixed(1):'—'}</td>
+      <td style="text-align:center"><span class="pill ${statusPill}">${statusText}</span></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('ts-storage').textContent = 'Updated '+nowTs();
+}
+
+function renderMqttBroker(d) {
+  const b = d.broker||{};
+  const ver = (b.version||'').replace('mosquitto version ','');
+  const grid = document.getElementById('mqtt-grid');
+  const stats = [
+    ['Version', ver||'—'],
+    ['Uptime', fmtUptime(b.uptime_seconds)],
+    ['Connected', `${b.clients_connected||0} / ${b.clients_total||0}`],
+    ['Inactive', fmt(b.clients_inactive)],
+    ['Subscriptions', fmt(b.subscriptions)],
+    ['Msgs Stored', fmt(b.msgs_stored)],
+    ['Load Recv 1m', b.load_msgs_recv_1min!=null?b.load_msgs_recv_1min.toFixed(1)+'/s':'—'],
+    ['Load Sent 1m', b.load_msgs_sent_1min!=null?b.load_msgs_sent_1min.toFixed(1)+'/s':'—'],
+    ['Bytes In', fmtBytes(b.bytes_received)],
+    ['Bytes Out', fmtBytes(b.bytes_sent)]
+  ];
+  grid.innerHTML = stats.map(([label,val])=>`
+    <div class="mini-stat">
+      <div class="mini-stat-label">${label}</div>
+      <div class="mini-stat-value">${val}</div>
+    </div>`).join('');
+}
+
+function renderPipeline(d) {
+  const pl = d.pipeline||{};
+  const container = document.getElementById('pipeline-rows');
+  let html = '';
+
+  Object.entries(pl).forEach(([key, entry]) => {
+    const label = key.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+    const val = entry && entry.value ? entry.value : (typeof entry === 'string' ? entry : JSON.stringify(entry));
+    const updated = entry && entry.updated ? entry.updated : null;
+    const age = updated ? fmtAge(updated) : '';
+    html += `<div class="pipeline-row">
+      <span class="pipeline-key">${label}</span>
+      <div style="text-align:right">
+        <div class="pipeline-val">${val||'—'}</div>
+        ${age ? `<div class="pipeline-age">${age}</div>` : ''}
+      </div>
+    </div>`;
+  });
+
+  container.innerHTML = html || '<div class="no-data">No pipeline data</div>';
+
+  // Dead letter
+  const dl = d.deadletter;
+  const dlEl = document.getElementById('deadletter-badge');
+  if(dl != null && dl > 0) {
+    dlEl.innerHTML = `<span class="pill pill-red">${dl}</span>`;
+  } else {
+    dlEl.innerHTML = `<span style="color:${GREEN};font-weight:600">✓ 0</span>`;
+  }
+}
+
+function renderFleetInsights(d) {
+  const devices = (d.devices||[]).filter(dv=>dv.status==='online');
+  const container = document.getElementById('fleet-insights');
+
+  const avgCpu = devices.length > 0 ? devices.reduce((s,dv)=>s+(dv.cpu_percent||0),0)/devices.length : null;
+  const avgMem = devices.length > 0 ? devices.reduce((s,dv)=>s+(dv.mem_usage_pct||0),0)/devices.length : null;
+
+  const hottest = devices.filter(dv=>dv.temp_celsius!=null).sort((a,b)=>b.temp_celsius-a.temp_celsius)[0];
+  const longestUp = devices.filter(dv=>dv.uptime_seconds!=null).sort((a,b)=>b.uptime_seconds-a.uptime_seconds)[0];
+
+  const totalSent = (d.totals||{}).data_sent || 0;
+
+  const rows = [
+    ['Avg CPU (online)', avgCpu!=null ? `<span style="color:${cpuColor(avgCpu)}">${avgCpu.toFixed(1)}%</span>` : '—'],
+    ['Avg Memory (online)', avgMem!=null ? `<span style="color:${cpuColor(avgMem)}">${avgMem.toFixed(1)}%</span>` : '—'],
+    ['Hottest Device', hottest ? `<span style="color:${tempColor(hottest.temp_celsius)}">${hottest.machine_name} · ${hottest.temp_celsius.toFixed(1)}°C</span>` : '—'],
+    ['Longest Uptime', longestUp ? `<span style="color:${GREEN}">${longestUp.machine_name} · ${fmtUptime(longestUp.uptime_seconds)}</span>` : '—'],
+    ['Data Sent Today', `<span style="color:${BLUE}">${fmt(totalSent)}</span>`],
+    ['Online Devices', `<span style="color:${GREEN}">${devices.length}</span> / <span style="color:var(--muted)">${(d.fleet||{}).total_machines||0}</span>`]
+  ];
+
+  container.innerHTML = rows.map(([label, val])=>`
+    <div class="insight-row">
+      <span class="insight-label">${label}</span>
+      <span class="insight-value">${val}</span>
+    </div>`).join('');
+}
+
+// ─── MAIN RENDER ─────────────────────────────────────────────────────────────
+function renderAll(d) {
+  lastData = d;
+  renderStats(d);
+  renderAlerts(d);
+  renderCustomerSummary(d);
+  renderMachineGoodReadChart(d);
+  renderHourlyChart(d);
+  renderDoughnut(d);
+  renderFleetTable(d);
+  renderCustomerTrends(d);
+  renderDailyTrend(d);
+  renderStorage(d);
+  renderMqttBroker(d);
+  renderPipeline(d);
+  renderFleetInsights(d);
+}
+
+// ─── FETCH & POLL ─────────────────────────────────────────────────────────────
+async function fetchDashboard() {
+  try {
+    const res = await fetch('/api/dashboard');
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    renderAll(data);
+  } catch(e) {
+    console.error('Dashboard fetch error:', e);
+  }
+}
+
+fetchDashboard();
+setInterval(fetchDashboard, 30000);
 </script>
 </body>
 </html>
