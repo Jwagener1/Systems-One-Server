@@ -1,0 +1,4 @@
+- name: restart scan-fleet-dashboard
+  command: docker compose up -d --build --force-recreate
+  args:
+    chdir: "{{ scan_fleet_dashboard_dir }}"

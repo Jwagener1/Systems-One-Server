@@ -1,0 +1,18 @@
+scan_fleet_dashboard_image: "scan-fleet-dashboard:latest"
+scan_fleet_dashboard_dir:   "/opt/scan-fleet-dashboard"
+scan_fleet_dashboard_port:  8091
+# Bind to loopback — expose publicly via Cloudflare tunnel only
+scan_fleet_dashboard_bind_address: "127.0.0.1"
+
+scan_fleet_dashboard_db_host: "mssql"
+scan_fleet_dashboard_db_port: 1433
+scan_fleet_dashboard_db_name: "S1_Remote_Monitoring"
+scan_fleet_dashboard_db_user: "{{ mssql_rm_admin_login | default('admin') }}"
+scan_fleet_dashboard_db_pass: "{{ mssql_rm_admin_password | default('') }}"
+
+scan_fleet_dashboard_cache_ttl: 45
+scan_fleet_dashboard_tz_offset_hours: 2
+scan_fleet_dashboard_throughput_metric: "total_items"
+scan_fleet_dashboard_good_read_target: 93
+scan_fleet_dashboard_auth_enabled: false
+scan_fleet_dashboard_admin_users: ""
