@@ -376,9 +376,9 @@ Append to `roles/s1_dashboard/templates/docker-dashboard.py.j2`:
 
 CACHE = TTLCache()
 
-# docker --format templates need literal {{...}} in the deployed file, but a
-# literal "{{" in this source would be parsed by Jinja at deploy time. Build
-# the braces at runtime so the file contains none.
+# docker --format templates need literal double-curly placeholders in the
+# deployed file, but literal double-curlies in this source would be parsed by
+# Jinja at deploy time. Build the braces at runtime so the file contains none.
 _LB = chr(123) * 2
 _RB = chr(125) * 2
 DOCKER_PS_FMT = f"{_LB}.Names{_RB}\t{_LB}.Status{_RB}\t{_LB}.Image{_RB}"
@@ -386,7 +386,10 @@ DOCKER_HEALTH_FMT = f"{_LB}.State.Health.Status{_RB}\t{_LB}json .State.Health.Lo
 
 
 def get_disk_stats(mount="/"):
-    st = os.statvfs(mount)
+    try:
+        st = os.statvfs(mount)
+    except Exception:
+        return None
     total = st.f_blocks * st.f_frsize / (1024 ** 3)
     free = st.f_bavail * st.f_frsize / (1024 ** 3)
     used = total - free
@@ -697,9 +700,10 @@ def render(cols, rows, snap):
                       f"{s['swap_used']:5.0f} / {s['swap_total']:.0f} MB", f"{s['swap_pct']:.1f}%"))
     else:
         push(_frow(clr("  system stats unavailable", DIM, FG_ORANGE), inner))
-    push(stat_row("DISK", bar(disk["pct"]),
-                  f"{disk['used']:.1f} / {disk['total']:.1f} GB",
-                  f"{disk['pct']:.1f}%  {disk['mount']}"))
+    if disk:
+        push(stat_row("DISK", bar(disk["pct"]),
+                      f"{disk['used']:.1f} / {disk['total']:.1f} GB",
+                      f"{disk['pct']:.1f}%  {disk['mount']}"))
 
     # services
     push(_fline("╠", "═", "╣", inner))
