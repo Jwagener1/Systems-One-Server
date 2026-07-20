@@ -434,6 +434,14 @@ def chart_nodim_heatmap(rows, title):
     with plt.rc_context(CHART_STYLE):
         devices = sorted(set((r["machine_name"], r["location"]) for r in rows))
         dates   = sorted(set(r["report_date"] for r in rows))
+        if not devices or not dates:
+            fig, ax = plt.subplots(figsize=(13, 3))
+            ax.text(0.5, 0.5, "No dimension data available", ha="center", va="center",
+                    transform=ax.transAxes, fontsize=12, color="#6b7280")
+            ax.set_title(title, fontsize=13, pad=12, fontweight="bold")
+            ax.axis("off")
+            fig.tight_layout()
+            return fig_to_png(fig)
         matrix  = np.array([[
             float(r["daily_no_dim"])*100/float(r["daily_items"])
             if (r := next((x for x in rows if x["machine_name"]==mname and x["location"]==loc and x["report_date"]==d), None))
@@ -614,16 +622,7 @@ def customer_section_daily(customer, today_label, images, days=7):
             <td>{disk_badge(s['usage_percent'])}</td>
         </tr>"""
 
-    # No-dim heatmap only for customers with dimensioners
     nodim_section = ""
-    if caps["has_dimension"]:
-        c_heat_id = f"heat_{customer}"
-        images[c_heat_id] = chart_nodim_heatmap(trend, f"No-Dimension Heatmap — {customer} — Last {days} Days")
-        nodim_section = f"""
-    <div class="sec">
-      <h3>🟥 No-Dimension Rate Heatmap</h3>
-      {img_tag(c_heat_id)}
-    </div>"""
 
     return f"""
     <div class="cust-hdr"><h2>🏢 {customer}</h2></div>
@@ -727,16 +726,7 @@ def customer_section_monthly(customer, month_label, images):
             <td>{disk_badge(s['usage_percent'])}</td>
         </tr>"""
 
-    # No-dim heatmap only for customers with dimensioners
     nodim_section = ""
-    if caps["has_dimension"]:
-        c_heat_id = f"mheat_{customer}"
-        images[c_heat_id] = chart_nodim_heatmap(trend, f"No-Dimension Heatmap — {customer}")
-        nodim_section = f"""
-    <div class="sec">
-      <h3>🟥 No-Dimension Rate Heatmap</h3>
-      {img_tag(c_heat_id)}
-    </div>"""
 
     return f"""
     <div class="cust-hdr"><h2>🏢 {customer}</h2></div>
