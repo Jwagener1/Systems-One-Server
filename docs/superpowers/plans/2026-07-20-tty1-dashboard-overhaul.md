@@ -605,6 +605,19 @@ class RenderSmoke(unittest.TestCase):
         snap["problems"] = []
         text = dash._strip_ansi(dash.render(100, 40, snap))
         self.assertIn("all services healthy", text)
+
+    def test_width_at_80_cols(self):
+        out = dash.render(80, 22, dash.demo_snapshot())
+        lines = out.split("\n")
+        self.assertEqual(len(lines), 22)
+        for line in lines:
+            self.assertEqual(len(dash._strip_ansi(line)), 80, repr(line[:40]))
+
+    def test_narrow_and_tiny_terminals_keep_frame(self):
+        for cols, rows in ((60, 15), (100, 2)):
+            out = dash.render(cols, rows, dash.demo_snapshot())
+            for line in out.split("\n"):
+                self.assertEqual(len(dash._strip_ansi(line)), cols)
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -620,6 +633,8 @@ Append to `roles/s1_dashboard/templates/docker-dashboard.py.j2`:
 # -- Render -------------------------------------------------------------------
 
 def _frow(content, inner):
+    if len(_strip_ansi(content)) > inner:
+        content = truncate(_strip_ansi(content), inner)
     return clr("║", FG_DIM) + pad(content, inner) + clr("║", FG_DIM)
 
 
@@ -657,7 +672,7 @@ def render(cols, rows, snap):
     ts = clr(snap["now"] + "  ", FG_DIM)
     gap = inner - len(_strip_ansi(title)) - len(_strip_ansi(ts))
     push(_fline("╔", "═", "╗", inner))
-    push(clr("║", FG_DIM) + title + " " * max(0, gap) + ts + clr("║", FG_DIM))
+    push(_frow(title + " " * max(0, gap) + ts, inner))
     push(_fline("╠", "═", "╣", inner))
 
     # performance
@@ -688,8 +703,10 @@ def render(cols, rows, snap):
     disk = snap["disk"]
 
     def stat_row(label, b, val, extra=""):
-        return _frow(clr(f" {label:<5}", BOLD, FG_WHITE) + " " + b + " "
-                     + clr(val, BOLD, FG_CYAN) + clr(f"  {extra}", FG_DIM), inner)
+        head = (clr(f" {label:<5}", BOLD, FG_WHITE) + " " + b + " "
+                + clr(val, BOLD, FG_CYAN))
+        avail = inner - len(_strip_ansi(head)) - 2
+        return _frow(head + clr(f"  {truncate(extra, max(0, avail))}", FG_DIM), inner)
 
     if s:
         push(stat_row("CPU", bar(s["cpu_pct"]), f"{s['cpu_pct']:5.1f}%",
@@ -738,9 +755,10 @@ def render(cols, rows, snap):
     else:
         push(_frow(clr("  ✓  all services healthy — no errors in last 30 min", FG_GREEN), inner))
 
-    while len(lines) < rows - FOOTER:
+    keep = max(0, rows - FOOTER)
+    while len(lines) < keep:
         push(_frow("", inner))
-    lines[:] = lines[: rows - FOOTER]
+    lines[:] = lines[:keep]
 
     # footer
     push(_fline("╠", "═", "╣", inner))
