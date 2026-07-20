@@ -23,15 +23,20 @@ def load_thresholds(q) -> list[dict]:
 
 def _best_row(rows, customer, machine_name, location, metrics):
     metrics = (metrics,) if isinstance(metrics, str) else tuple(metrics)
-    fallback = None
+    machine_any = None   # machine row not pinned to a location
+    fallback = None      # customer-wide row
     for r in rows:
         if r["metric"] not in metrics or r["customer"] != customer:
             continue
-        if r["machine_name"] == machine_name and r.get("location") in (None, location):
-            return r
-        if r["machine_name"] is None and fallback is None:
-            fallback = r
-    return fallback
+        if r["machine_name"] == machine_name:
+            loc = r.get("location")
+            if loc == location:
+                return r                 # most specific: machine + exact location
+            if loc is None and machine_any is None:
+                machine_any = r
+        elif r["machine_name"] is None and fallback is None:
+            fallback = r                 # customer-wide rows are not location-filtered by design
+    return machine_any or fallback
 
 
 def resolve_target(rows, customer, machine_name, location, metrics, default=None):

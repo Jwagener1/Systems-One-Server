@@ -33,3 +33,15 @@ def test_location_mismatch_does_not_match_machine_row():
 def test_warn_bad_pair():
     assert thresholds.warn_bad(ROWS, "ACME", "Line-01", "DC-1", ("good_read_pct",)) == (95.0, 91.0)
     assert thresholds.warn_bad(ROWS, "Other", "X", "Y", ("good_read_pct",)) == (None, None)
+
+
+def test_location_specific_row_beats_location_agnostic():
+    rows = [
+        {"customer": "ACME", "machine_name": "Line-01", "location": None,
+         "metric": "good_read_pct", "direction": "low", "warn_value": 99.0, "bad_value": 99.0},
+        {"customer": "ACME", "machine_name": "Line-01", "location": "DC-1",
+         "metric": "good_read_pct", "direction": "low", "warn_value": 95.0, "bad_value": 91.0},
+    ]
+    assert thresholds.good_read_target(rows, "ACME", "Line-01", "DC-1") == 91.0
+    rows.reverse()
+    assert thresholds.good_read_target(rows, "ACME", "Line-01", "DC-1") == 91.0
