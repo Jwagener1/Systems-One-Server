@@ -7,6 +7,9 @@ services:
       GF_SECURITY_ADMIN_USER: "{{ grafana_admin_user | default('admin') }}"
       GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_admin_password }}"
       GF_FEATURE_TOGGLES_ENABLE: "provisioning,kubernetesDashboards"
+      GF_AUTH_TOKEN_ROTATION_INTERVAL_MINUTES: "{{ grafana_token_rotation_interval_minutes | default(1440) }}"
+      GF_AUTH_LOGIN_MAXIMUM_INACTIVE_LIFETIME_DURATION: "{{ grafana_login_max_inactive_lifetime | default('7d') }}"
+      GF_AUTH_LOGIN_MAXIMUM_LIFETIME_DURATION: "{{ grafana_login_max_lifetime | default('30d') }}"
     ports:
       - "{{ grafana_bind_address | default('127.0.0.1') }}:{{ grafana_port | default(3000) }}:3000"
     volumes:

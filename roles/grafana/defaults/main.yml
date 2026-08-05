@@ -15,6 +15,15 @@ grafana_dashboards_file_provisioning_enabled: true
 
 # grafana_root_url: ""
 
+# Auth session/token lifetime. Grafana's default token_rotation_interval_minutes
+# (10) forces auth cookie rotation that the persistent /api/live/ws connection
+# doesn't pick up, so long-lived kiosk/TV dashboard tabs spam 401
+# "token needs to be rotated" on every reconnect. Extend rotation + lifetime so
+# a dashboard left open all day doesn't cross the boundary.
+grafana_token_rotation_interval_minutes: 1440
+grafana_login_max_inactive_lifetime: "7d"
+grafana_login_max_lifetime: "30d"
+
 # Provision orgs/users via Grafana HTTP API after Grafana starts
 grafana_api_provision_enabled: false
 
