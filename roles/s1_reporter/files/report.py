@@ -7,15 +7,11 @@ Usage:
     python3 report.py monthly
 """
 
-import sys, os, io, base64, smtplib, pymssql, json
+import sys, os, io, pymssql, json
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap
 from datetime import datetime
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.image import MIMEImage
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -29,7 +25,6 @@ ENV_PATH = os.path.join(os.path.dirname(__file__), "report.env")
 def load_config():
     # Prefer environment variables (Docker), fall back to report.env for local runs
     env_keys = ["DB_HOST","DB_PORT","DB_USER","DB_PASS","DB_NAME",
-                "SMTP_HOST","SMTP_PORT","SMTP_USER","SMTP_PASS","REPORT_TO",
                 "TEAMS_WEBHOOK_URL",
                 "OFFLINE_THRESHOLD_MINUTES"]
     cfg = {k: os.environ[k] for k in env_keys if k in os.environ}
@@ -97,10 +92,6 @@ def exclude_sql(customer=None):
     return " AND NOT (" + " OR ".join(
         f"(d.machine_name='{m}' AND d.location='{l}')" for m, l in lines
     ) + ")"
-
-def get_customers():
-    rows = query("SELECT DISTINCT customer FROM devices ORDER BY customer")
-    return [r["customer"] for r in rows]
 
 def get_daily_trend(days=7, customer=None):
     cust  = f" AND d.customer='{customer}'" if customer else ""
@@ -440,40 +431,6 @@ def chart_goodread_trend(rows, title):
         fig.tight_layout()
         return fig_to_png(fig)
 
-def chart_nodim_heatmap(rows, title):
-    with plt.rc_context(CHART_STYLE):
-        devices = sorted(set((r["machine_name"], r["location"]) for r in rows))
-        dates   = sorted(set(r["report_date"] for r in rows))
-        if not devices or not dates:
-            fig, ax = plt.subplots(figsize=(13, 3))
-            ax.text(0.5, 0.5, "No dimension data available", ha="center", va="center",
-                    transform=ax.transAxes, fontsize=12, color="#6b7280")
-            ax.set_title(title, fontsize=13, pad=12, fontweight="bold")
-            ax.axis("off")
-            fig.tight_layout()
-            return fig_to_png(fig)
-        matrix  = np.array([[
-            float(r["daily_no_dim"])*100/float(r["daily_items"])
-            if (r := next((x for x in rows if x["machine_name"]==mname and x["location"]==loc and x["report_date"]==d), None))
-               and r["daily_items"] else 0.0
-            for d in dates] for mname, loc in devices])
-        cmap = LinearSegmentedColormap.from_list("rg", ["#f0fdf4","#fef9c3","#fee2e2"])
-        fig, ax = plt.subplots(figsize=(13, max(3, len(devices)*0.7)))
-        im = ax.imshow(matrix, cmap=cmap, aspect="auto", vmin=0, vmax=5)
-        ax.set_xticks(range(len(dates)))
-        ax.set_xticklabels([str(d) for d in dates], rotation=25, ha="right", fontsize=9)
-        ax.set_yticks(range(len(devices)))
-        ax.set_yticklabels([f"{m}@{l}" for m, l in devices], fontsize=9)
-        plt.colorbar(im, ax=ax, label="No-Dim %")
-        ax.set_title(title, fontsize=13, pad=12, fontweight="bold")
-        for i in range(len(devices)):
-            for j in range(len(dates)):
-                if matrix[i,j] > 0:
-                    ax.text(j, i, f"{matrix[i,j]:.1f}", ha="center", va="center", fontsize=8,
-                            color="#1f2937", fontweight="bold")
-        fig.tight_layout()
-        return fig_to_png(fig)
-
 def chart_hourly_volume(rows, title):
     with plt.rc_context(CHART_STYLE):
         fig, ax = plt.subplots(figsize=(12, 4))
@@ -495,66 +452,7 @@ def chart_hourly_volume(rows, title):
         fig.tight_layout()
         return fig_to_png(fig)
 
-# ── HTML helpers ───────────────────────────────────────────────────────────────
-def pct_badge(pct):
-    pct = float(pct) if pct else 0
-    if pct >= 97:   return f'<span style="background:#dcfce7;color:#166534;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:600">{pct:.1f}%</span>'
-    elif pct >= 90: return f'<span style="background:#fef9c3;color:#854d0e;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:600">{pct:.1f}%</span>'
-    else:           return f'<span style="background:#fee2e2;color:#991b1b;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:600">{pct:.1f}%</span>'
-
-def disk_badge(pct):
-    pct = float(pct) if pct else 0
-    if pct >= 90:   return f'<span style="background:#fee2e2;color:#991b1b;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:600">{pct:.0f}%</span>'
-    elif pct >= 80: return f'<span style="background:#fef9c3;color:#854d0e;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:600">{pct:.0f}%</span>'
-    else:           return f'<span style="background:#dcfce7;color:#166534;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:600">{pct:.0f}%</span>'
-
-CSS = """<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-body,html{margin:0;padding:0;background:#f3f4f6;}
-*{box-sizing:border-box;}
-body{font-family:Inter,'Segoe UI',Arial,sans-serif;background:#f3f4f6;color:#1f2937;}
-.outer{background:#f3f4f6;width:100%;padding:0;}
-.wrap{max-width:860px;margin:0 auto;padding:28px 16px;}
-.hdr{background:#ffffff;border:1px solid #e5e7eb;border-top:4px solid #2563eb;border-radius:10px;padding:24px 28px;margin-bottom:20px;}
-.hdr-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
-.hdr h1{margin:0;font-size:21px;font-weight:700;color:#111827;letter-spacing:.2px;}
-.hdr .badge{background:#2563eb;color:#fff;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:600;}
-.hdr .meta{color:#6b7280;font-size:13px;margin-top:5px;}
-.cust-hdr{background:#eff6ff;border:1px solid #bfdbfe;border-left:4px solid #2563eb;border-radius:8px;padding:12px 18px;margin:22px 0 10px;}
-.cust-hdr h2{margin:0;font-size:16px;font-weight:700;color:#1d4ed8;}
-.sec{background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;padding:18px 20px;margin-bottom:14px;}
-.sec h3{margin:0 0 14px;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.7px;border-bottom:1px solid #f3f4f6;padding-bottom:8px;}
-table{width:100%;border-collapse:collapse;font-size:13px;}
-th{background:#f9fafb;color:#6b7280;text-align:left;padding:9px 12px;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #e5e7eb;}
-td{padding:9px 12px;border-bottom:1px solid #f3f4f6;color:#1f2937;}
-tr:last-child td{border-bottom:none;}
-tr:hover td{background:#f9fafb;}
-.alert-row{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-radius:7px;margin-bottom:7px;font-size:13px;line-height:1.5;}
-.alert-bad{background:#fff7f7;border:1px solid #fecaca;border-left:4px solid #dc2626;}
-.alert-warn{background:#fffbeb;border:1px solid #fed7aa;border-left:4px solid #d97706;}
-.alert-ok{background:#f0fdf4;border:1px solid #bbf7d0;border-left:4px solid #16a34a;}
-.alert-icon{font-size:16px;margin-top:1px;flex-shrink:0;}
-.kpi-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:4px;}
-.kpi{flex:1;min-width:140px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;text-align:center;}
-.kpi-val{font-size:26px;font-weight:700;line-height:1.1;color:#111827;}
-.kpi-lbl{color:#6b7280;font-size:12px;margin-top:4px;}
-img{border-radius:8px;max-width:100%;display:block;margin:4px 0;}
-.footer{text-align:center;color:#9ca3af;font-size:11px;padding-top:18px;border-top:1px solid #e5e7eb;margin-top:8px;}
-</style>"""
-
-def alerts_block(anomalies):
-    if not anomalies:
-        return '<div class="alert-row alert-ok"><span class="alert-icon">✅</span><span>No anomalies detected.</span></div>'
-    html = ""
-    for level, msg in anomalies:
-        cls  = "alert-bad" if level == "bad" else "alert-warn"
-        icon = "🔴" if level == "bad" else "⚠️"
-        html += f'<div class="alert-row {cls}"><span class="alert-icon">{icon}</span><span>{msg}</span></div>'
-    return html
-
-def img_tag(cid):
-    return f'<img src="cid:{cid}" alt="chart" style="max-width:100%;border-radius:8px;display:block;margin:4px 0;">'
-
+# ── Table helpers ──────────────────────────────────────────────────────────────
 def _caps_headers(caps, trailing=None):
     headers = ["Device", "Location", "Items", "Good Read %", "No Reads"]
     if caps["has_dimension"]:
@@ -668,7 +566,7 @@ def customer_section_monthly_card(customer, month_label):
 # ── Report builders ────────────────────────────────────────────────────────────
 def check_and_send_offline_alert():
     """
-    Detects offline/recovered devices, sends appropriate emails, updates state.
+    Detects offline/recovered devices, sends appropriate Teams alerts, updates state.
     Returns (newly_offline_count, recovered_count).
     """
     current_offline = detect_offline_devices()
@@ -708,33 +606,6 @@ def build_and_send_monthly_report():
         card = customer_section_monthly_card(customer, month_label)
         post_to_teams(TEAMS_WEBHOOK_URL, card)
     print(f"✅ Monthly report sent for {len(CUSTOMER_CAPS)} customer(s)")
-
-# ── Email ──────────────────────────────────────────────────────────────────────
-def send_email(subject, html_body, images=None):
-    # Build multipart/related so inline images work in Outlook
-    msg_root             = MIMEMultipart("mixed")
-    msg_root["Subject"]  = subject
-    msg_root["From"]     = f"S1 Reports <{CFG['SMTP_USER']}>"
-    msg_root["To"]       = CFG["REPORT_TO"]
-
-    msg_related = MIMEMultipart("related")
-    msg_alt     = MIMEMultipart("alternative")
-    msg_alt.attach(MIMEText(html_body, "html", "utf-8"))
-    msg_related.attach(msg_alt)
-
-    for cid, png_bytes in (images or {}).items():
-        img = MIMEImage(png_bytes, "png")
-        img.add_header("Content-ID", f"<{cid}>")
-        img.add_header("Content-Disposition", "inline", filename=f"{cid}.png")
-        msg_related.attach(img)
-
-    msg_root.attach(msg_related)
-
-    with smtplib.SMTP(CFG["SMTP_HOST"], int(CFG["SMTP_PORT"])) as s:
-        s.ehlo(); s.starttls()
-        s.login(CFG["SMTP_USER"], CFG["SMTP_PASS"])
-        s.sendmail(CFG["SMTP_USER"], CFG["REPORT_TO"].split(","), msg_root.as_string())
-    print(f"✅ Sent: {subject}")
 
 # ── Entry ──────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
