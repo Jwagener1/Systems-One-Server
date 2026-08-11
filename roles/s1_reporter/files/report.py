@@ -7,7 +7,7 @@ Usage:
     python3 report.py monthly
 """
 
-import sys, os, io, pymssql, json
+import sys, os, io, re, pymssql, json
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -92,6 +92,10 @@ def exclude_sql(customer=None):
     return " AND NOT (" + " OR ".join(
         f"(d.machine_name='{m}' AND d.location='{l}')" for m, l in lines
     ) + ")"
+
+def get_customers():
+    rows = query("SELECT DISTINCT customer FROM devices ORDER BY customer")
+    return [r["customer"] for r in rows]
 
 def get_daily_trend(days=7, customer=None):
     cust  = f" AND d.customer='{customer}'" if customer else ""
@@ -215,19 +219,36 @@ def save_offline_state(state):
     with open(OFFLINE_STATE_FILE, "w") as f:
         json.dump(state, f, indent=2, default=str)
 
+def _downtime_minutes(alerted_at):
+    """Minutes elapsed since the device was first alerted on. 0 if unknown/unparseable."""
+    if not alerted_at:
+        return 0
+    try:
+        started = datetime.fromisoformat(str(alerted_at))
+    except (TypeError, ValueError):
+        return 0
+    return max(int((datetime.now() - started).total_seconds() // 60), 0)
+
 def diff_offline_state(current_offline):
     """
     Compare current offline devices against last known state.
     Returns:
         newly_offline  — devices that just went offline (not in previous state)
-        recovered      — devices that were offline but are now reporting again
+        recovered      — devices that were offline but are now reporting again,
+                         each annotated with downtime_minutes
         still_offline  — devices that were already known to be offline
     """
     prev_state = load_offline_state()
     current_keys = {_device_key(d["machine_name"], d["location"]): d for d in current_offline}
 
     newly_offline = [d for k, d in current_keys.items() if k not in prev_state]
-    recovered     = [prev_state[k] for k in prev_state if k not in current_keys]
+    recovered     = []
+    for k in prev_state:
+        if k in current_keys:
+            continue
+        d = dict(prev_state[k])
+        d["downtime_minutes"] = _downtime_minutes(d.get("alerted_at"))
+        recovered.append(d)
     still_offline = [d for k, d in current_keys.items() if k in prev_state]
 
     # Update state — only keep currently offline devices
@@ -352,6 +373,20 @@ def detect_anomalies(trend_rows, customer=None):
 
     return alerts
 
+# Severity icons for rendering (severity, message) anomaly tuples as card text.
+_ANOMALY_ICON = {"bad": "🔴", "warn": "⚠️"}
+
+def _anomaly_lines(anomalies):
+    """Flatten detect_anomalies() (severity, message) tuples into plain card strings.
+
+    Adaptive Card TextBlocks do not render HTML, so <b> markers are stripped and the
+    severity is expressed with a leading icon instead.
+    """
+    return [
+        f"{_ANOMALY_ICON.get(level, '•')} {re.sub(r'</?b>', '', msg)}"
+        for level, msg in anomalies
+    ]
+
 # ── Charts ─────────────────────────────────────────────────────────────────────
 CHART_STYLE = {
     "figure.facecolor": "none",
@@ -452,6 +487,22 @@ def chart_hourly_volume(rows, title):
         fig.tight_layout()
         return fig_to_png(fig)
 
+def _try_save_chart(png_bytes, label):
+    """Persist a chart PNG, degrading gracefully to None on failure.
+
+    Returns None when the chart cannot be saved (disk full, permissions) or when
+    CHART_PUBLIC_BASE_URL is unset — cards.py omits the Image element for a None url.
+    """
+    try:
+        url = save_chart(png_bytes, CHART_DIR, CHART_PUBLIC_BASE_URL)
+    except OSError as e:
+        print(f"⚠️ Chart '{label}' could not be saved: {e}")
+        return None
+    if url is None:
+        print(f"⚠️ Chart '{label}' saved but CHART_PUBLIC_BASE_URL is unset — omitting image")
+    return url
+
+
 # ── Table helpers ──────────────────────────────────────────────────────────────
 def _caps_headers(caps, trailing=None):
     headers = ["Device", "Location", "Items", "Good Read %", "No Reads"]
@@ -494,9 +545,9 @@ def customer_section_daily_card(customer, days=7):
     anomalies = detect_anomalies(trend, customer)
 
     chart_urls = {
-        "volume":   save_chart(chart_daily_volume(trend, f"Daily Volume — {customer} — Last {days} Days"), CHART_DIR, CHART_PUBLIC_BASE_URL),
-        "goodread": save_chart(chart_goodread_trend(trend, f"Good Read % — {customer} — Last {days} Days"), CHART_DIR, CHART_PUBLIC_BASE_URL),
-        "hourly":   save_chart(chart_hourly_volume(hourly, f"Hourly Pattern — {customer}"), CHART_DIR, CHART_PUBLIC_BASE_URL),
+        "volume":   _try_save_chart(chart_daily_volume(trend, f"Daily Volume — {customer} — Last {days} Days"), f"volume/{customer}"),
+        "goodread": _try_save_chart(chart_goodread_trend(trend, f"Good Read % — {customer} — Last {days} Days"), f"goodread/{customer}"),
+        "hourly":   _try_save_chart(chart_hourly_volume(hourly, f"Hourly Pattern — {customer}"), f"hourly/{customer}"),
     }
 
     today_headers = _caps_headers(caps, trailing=["Not Sent"])
@@ -507,12 +558,12 @@ def customer_section_daily_card(customer, days=7):
 
     storage_headers = ["Device", "Location", "Usage", "%"]
     storage_rows = [
-        [s["machine_name"], s["location"], f"{float(s['used_gb']):.1f} / {float(s['total_gb']):.1f} GB", f"{s['usage_percent']}%"]
+        [s["machine_name"], s["location"], f"{float(s['used_gb']):.1f} / {float(s['total_gb']):.1f} GB", f"{float(s['usage_percent']):.0f}%"]
         for s in storage
     ]
 
     return build_customer_section_card(
-        customer=customer, days=days, anomalies=anomalies,
+        customer=customer, days=days, anomalies=_anomaly_lines(anomalies),
         today_table={"headers": today_headers, "rows": today_rows},
         week_table={"headers": week_headers, "rows": week_rows},
         storage_table={"headers": storage_headers, "rows": storage_rows},
@@ -529,9 +580,9 @@ def customer_section_monthly_card(customer, month_label):
     anomalies = detect_anomalies(trend, customer)
 
     chart_urls = {
-        "volume":   save_chart(chart_daily_volume(trend, f"Daily Volume — {customer} — {month_label}"), CHART_DIR, CHART_PUBLIC_BASE_URL),
-        "goodread": save_chart(chart_goodread_trend(trend, f"Good Read % — {customer} — {month_label}"), CHART_DIR, CHART_PUBLIC_BASE_URL),
-        "hourly":   save_chart(chart_hourly_volume(hourly, f"Hourly Pattern — {customer}"), CHART_DIR, CHART_PUBLIC_BASE_URL),
+        "volume":   _try_save_chart(chart_daily_volume(trend, f"Daily Volume — {customer} — {month_label}"), f"volume/{customer}"),
+        "goodread": _try_save_chart(chart_goodread_trend(trend, f"Good Read % — {customer} — {month_label}"), f"goodread/{customer}"),
+        "hourly":   _try_save_chart(chart_hourly_volume(hourly, f"Hourly Pattern — {customer}"), f"hourly/{customer}"),
     }
 
     total_items = sum(int(r["total_items"] or 0) for r in summary)
@@ -550,12 +601,12 @@ def customer_section_monthly_card(customer, month_label):
 
     storage_headers = ["Device", "Location", "Usage", "%"]
     storage_rows = [
-        [s["machine_name"], s["location"], f"{float(s['used_gb']):.1f} / {float(s['total_gb']):.1f} GB", f"{s['usage_percent']}%"]
+        [s["machine_name"], s["location"], f"{float(s['used_gb']):.1f} / {float(s['total_gb']):.1f} GB", f"{float(s['usage_percent']):.0f}%"]
         for s in storage
     ]
 
     return build_customer_section_card(
-        customer=customer, days=30, anomalies=anomalies,
+        customer=customer, days=30, anomalies=_anomaly_lines(anomalies),
         today_table={"headers": [], "rows": []},
         week_table={"headers": tbl_headers, "rows": tbl_rows},
         storage_table={"headers": storage_headers, "rows": storage_rows},
@@ -593,19 +644,22 @@ def check_and_send_offline_alert():
 
 def build_and_send_daily_report():
     cleanup_old_charts(CHART_DIR, CHART_RETENTION_DAYS)
-    for customer in CUSTOMER_CAPS:
+    # Customer list is DB-driven; CUSTOMER_CAPS only customises display per customer.
+    customers = get_customers()
+    for customer in customers:
         card = customer_section_daily_card(customer)
         post_to_teams(TEAMS_WEBHOOK_URL, card)
-    print(f"✅ Daily report sent for {len(CUSTOMER_CAPS)} customer(s)")
+    print(f"✅ Daily report sent for {len(customers)} customer(s)")
 
 
 def build_and_send_monthly_report():
     cleanup_old_charts(CHART_DIR, CHART_RETENTION_DAYS)
     month_label = datetime.now().strftime("%B %Y")
-    for customer in CUSTOMER_CAPS:
+    customers = get_customers()
+    for customer in customers:
         card = customer_section_monthly_card(customer, month_label)
         post_to_teams(TEAMS_WEBHOOK_URL, card)
-    print(f"✅ Monthly report sent for {len(CUSTOMER_CAPS)} customer(s)")
+    print(f"✅ Monthly report sent for {len(customers)} customer(s)")
 
 # ── Entry ──────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":

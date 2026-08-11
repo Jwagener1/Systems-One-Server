@@ -46,8 +46,7 @@ class TestOfflineAlertCard(unittest.TestCase):
         self.assertIn("scanner-1", text_blob)
         self.assertIn("PEPKOR", text_blob)
         self.assertIn("1 Device", text_blob)
-        self.assertEqual(card["body"][0]["style"] if "style" in card["body"][0] else None,
-                          card["body"][0].get("style"))  # first block exists
+        self.assertEqual(card["body"][0]["style"], "attention")
 
 
 class TestRecoveryCard(unittest.TestCase):
@@ -93,6 +92,27 @@ class TestCustomerSectionCard(unittest.TestCase):
         self.assertIn("PEPKOR", blob)
         self.assertIn("https://charts.example.com/a.png", blob)
         self.assertIn("below 90% threshold", blob)
+
+    def test_anomalies_must_be_plain_strings(self):
+        """Contract: anomalies is list[str]. Anything else (e.g. detect_anomalies'
+        (severity, message) tuples) renders as a garbled repr in the card."""
+        card = cards.build_customer_section_card(
+            customer="PEPKOR", days=7,
+            anomalies=["🔴 DIM1 @ JBH — good read dropped to 82.0% today"],
+            today_table={"headers": [], "rows": []},
+            week_table={"headers": [], "rows": []},
+            storage_table={"headers": [], "rows": []},
+            chart_urls={},
+        )
+        anomaly_container = next(
+            el for el in card["body"]
+            if el.get("type") == "Container" and el.get("style") == "attention"
+        )
+        texts = [item["text"] for item in anomaly_container["items"]]
+        self.assertEqual(texts, ["🚨 🔴 DIM1 @ JBH — good read dropped to 82.0% today"])
+        for t in texts:
+            self.assertNotIn("(", t)  # no tuple repr leaked through
+            self.assertNotIn("<b>", t)  # no raw HTML — TextBlocks don't render it
 
     def test_kpis_included_when_provided(self):
         card = cards.build_customer_section_card(
