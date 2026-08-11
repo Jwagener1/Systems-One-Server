@@ -96,4 +96,4 @@ grafana_users:
 grafana_mssql_datasource_uid: "PAAAEB8D7872B0C49"
 
 # s1_reporter chart hosting (Teams notifications) — see Task 9 for Cloudflare DNS setup
-s1_reporter_chart_public_base_url: "https://charts.systems-one.com"
+s1_reporter_chart_public_base_url: "https://charts.sysone.co.za"
