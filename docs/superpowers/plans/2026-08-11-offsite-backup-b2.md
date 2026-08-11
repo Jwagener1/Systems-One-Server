@@ -79,6 +79,10 @@ git commit -m "feat(backup): add disabled-by-default backup toggle vars"
 
 backup_mssql_database: "{{ mssql_rm_database | default('S1_Remote_Monitoring') }}"
 backup_mssql_container: mssql
+# Matched by substring against `docker volume ls` at runtime, not an exact
+# name — the actual volume Docker Compose creates for roles/mqtt is prefixed
+# with its compose project name (e.g. mqtt_mosquitto_data), which isn't
+# pinned anywhere in this repo.
 backup_mosquitto_volume: mosquitto_data
 
 backup_root_dir: /opt/backup
@@ -149,9 +153,18 @@ docker cp "{{ backup_mssql_container }}:/var/opt/mssql/backup/{{ backup_mssql_da
   "$STAGING/{{ backup_mssql_database }}.bak" \
   || fail "docker cp of MSSQL .bak file failed"
 
-log "Archiving Mosquitto persistence data"
-MOSQUITTO_MOUNTPOINT="$(docker volume inspect "{{ backup_mosquitto_volume }}" --format '{{ '{{' }} .Mountpoint {{ '}}' }}')" \
-  || fail "could not resolve {{ backup_mosquitto_volume }} volume mountpoint"
+log "Resolving Mosquitto data volume"
+MOSQUITTO_VOLUME="$(docker volume ls -q --filter "name={{ backup_mosquitto_volume }}")"
+if [ -z "$MOSQUITTO_VOLUME" ]; then
+  fail "no docker volume matching '{{ backup_mosquitto_volume }}' found"
+fi
+if [ "$(echo "$MOSQUITTO_VOLUME" | wc -l)" -gt 1 ]; then
+  fail "multiple docker volumes matched '{{ backup_mosquitto_volume }}': $MOSQUITTO_VOLUME"
+fi
+
+log "Archiving Mosquitto persistence data ($MOSQUITTO_VOLUME)"
+MOSQUITTO_MOUNTPOINT="$(docker volume inspect "$MOSQUITTO_VOLUME" --format '{{ '{{' }} .Mountpoint {{ '}}' }}')" \
+  || fail "could not resolve $MOSQUITTO_VOLUME volume mountpoint"
 tar -C "$MOSQUITTO_MOUNTPOINT" -czf "$STAGING/mosquitto_data.tar.gz" . \
   || fail "tar of mosquitto data failed"
 
@@ -565,7 +578,8 @@ place, harmless, and picked back up if re-enabled).
 
    ```bash
    cd /opt/mqtt && docker compose stop mosquitto
-   MOSQUITTO_MOUNTPOINT=$(docker volume inspect mosquitto_data --format '{{ .Mountpoint }}')
+   MOSQUITTO_VOLUME=$(docker volume ls -q --filter "name=mosquitto_data")
+   MOSQUITTO_MOUNTPOINT=$(docker volume inspect "$MOSQUITTO_VOLUME" --format '{{ .Mountpoint }}')
    tar -C "$MOSQUITTO_MOUNTPOINT" -xzf /opt/backup/restore/data/mosquitto_data.tar.gz
    docker compose start mosquitto
    ```
