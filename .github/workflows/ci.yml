@@ -64,7 +64,10 @@ jobs:
                 grafana_pkluser_password=test \
                 mqtt_password=test \
                 grafana_git_sync_token=test \
-                cloudflare_tunnel_token=test"
+                cloudflare_tunnel_token=test \
+                backup_b2_account_id=test \
+                backup_b2_account_key=test \
+                backup_restic_password=test"
 
   molecule:
     name: Molecule (docker role)
