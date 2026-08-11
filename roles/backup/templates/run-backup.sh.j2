@@ -45,9 +45,18 @@ docker cp "{{ backup_mssql_container }}:/var/opt/mssql/backup/{{ backup_mssql_da
   "$STAGING/{{ backup_mssql_database }}.bak" \
   || fail "docker cp of MSSQL .bak file failed"
 
-log "Archiving Mosquitto persistence data"
-MOSQUITTO_MOUNTPOINT="$(docker volume inspect "{{ backup_mosquitto_volume }}" --format '{{ '{{' }} .Mountpoint {{ '}}' }}')" \
-  || fail "could not resolve {{ backup_mosquitto_volume }} volume mountpoint"
+log "Resolving Mosquitto data volume"
+MOSQUITTO_VOLUME="$(docker volume ls -q --filter "name={{ backup_mosquitto_volume }}")"
+if [ -z "$MOSQUITTO_VOLUME" ]; then
+  fail "no docker volume matching '{{ backup_mosquitto_volume }}' found"
+fi
+if [ "$(echo "$MOSQUITTO_VOLUME" | wc -l)" -gt 1 ]; then
+  fail "multiple docker volumes matched '{{ backup_mosquitto_volume }}': $MOSQUITTO_VOLUME"
+fi
+
+log "Archiving Mosquitto persistence data ($MOSQUITTO_VOLUME)"
+MOSQUITTO_MOUNTPOINT="$(docker volume inspect "$MOSQUITTO_VOLUME" --format '{{ '{{' }} .Mountpoint {{ '}}' }}')" \
+  || fail "could not resolve $MOSQUITTO_VOLUME volume mountpoint"
 tar -C "$MOSQUITTO_MOUNTPOINT" -czf "$STAGING/mosquitto_data.tar.gz" . \
   || fail "tar of mosquitto data failed"
 
