@@ -59,6 +59,10 @@ grafana_mssql_datasource_uid: "PAAAEB8D7872B0C49"
 mqtt_username: 'admin'
 mqtt_password: 'admin'
 
+# Cap the largest accepted MQTT packet at 10 MiB. Whole-packet limit (headers +
+# topic + payload), well above the largest roster/telemetry payloads we publish.
+mosquitto_max_packet_size: 10485760
+
 # Cloudflared
 cloudflared_network_mode: host
 
