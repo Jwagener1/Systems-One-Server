@@ -24,7 +24,8 @@
     - nodered
     - systems_one_ingest
     - s1_dashboard
-    - s1_reporter
+    - role: s1_reporter
+      tags: [s1_reporter]
     - marketing_display
     - role: scan_fleet_dashboard
       tags: [scan_fleet_dashboard]
