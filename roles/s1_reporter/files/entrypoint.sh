@@ -10,6 +10,7 @@ DAILY_HOUR=${DAILY_REPORT_HOUR:-6}
 MONTHLY_HOUR=${MONTHLY_REPORT_HOUR:-6}
 
 last_offline=0
+last_offline_sync=0
 last_upload_check=0
 last_daily_date=""
 last_monthly_month=""
@@ -26,6 +27,15 @@ while true; do
     month_str=$(date +%Y-%m)
     week_str=$(date +%Y-%W)
     dow=$(date +%u)   # 1=Mon ... 7=Sun
+
+    # Device status DB sync — every OFFLINE_INTERVAL minutes, 7 days a week.
+    # DB only, no Teams post, so dashboards stay truthful over weekends too.
+    elapsed_sync=$(( now - last_offline_sync ))
+    if [ "$elapsed_sync" -ge $(( OFFLINE_INTERVAL * 60 )) ]; then
+        echo "[$(date '+%Y-%m-%d %H:%M')] Syncing device_status to DB..."
+        python3 /app/report.py offline-sync
+        last_offline_sync=$now
+    fi
 
     # Offline check — every OFFLINE_INTERVAL minutes (weekdays only)
     elapsed=$(( now - last_offline ))

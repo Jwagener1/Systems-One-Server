@@ -201,6 +201,89 @@ def detect_offline_devices(threshold_min=None, customer=None):
             })
     return sorted(offline, key=lambda x: x["minutes_ago"], reverse=True)
 
+def sync_device_status_to_db(threshold_min=None):
+    """
+    Writes the online/offline truth into dbo.device_status.
+
+    Why this exists: device_status was previously driven only by what devices
+    publish about themselves, which can never be correct. A dead device cannot
+    publish "offline", and the MQTT status topics here are *retained*, so every
+    broker/ingestor reconnect replays a stale "online" and resurrects devices
+    that have been dark for weeks.
+
+    Liveness is therefore derived from observed telemetry (device_statistics) --
+    the same source detect_offline_devices() uses for alerts -- so the
+    database and the alerts can never disagree.
+
+    Returns (online_count, offline_count).
+    """
+    if threshold_min is None:
+        threshold_min = OFFLINE_THRESHOLD_MIN
+
+    rows = get_device_last_seen()
+    if not rows:
+        print("No devices with telemetry found; device_status left untouched.")
+        return 0, 0
+
+    online_n = offline_n = 0
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            for r in rows:
+                if r["last_seen"] is None:
+                    continue
+                last_seen = r["last_seen"]
+                if isinstance(last_seen, str):
+                    last_seen = datetime.fromisoformat(last_seen)
+                is_offline = int(r["minutes_ago"]) >= threshold_min
+                status = "offline" if is_offline else "online"
+
+                cur.execute(
+                    "SELECT id FROM devices "
+                    "WHERE machine_name=%s AND location=%s AND customer=%s",
+                    (r["machine_name"], r["location"], r["customer"]))
+                drow = cur.fetchone()
+                if not drow:
+                    continue
+                device_id = drow[0]
+
+                cur.execute(
+                    "SELECT id, offline_since FROM device_status WHERE device_id=%s",
+                    (device_id,))
+                srow = cur.fetchone()
+
+                if srow is None:
+                    cur.execute("""
+                        INSERT INTO device_status
+                            (device_id, status, ts_epoch, ts_datetime,
+                             offline_since, created_at, updated_at)
+                        VALUES (%s, %s, DATEDIFF_BIG(second,'19700101',%s), %s,
+                                %s, SYSUTCDATETIME(), SYSUTCDATETIME())
+                    """, (device_id, status, last_seen, last_seen,
+                          last_seen if is_offline else None))
+                else:
+                    # Preserve the original offline_since across repeated sweeps so
+                    # "down since" reflects the first miss, not the latest sweep.
+                    offline_since = (srow[1] or last_seen) if is_offline else None
+                    cur.execute("""
+                        UPDATE device_status
+                        SET status=%s,
+                            ts_epoch=DATEDIFF_BIG(second,'19700101',%s),
+                            ts_datetime=%s,
+                            offline_since=%s,
+                            updated_at=SYSUTCDATETIME()
+                        WHERE id=%s
+                    """, (status, last_seen, last_seen, offline_since, srow[0]))
+
+                if is_offline:
+                    offline_n += 1
+                else:
+                    online_n += 1
+        conn.commit()
+
+    print("device_status synced: %d online, %d offline (threshold %dm)"
+          % (online_n, offline_n, threshold_min))
+    return online_n, offline_n
+
 # ── Offline state persistence ──────────────────────────────────────────────────
 def _device_key(machine_name, location):
     return f"{machine_name}@{location}"
@@ -672,5 +755,9 @@ if __name__ == "__main__":
         # Run this every ~20 min via cron to get near-realtime offline/recovery alerts.
         newly_offline, recovered = check_and_send_offline_alert()
         sys.exit(1 if (newly_offline or recovered) else 0)
+    elif mode == "offline-sync":
+        # DB-only sync of dbo.device_status. Posts no Teams card, so it is safe to run
+        # 7 days a week and keeps dashboards truthful over weekends.
+        sync_device_status_to_db()
     else:
-        print("Usage: report.py [daily|monthly|offline]"); sys.exit(1)
+        print("Usage: report.py [daily|monthly|offline|offline-sync]"); sys.exit(1)
