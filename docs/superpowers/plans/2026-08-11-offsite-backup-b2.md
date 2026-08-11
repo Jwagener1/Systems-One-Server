@@ -320,18 +320,35 @@ git commit -m "feat(backup): add disabled-by-default MSSQL+Mosquitto backup role
 
 ```yaml
 ---
+- name: Check whether the backup script is installed yet
+  stat:
+    path: "{{ backup_script_path }}"
+  register: s1_backup_script
+
 - name: Check for a successful-backup status file
   stat:
     path: "{{ backup_status_dir }}/last_success"
   register: s1_backup_status
 
-- name: Fail if backups are enabled but none has ever succeeded
+- name: Fail if backups are enabled but none has ever succeeded (script already installed)
   fail:
     msg: >-
       backup_enabled is true but {{ backup_status_dir }}/last_success does not
       exist yet. Run {{ backup_script_path }} manually on the box once, confirm
       it succeeds, then re-run this playbook.
-  when: not s1_backup_status.stat.exists
+  when:
+    - not s1_backup_status.stat.exists
+    - s1_backup_script.stat.exists
+
+- name: Warn when this is the first run enabling backups (script not installed yet)
+  debug:
+    msg: >-
+      backup_enabled is true but {{ backup_script_path }} is not installed yet -
+      this run will install it via the backup role. Once installed, run it
+      manually and confirm a successful backup before relying on this gate.
+  when:
+    - not s1_backup_status.stat.exists
+    - not s1_backup_script.stat.exists
 
 - name: Read last successful backup timestamp
   slurp:
@@ -339,22 +356,18 @@ git commit -m "feat(backup): add disabled-by-default MSSQL+Mosquitto backup role
   register: s1_backup_last_success
   when: s1_backup_status.stat.exists
 
-- name: Compute time since last successful backup
-  set_fact:
-    s1_backup_age_timedelta: >-
-      {{ (ansible_date_time.iso8601 | to_datetime('%Y-%m-%dT%H:%M:%SZ'))
-         - (s1_backup_last_success.content | b64decode | trim | to_datetime('%Y-%m-%dT%H:%M:%SZ')) }}
-  when: s1_backup_status.stat.exists
-
 - name: Compute backup age in hours
   set_fact:
-    s1_backup_age_hours: "{{ (s1_backup_age_timedelta.days * 24) + (s1_backup_age_timedelta.seconds / 3600) }}"
+    s1_backup_age_hours: >-
+      {{ ((ansible_date_time.iso8601 | to_datetime('%Y-%m-%dT%H:%M:%SZ'))
+          - (s1_backup_last_success.content | b64decode | trim | to_datetime('%Y-%m-%dT%H:%M:%SZ'))
+         ).total_seconds() / 3600 }}
   when: s1_backup_status.stat.exists
 
 - name: Fail if the last successful backup is too old
   fail:
     msg: >-
-      Last successful backup was {{ s1_backup_age_hours | round(1) }} hours ago,
+      Last successful backup was {{ s1_backup_age_hours | float | round(1) }} hours ago,
       exceeding backup_gate_max_age_hours ({{ backup_gate_max_age_hours }}).
       Refusing to apply changes until a fresh backup completes - run
       {{ backup_script_path }} manually, or wait for the nightly cron, then
@@ -364,7 +377,12 @@ git commit -m "feat(backup): add disabled-by-default MSSQL+Mosquitto backup role
     - (s1_backup_age_hours | float) > (backup_gate_max_age_hours | int)
 ```
 
-- [ ] **Step 2: Import the gate into `webservers.yml`'s `pre_tasks`**
+**Design notes on this revision (fixed after the final whole-branch review found three Critical bugs in the original version):**
+- The original version computed a `timedelta` in one `set_fact` and read `.days`/`.seconds` off it in a second `set_fact`. Ansible's classic (non-native) Jinja templating stringifies non-literal-evaluable objects like `timedelta` when they cross a `set_fact` boundary, so the second task would fail with `'str object' has no attribute 'days'` on most of this repo's supported Ansible versions (`requirements.txt` pins `ansible>=9.0`, unpinned upper bound). Fixed by computing everything in a single expression using `.total_seconds() / 3600`, never storing the intermediate `timedelta` — floats/strings survive the `set_fact` round-trip fine (that's why `| float` casts already worked elsewhere), objects like `timedelta` do not.
+- The original version failed hard whenever `last_success` didn't exist, with no way to distinguish "backups have been running and just haven't succeeded yet" from "this is the very first run after flipping `backup_enabled: true`, and the script that would create that file hasn't been installed yet either." That made the documented enable procedure (README Task 5) deadlock: the gate blocks the same play that installs the script. Fixed by checking whether `backup_script_path` exists first — only hard-fail on a missing `last_success` if the script is already installed (meaning a backup should have run by now); otherwise just warn and let the play proceed to install it.
+- `{{ s1_backup_age_hours | round(1) }}` in the fail message lacked the `| float` cast that the `when:` guard already had — added for consistency/safety now that the value is computed directly as a float expression.
+
+- [ ] **Step 2: Import the gate into `webservers.yml`'s `pre_tasks`, tagged `always`**
 
 In `webservers.yml`, after the existing `Validate required variables` pre_task and before `roles:`, add:
 
@@ -374,11 +392,14 @@ In `webservers.yml`, after the existing `Validate required variables` pre_task a
         name: backup
         tasks_from: gate.yml
       when: backup_enabled | default(false)
+      tags: always
 ```
 
-- [ ] **Step 3: Import the gate into `dbservers.yml`'s `pre_tasks`**
+**Why `tags: always` (added after the final review):** `pre_tasks` without this tag are skipped entirely when a playbook run is scoped with `--tags` — and this repo's actual deploy practice is tag-scoped (`webservers.yml` itself defines `tags: [s1_reporter]` and `tags: [scan_fleet_dashboard]` on individual roles; the design spec documents deploys as "frequently scoped, e.g. `--tags s1_reporter`"). Without `tags: always`, a scoped deploy would silently skip the gate entirely — defeating its purpose. The existing "Load vaulted variables" pre_task in this same file already carries `tags: always` for exactly this reason; this follows the same established precedent.
 
-Same block, added after `dbservers.yml`'s existing `Validate required variables` pre_task and before `roles:`.
+- [ ] **Step 3: Import the gate into `dbservers.yml`'s `pre_tasks`, tagged `always`**
+
+Same block (including `tags: always`), added after `dbservers.yml`'s existing `Validate required variables` pre_task and before `roles:`.
 
 - [ ] **Step 4: Validate YAML and Ansible syntax**
 
@@ -536,7 +557,11 @@ full design rationale.
 2. `ansible-vault edit group_vars/vault.yml` and add `vault_backup_b2_account_id`,
    `vault_backup_b2_account_key`, `vault_backup_restic_password`.
 3. Set `backup_enabled: true` in the target host's `host_vars/<host>.yml`.
-4. `ansible-playbook -i production dbservers.yml` — installs the script and cron job.
+4. `ansible-playbook -i production dbservers.yml -vv` — installs the script and
+   cron job (the pre-deploy gate will only warn, not block, on this first run,
+   since the script doesn't exist yet for it to have run). Check the `-vv`
+   output for a non-skipped "Render backup script" task to confirm the script
+   was actually installed, not silently skipped by a `when:` guard.
 5. Run `/opt/backup/run-backup.sh` by hand once and confirm it exits 0 and
    `/opt/backup/status/last_success` appears. From this point on, every
    `webservers.yml`/`dbservers.yml` run will refuse to proceed if the last
@@ -552,7 +577,11 @@ place, harmless, and picked back up if re-enabled).
 
 1. Provision a fresh box, run Ansible through `webservers.yml`/`dbservers.yml`
    with `backup_enabled: false` — brings up empty `mssql`/`mosquitto` containers.
-2. Restore the latest snapshot from B2 into a scratch directory:
+2. Restore the latest snapshot from B2 into a scratch directory (replace
+   `<bucket>`/`<path>` with the real values — `systems-one-backups` /
+   `sysone` for production, `sysone-staging` for staging — and pass `--host`
+   so `latest` can't resolve ambiguously if this repository is ever shared
+   across hosts):
 
    ```bash
    mkdir -p /opt/backup/restore
@@ -561,24 +590,47 @@ place, harmless, and picked back up if re-enabled).
      -e RESTIC_PASSWORD="<restic password from vault>" \
      -e B2_ACCOUNT_ID="<id from vault>" -e B2_ACCOUNT_KEY="<key from vault>" \
      -v /opt/backup/restore:/restore \
-     restic/restic:0.17 restore latest --target /restore
+     restic/restic:0.17 restore latest --host sysone --target /restore
    ```
 
-3. Restore MSSQL:
+3. Restore MSSQL. The backup directory inside the container only exists
+   because the nightly script creates it (`mkdir -p /var/opt/mssql/backup`)
+   — a fresh container from step 1 doesn't have it yet, so create it first:
 
    ```bash
+   docker exec mssql mkdir -p /var/opt/mssql/backup
    docker cp /opt/backup/restore/data/S1_Remote_Monitoring.bak mssql:/var/opt/mssql/backup/
    docker exec mssql /opt/mssql-tools18/bin/sqlcmd \
      -S localhost -U sa -P "<mssql_sa_password>" -C \
      -Q "RESTORE DATABASE [S1_Remote_Monitoring] FROM DISK = N'/var/opt/mssql/backup/S1_Remote_Monitoring.bak' WITH REPLACE;"
    ```
 
+   The restored database carries the old server's login SIDs. `roles/mssql`'s
+   bootstrap creates fresh logins on the new box with new SIDs, so the restored
+   database's users are now orphaned — Grafana, Node-RED, and
+   `systems_one_ingest` will fail to authenticate until you remap them:
+
+   ```bash
+   docker exec mssql /opt/mssql-tools18/bin/sqlcmd \
+     -S localhost -U sa -P "<mssql_sa_password>" -C \
+     -Q "USE [S1_Remote_Monitoring]; ALTER USER [<mssql_rm_admin_login>] WITH LOGIN = [<mssql_rm_admin_login>];"
+   ```
+
+   (Repeat for any other application login the restored database has users for.)
+
 4. Restore Mosquitto (container must be stopped first so nothing is writing
-   to the volume while it's being replaced):
+   to the volume while it's being replaced). The volume name is resolved by
+   filter, not assumed exact, matching `backup_mosquitto_volume` and the guard
+   logic in `run-backup.sh.j2` — the same reason `docker volume inspect
+   mosquitto_data` alone would fail (see the design spec):
 
    ```bash
    cd /opt/mqtt && docker compose stop mosquitto
    MOSQUITTO_VOLUME=$(docker volume ls -q --filter "name=mosquitto_data")
+   if [ -z "$MOSQUITTO_VOLUME" ] || [ "$(echo "$MOSQUITTO_VOLUME" | wc -l)" -gt 1 ]; then
+     echo "could not uniquely resolve the mosquitto volume: '$MOSQUITTO_VOLUME'" >&2
+     exit 1
+   fi
    MOSQUITTO_MOUNTPOINT=$(docker volume inspect "$MOSQUITTO_VOLUME" --format '{{ .Mountpoint }}')
    tar -C "$MOSQUITTO_MOUNTPOINT" -xzf /opt/backup/restore/data/mosquitto_data.tar.gz
    docker compose start mosquitto

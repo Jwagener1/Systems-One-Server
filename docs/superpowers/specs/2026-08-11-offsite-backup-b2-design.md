@@ -30,7 +30,7 @@ Deploys today are manual: SSH to the box, `git merge`, run `ansible-playbook -i 
 
 **MSSQL** — native `BACKUP DATABASE ... WITH COMPRESSION` inside the `mssql` container, run via `sqlcmd` (mirrors the pattern already used for bootstrap in `roles/mssql/tasks/main.yml`). This is the SQL-Server-correct way to get a consistent, restorable backup — never copy `mssql_data`'s raw files while the engine is running.
 
-**Mosquitto** — `tar` of the `mosquitto_data` named volume's mountpoint (resolved via `docker volume inspect --format '{{ .Mountpoint }}'`), taken live without stopping the container. Mosquitto's persistence file is autosaved via rename-on-write, so a live copy is safe in practice for this use case (retained-message/subscription state, not transactional data); noted here as a deliberate tradeoff against briefly stopping MQTT ingest for every nightly backup.
+**Mosquitto** — `tar` of the Mosquitto persistence volume's mountpoint, taken live without stopping the container. The volume is declared as `mosquitto_data` in `roles/mqtt/templates/docker-compose.mqtt.yml.j2`, but Docker Compose prefixes volume names with its project name when no explicit `name:` override exists (none does here), so the actual runtime volume is `mqtt_mosquitto_data`. The script resolves it dynamically via `docker volume ls -q --filter "name=mosquitto_data"` (substring match, with zero/multi-match guards) rather than assuming the exact name, then `docker volume inspect --format '{{ .Mountpoint }}'` on whatever that resolves to. Mosquitto's persistence file is autosaved via rename-on-write, so a live copy is safe in practice for this use case (retained-message/subscription state, not transactional data); noted here as a deliberate tradeoff against briefly stopping MQTT ingest for every nightly backup.
 
 **Offsite transport** — [restic](https://restic.net/) run as an ephemeral `docker run --rm restic/restic ...` container (same one-off-container pattern the `mqtt` role already uses for `mosquitto_passwd`), targeting B2 natively via `restic -r b2:<bucket>:<path>`. Restic encrypts client-side with a repository password independent of B2's own access controls, dedupes, and prunes on a retention policy. No restic binary gets installed on the host — everything runs through Docker, consistent with how this repo runs every other piece of software.
 
@@ -51,7 +51,12 @@ The gate checks **freshness of the last successful backup** (a status file the b
 - Status file older than `backup_gate_max_age_hours` (default 30 — covers the nightly cadence plus slack) → fail, telling the operator to run a fresh backup or wait for cron.
 - Fresh → pass silently.
 
-**Why freshness-check instead of "run a backup right now on every deploy":** deploys here are frequently scoped (`--tags s1_reporter`) and can happen several times during active work on a single feature. Forcing a live `BACKUP DATABASE` + offsite push before every one of those would slow down routine config changes for no safety benefit beyond what a nightly cadence already provides, and doesn't handle the bootstrap problem cleanly (the very first time you flip `backup_enabled: true`, the script doesn't exist on disk yet for `pre_tasks` to invoke, since pre_tasks run before the `roles:` list that installs it). A freshness gate is simple, matches the existing `assert`-based fail pattern in this codebase, and correctly encodes "never run Ansible against unprotected-by-a-day-or-more data."
+**Why freshness-check instead of "run a backup right now on every deploy":** deploys here are frequently scoped (`--tags s1_reporter`) and can happen several times during active work on a single feature. Forcing a live `BACKUP DATABASE` + offsite push before every one of those would slow down routine config changes for no safety benefit beyond what a nightly cadence already provides. A freshness gate is simple and matches the existing `assert`-based fail pattern in this codebase.
+
+**Two correctness fixes made after the final whole-branch review, both worth recording:**
+- **Tag scoping bypassed the gate entirely.** `pre_tasks` without `tags: always` are skipped when a run is scoped with `--tags` — exactly this repo's normal deploy shape. The gate's `import_role` now carries `tags: always`, matching the existing "Load vaulted variables" pre_task in the same files, which already needed this for the same reason.
+- **The gate deadlocked its own bootstrap.** The original "no status file" check failed unconditionally, including on the very first run that enables `backup_enabled` — but that first run is also the one that installs `run-backup.sh` in the first place (via the `roles:` list, which executes after `pre_tasks`). The gate now checks whether the script is already installed (`stat` on `backup_script_path`) before deciding whether "no status file yet" is a hard failure (script installed, should have run by now) or just informational (script not installed yet, this run will install it).
+- Also: the age computation must not round-trip a `timedelta` object through an intermediate `set_fact` — Ansible's classic (non-native) Jinja templating stringifies it, breaking `.days`/`.seconds` attribute access on the next task. Compute hours in one expression via `.total_seconds() / 3600` instead.
 
 ### Layout on disk
 
@@ -79,7 +84,7 @@ The gate checks **freshness of the last successful backup** (a status file the b
    ```
 3. MSSQL: `docker cp /opt/backup/restore/data/S1_Remote_Monitoring.bak mssql:/var/opt/mssql/backup/` then
    `RESTORE DATABASE [S1_Remote_Monitoring] FROM DISK = N'/var/opt/mssql/backup/S1_Remote_Monitoring.bak' WITH REPLACE;` via `sqlcmd`.
-4. Mosquitto: stop the `mosquitto` container, extract `mosquitto_data.tar.gz` into the `mosquitto_data` volume's mountpoint, restart.
+4. Mosquitto: stop the `mosquitto` container, resolve the real volume name via `docker volume ls -q --filter "name=mosquitto_data"` (see note above — it won't be the exact string `mosquitto_data`), extract `mosquitto_data.tar.gz` into that volume's mountpoint, restart.
 5. Re-run the full site to reconcile everything else (Grafana, Node-RED, etc.) from this repo as usual.
 
 This is captured in full, copy-pasteable form in `roles/backup/README.md` (Task in the implementation plan), not just here, so it's discoverable at the point someone actually needs it under pressure.
