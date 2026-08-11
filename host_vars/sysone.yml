@@ -49,6 +49,48 @@ grafana_users:
     orgs:
       - name: "Main Org."
         role: "Viewer"
+  - login: "cust_bex"
+    email: "cust_bex"
+    name: "BEX"
+    password: "{{ vault_grafana_cust_bex_password }}"
+    orgs:
+      - name: "Main Org."
+        role: "Viewer"
+  - login: "cust_dcb"
+    email: "cust_dcb"
+    name: "DCB"
+    password: "{{ vault_grafana_cust_dcb_password }}"
+    orgs:
+      - name: "Main Org."
+        role: "Viewer"
+  - login: "cust_madibana"
+    email: "cust_madibana"
+    name: "MADIBANA"
+    password: "{{ vault_grafana_cust_madibana_password }}"
+    orgs:
+      - name: "Main Org."
+        role: "Viewer"
+  - login: "cust_pep"
+    email: "cust_pep"
+    name: "PEP"
+    password: "{{ vault_grafana_cust_pep_password }}"
+    orgs:
+      - name: "Main Org."
+        role: "Viewer"
+  - login: "cust_pep_africa"
+    email: "cust_pep_africa"
+    name: "PEP AFRICA"
+    password: "{{ vault_grafana_cust_pep_africa_password }}"
+    orgs:
+      - name: "Main Org."
+        role: "Viewer"
+  - login: "cust_snowsoft"
+    email: "cust_snowsoft"
+    name: "SNOWSOFT"
+    password: "{{ vault_grafana_cust_snowsoft_password }}"
+    orgs:
+      - name: "Main Org."
+        role: "Viewer"
 
 # Grafana MSSQL datasource identity (referenced by dashboards)
 grafana_mssql_datasource_uid: "PAAAEB8D7872B0C49"
