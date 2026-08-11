@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 S1 Device Performance Reporter — v4
-Daily and monthly HTML email reports with charts, per customer.
+Daily and monthly Teams Adaptive Card reports with hosted chart images, per customer.
 Usage:
     python3 report.py daily
     python3 report.py monthly
@@ -20,7 +20,8 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from teams_notifier import post_to_teams
-from cards import build_offline_alert_card, build_recovery_card
+from cards import build_offline_alert_card, build_recovery_card, build_customer_section_card
+from chart_store import save_chart, cleanup_old_charts
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 ENV_PATH = os.path.join(os.path.dirname(__file__), "report.env")
@@ -45,6 +46,9 @@ def load_config():
 
 CFG = load_config()
 TEAMS_WEBHOOK_URL = CFG.get("TEAMS_WEBHOOK_URL", "")
+CHART_DIR = os.environ.get("CHART_DIR", "/data/charts")
+CHART_PUBLIC_BASE_URL = os.environ.get("CHART_PUBLIC_BASE_URL", "")
+CHART_RETENTION_DAYS = int(os.environ.get("CHART_RETENTION_DAYS", "14"))
 
 # ── Customer capability flags ──────────────────────────────────────────────────
 # Controls which columns/charts/alerts are shown per customer.
@@ -551,134 +555,74 @@ def alerts_block(anomalies):
 def img_tag(cid):
     return f'<img src="cid:{cid}" alt="chart" style="max-width:100%;border-radius:8px;display:block;margin:4px 0;">'
 
-def customer_section_daily(customer, today_label, images, days=7):
-    caps     = get_caps(customer)
-    trend    = get_daily_trend(days, customer)
-    summary1 = get_device_summary(1, customer)
-    summary7 = get_device_summary(days, customer)
-    hourly   = get_hourly_pattern(days, customer)
-    storage  = get_storage(customer)
+def _caps_headers(caps, trailing=None):
+    headers = ["Device", "Location", "Items", "Good Read %", "No Reads"]
+    if caps["has_dimension"]:
+        headers.append("No Dims")
+    if caps["has_hand_scan"]:
+        headers.append("Hand Scanned")
+    if caps["has_weight"]:
+        headers.append("No Weight")
+    if trailing:
+        headers.extend(trailing)
+    return headers
+
+
+def _caps_row(r, caps, trailing_values=None):
+    row = [
+        r["machine_name"], r["location"],
+        f"{(r['total_items'] or 0):,}",
+        f"{r['good_read_pct']:.1f}%" if r.get("good_read_pct") is not None else "—",
+        f"{r['no_reads'] or 0:,}",
+    ]
+    if caps["has_dimension"]:
+        row.append(f"{r['no_dimensions'] or 0:,}")
+    if caps["has_hand_scan"]:
+        row.append(f"{r['hand_scanned'] or 0:,}")
+    if caps["has_weight"]:
+        row.append(f"{r['no_weight'] or 0:,}")
+    if trailing_values:
+        row.extend(trailing_values(r))
+    return row
+
+
+def customer_section_daily_card(customer, days=7):
+    caps      = get_caps(customer)
+    trend     = get_daily_trend(days, customer)
+    summary1  = get_device_summary(1, customer)
+    summary7  = get_device_summary(days, customer)
+    hourly    = get_hourly_pattern(days, customer)
+    storage   = get_storage(customer)
     anomalies = detect_anomalies(trend, customer)
 
-    c_vol_id = f"vol_{customer}"
-    c_gr_id  = f"gr_{customer}"
-    c_hr_id  = f"hr_{customer}"
-    images[c_vol_id] = chart_daily_volume(trend,  f"Daily Volume — {customer} — Last {days} Days")
-    images[c_gr_id]  = chart_goodread_trend(trend, f"Good Read % — {customer} — Last {days} Days")
-    images[c_hr_id]  = chart_hourly_volume(hourly, f"Hourly Pattern — {customer}")
+    chart_urls = {
+        "volume":   save_chart(chart_daily_volume(trend, f"Daily Volume — {customer} — Last {days} Days"), CHART_DIR, CHART_PUBLIC_BASE_URL),
+        "goodread": save_chart(chart_goodread_trend(trend, f"Good Read % — {customer} — Last {days} Days"), CHART_DIR, CHART_PUBLIC_BASE_URL),
+        "hourly":   save_chart(chart_hourly_volume(hourly, f"Hourly Pattern — {customer}"), CHART_DIR, CHART_PUBLIC_BASE_URL),
+    }
 
-    # Today table — build headers and rows dynamically based on caps
-    today_th = "<th>Device</th><th>Location</th><th style='text-align:right'>Items</th><th>Good Read</th><th style='text-align:right'>No Reads</th>"
-    if caps["has_dimension"]:
-        today_th += "<th style='text-align:right'>No Dims</th>"
-    if caps["has_hand_scan"]:
-        today_th += "<th style='text-align:right'>Hand Scanned</th>"
-    if caps["has_weight"]:
-        today_th += "<th style='text-align:right'>No Weight</th>"
-    today_th += "<th style='text-align:right'>Not Sent</th>"
+    today_headers = _caps_headers(caps, trailing=["Not Sent"])
+    today_rows = [_caps_row(r, caps, trailing_values=lambda r: [f"{r['not_sent'] or 0:,}"]) for r in summary1]
 
-    today_colspan = 6 + int(caps["has_dimension"]) + int(caps["has_hand_scan"]) + int(caps["has_weight"])
+    week_headers = _caps_headers(caps)
+    week_rows = [_caps_row(r, caps) for r in summary7]
 
-    today_rows = ""
-    for r in summary1:
-        row = f"""<tr>
-            <td><b>{r['machine_name']}</b></td><td>{r['location']}</td>
-            <td style="text-align:right">{(r['total_items'] or 0):,}</td>
-            <td>{pct_badge(r['good_read_pct'])}</td>
-            <td style="text-align:right">{r['no_reads'] or 0:,}</td>"""
-        if caps["has_dimension"]:
-            row += f"<td style='text-align:right'>{r['no_dimensions'] or 0:,}</td>"
-        if caps["has_hand_scan"]:
-            row += f"<td style='text-align:right'>{r['hand_scanned'] or 0:,}</td>"
-        if caps["has_weight"]:
-            row += f"<td style='text-align:right'>{r['no_weight'] or 0:,}</td>"
-        row += f"<td style='text-align:right'>{r['not_sent'] or 0:,}</td></tr>"
-        today_rows += row
+    storage_headers = ["Device", "Location", "Usage", "%"]
+    storage_rows = [
+        [s["machine_name"], s["location"], f"{float(s['used_gb']):.1f} / {float(s['total_gb']):.1f} GB", f"{s['usage_percent']}%"]
+        for s in storage
+    ]
 
-    # 7-day summary table — same cap logic
-    week_th = "<th>Device</th><th>Location</th><th style='text-align:right'>Total Items</th><th>Good Read</th><th style='text-align:right'>No Reads</th>"
-    if caps["has_dimension"]:
-        week_th += "<th style='text-align:right'>No Dims</th>"
-    if caps["has_hand_scan"]:
-        week_th += "<th style='text-align:right'>Hand Scanned</th>"
-    if caps["has_weight"]:
-        week_th += "<th style='text-align:right'>No Weight</th>"
+    return build_customer_section_card(
+        customer=customer, days=days, anomalies=anomalies,
+        today_table={"headers": today_headers, "rows": today_rows},
+        week_table={"headers": week_headers, "rows": week_rows},
+        storage_table={"headers": storage_headers, "rows": storage_rows},
+        chart_urls=chart_urls,
+    )
 
-    week_rows = ""
-    for r in summary7:
-        row = f"""<tr>
-            <td><b>{r['machine_name']}</b></td><td>{r['location']}</td>
-            <td style="text-align:right">{(r['total_items'] or 0):,}</td>
-            <td>{pct_badge(r['good_read_pct'])}</td>
-            <td style="text-align:right">{r['no_reads'] or 0:,}</td>"""
-        if caps["has_dimension"]:
-            row += f"<td style='text-align:right'>{r['no_dimensions'] or 0:,}</td>"
-        if caps["has_hand_scan"]:
-            row += f"<td style='text-align:right'>{r['hand_scanned'] or 0:,}</td>"
-        if caps["has_weight"]:
-            row += f"<td style='text-align:right'>{r['no_weight'] or 0:,}</td>"
-        row += "</tr>"
-        week_rows += row
 
-    stor_rows = ""
-    for s in storage:
-        stor_rows += f"""<tr>
-            <td><b>{s['machine_name']}</b></td><td>{s['location']}</td>
-            <td>{float(s['used_gb']):.1f} / {float(s['total_gb']):.1f} GB</td>
-            <td>{disk_badge(s['usage_percent'])}</td>
-        </tr>"""
-
-    nodim_section = ""
-
-    return f"""
-    <div class="cust-hdr"><h2>🏢 {customer}</h2></div>
-
-    <div class="sec">
-      <h3>🚨 Alerts</h3>
-      {alerts_block(anomalies)}
-    </div>
-
-    <div class="sec">
-      <h3>📦 Today's Scan Summary</h3>
-      <table>
-        <tr>{today_th}</tr>
-        {today_rows or f'<tr><td colspan="{today_colspan}" style="color:#8b949e;text-align:center">No data today</td></tr>'}
-      </table>
-    </div>
-
-    <div class="sec">
-      <h3>📈 Daily Volume — Last {days} Days</h3>
-      {img_tag(c_vol_id)}
-    </div>
-
-    <div class="sec">
-      <h3>✅ Good Read % Trend — Last {days} Days</h3>
-      {img_tag(c_gr_id)}
-    </div>
-
-    <div class="sec">
-      <h3>🕐 Hourly Volume Pattern</h3>
-      {img_tag(c_hr_id)}
-    </div>
-
-    <div class="sec">
-      <h3>📊 {days}-Day Summary</h3>
-      <table>
-        <tr>{week_th}</tr>
-        {week_rows}
-      </table>
-    </div>
-    {nodim_section}
-
-    <div class="sec">
-      <h3>💾 Storage Health (C: Drive)</h3>
-      <table>
-        <tr><th>Device</th><th>Location</th><th>Usage</th><th>%</th></tr>
-        {stor_rows}
-      </table>
-    </div>"""
-
-def customer_section_monthly(customer, month_label, images):
+def customer_section_monthly_card(customer, month_label):
     caps     = get_caps(customer)
     trend    = get_daily_trend(30, customer)
     summary  = get_device_summary(30, customer)
@@ -686,99 +630,40 @@ def customer_section_monthly(customer, month_label, images):
     storage  = get_storage(customer)
     anomalies = detect_anomalies(trend, customer)
 
-    c_vol_id = f"mvol_{customer}"
-    c_gr_id  = f"mgr_{customer}"
-    c_hr_id  = f"mhr_{customer}"
-    images[c_vol_id] = chart_daily_volume(trend,   f"Daily Volume — {customer} — {month_label}")
-    images[c_gr_id]  = chart_goodread_trend(trend, f"Good Read % — {customer} — {month_label}")
-    images[c_hr_id]  = chart_hourly_volume(hourly, f"Hourly Pattern — {customer}")
+    chart_urls = {
+        "volume":   save_chart(chart_daily_volume(trend, f"Daily Volume — {customer} — {month_label}"), CHART_DIR, CHART_PUBLIC_BASE_URL),
+        "goodread": save_chart(chart_goodread_trend(trend, f"Good Read % — {customer} — {month_label}"), CHART_DIR, CHART_PUBLIC_BASE_URL),
+        "hourly":   save_chart(chart_hourly_volume(hourly, f"Hourly Pattern — {customer}"), CHART_DIR, CHART_PUBLIC_BASE_URL),
+    }
 
     total_items = sum(int(r["total_items"] or 0) for r in summary)
     avg_good    = sum(float(r["good_read_pct"] or 0) for r in summary) / max(len(summary), 1)
+    kpis = {"total_items": total_items, "avg_good_read_pct": avg_good, "active_devices": len(summary)}
 
-    # Monthly summary table — dynamic columns
-    tbl_th = "<th>Device</th><th>Location</th><th style='text-align:right'>Items</th><th>Good Read</th><th style='text-align:right'>No Reads</th>"
-    if caps["has_dimension"]:
-        tbl_th += "<th style='text-align:right'>No Dims</th>"
-    if caps["has_hand_scan"]:
-        tbl_th += "<th style='text-align:right'>Hand Scanned</th>"
-    if caps["has_weight"]:
-        tbl_th += "<th style='text-align:right'>No Weight</th>"
-    tbl_th += "<th style='text-align:right'>Not Sent</th><th>Trend</th>"
-
-    tbl_rows = ""
-    for r in summary:
+    def _trend_label(r):
         good = float(r["good_read_pct"] or 0)
-        trend_lbl = '<span style="color:#4ade80;font-weight:600">▲ Strong</span>' if good >= 99 else '<span style="color:#fbbf24;font-weight:600">▼ Monitor</span>'
-        row = f"""<tr>
-            <td><b>{r['machine_name']}</b></td><td>{r['location']}</td>
-            <td style="text-align:right">{int(r['total_items'] or 0):,}</td>
-            <td>{pct_badge(r['good_read_pct'])}</td>
-            <td style="text-align:right">{int(r['no_reads'] or 0):,}</td>"""
-        if caps["has_dimension"]:
-            row += f"<td style='text-align:right'>{int(r['no_dimensions'] or 0):,}</td>"
-        if caps["has_hand_scan"]:
-            row += f"<td style='text-align:right'>{int(r['hand_scanned'] or 0):,}</td>"
-        if caps["has_weight"]:
-            row += f"<td style='text-align:right'>{int(r['no_weight'] or 0):,}</td>"
-        row += f"<td style='text-align:right'>{int(r['not_sent'] or 0):,}</td><td>{trend_lbl}</td></tr>"
-        tbl_rows += row
+        return "▲ Strong" if good >= 99 else "▼ Monitor"
 
-    stor_rows = ""
-    for s in storage:
-        stor_rows += f"""<tr>
-            <td><b>{s['machine_name']}</b></td><td>{s['location']}</td>
-            <td>{float(s['used_gb']):.1f} / {float(s['total_gb']):.1f} GB</td>
-            <td>{disk_badge(s['usage_percent'])}</td>
-        </tr>"""
+    tbl_headers = _caps_headers(caps, trailing=["Not Sent", "Trend"])
+    tbl_rows = [
+        _caps_row(r, caps, trailing_values=lambda r: [f"{int(r['not_sent'] or 0):,}", _trend_label(r)])
+        for r in summary
+    ]
 
-    nodim_section = ""
+    storage_headers = ["Device", "Location", "Usage", "%"]
+    storage_rows = [
+        [s["machine_name"], s["location"], f"{float(s['used_gb']):.1f} / {float(s['total_gb']):.1f} GB", f"{s['usage_percent']}%"]
+        for s in storage
+    ]
 
-    return f"""
-    <div class="cust-hdr"><h2>🏢 {customer}</h2></div>
-
-    <div class="kpi-row">
-      <div class="kpi"><div class="kpi-val" style="color:#2563eb">{total_items:,}</div><div class="kpi-lbl">Items Scanned</div></div>
-      <div class="kpi"><div class="kpi-val" style="color:#16a34a">{avg_good:.1f}%</div><div class="kpi-lbl">Avg Good Read</div></div>
-      <div class="kpi"><div class="kpi-val" style="color:#0891b2">{len(summary)}</div><div class="kpi-lbl">Active Devices</div></div>
-    </div>
-
-    <div class="sec">
-      <h3>🚨 Alerts</h3>
-      {alerts_block(anomalies)}
-    </div>
-
-    <div class="sec">
-      <h3>📊 Monthly Device Summary</h3>
-      <table>
-        <tr>{tbl_th}</tr>
-        {tbl_rows}
-      </table>
-    </div>
-
-    <div class="sec">
-      <h3>📈 Daily Volume</h3>
-      {img_tag(c_vol_id)}
-    </div>
-
-    <div class="sec">
-      <h3>✅ Good Read % Trend</h3>
-      {img_tag(c_gr_id)}
-    </div>
-    {nodim_section}
-
-    <div class="sec">
-      <h3>🕐 Hourly Volume Pattern</h3>
-      {img_tag(c_hr_id)}
-    </div>
-
-    <div class="sec">
-      <h3>💾 Storage Health (C: Drive)</h3>
-      <table>
-        <tr><th>Device</th><th>Location</th><th>Usage</th><th>%</th></tr>
-        {stor_rows}
-      </table>
-    </div>"""
+    return build_customer_section_card(
+        customer=customer, days=30, anomalies=anomalies,
+        today_table={"headers": [], "rows": []},
+        week_table={"headers": tbl_headers, "rows": tbl_rows},
+        storage_table={"headers": storage_headers, "rows": storage_rows},
+        chart_urls=chart_urls,
+        kpis=kpis,
+    )
 
 # ── Report builders ────────────────────────────────────────────────────────────
 def check_and_send_offline_alert():
@@ -808,57 +693,21 @@ def check_and_send_offline_alert():
     return len(newly_offline), len(recovered)
 
 
-def build_daily_report():
-    today_label = datetime.now().strftime("%A, %d %B %Y")
-    customers   = get_customers()
-    images      = {}
-    body        = "".join(customer_section_daily(c, today_label, images) for c in customers)
-    ts          = datetime.now().strftime("%Y-%m-%d %H:%M")
+def build_and_send_daily_report():
+    cleanup_old_charts(CHART_DIR, CHART_RETENTION_DAYS)
+    for customer in CUSTOMER_CAPS:
+        card = customer_section_daily_card(customer)
+        post_to_teams(TEAMS_WEBHOOK_URL, card)
+    print(f"✅ Daily report sent for {len(CUSTOMER_CAPS)} customer(s)")
 
-    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8">{CSS}</head>
-<body>
-<table width="100%" cellpadding="0" cellspacing="0" bgcolor="#f3f4f6" style="background:#f3f4f6">
-<tr><td align="center" bgcolor="#f3f4f6" style="background:#f3f4f6">
-<div class="wrap">
-  <div class="hdr">
-    <div class="hdr-top">
-      <h1>⚙️ S1 — Daily Performance Report</h1>
-      <span class="badge">DAILY</span>
-    </div>
-    <div class="meta">{today_label} &nbsp;·&nbsp; Generated by Systems-One &nbsp;·&nbsp; {ts} SAST</div>
-  </div>
-  {body}
-  <div class="footer">S1 Remote Monitoring &nbsp;·&nbsp; systems-one.com &nbsp;·&nbsp; {ts} SAST</div>
-</div>
-</td></tr></table>
-</body></html>"""
-    return html, f"S1 Daily Report — {today_label}", images
 
-def build_monthly_report():
+def build_and_send_monthly_report():
+    cleanup_old_charts(CHART_DIR, CHART_RETENTION_DAYS)
     month_label = datetime.now().strftime("%B %Y")
-    customers   = get_customers()
-    images      = {}
-    body        = "".join(customer_section_monthly(c, month_label, images) for c in customers)
-    ts          = datetime.now().strftime("%Y-%m-%d %H:%M")
-
-    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8">{CSS}</head>
-<body>
-<table width="100%" cellpadding="0" cellspacing="0" bgcolor="#f3f4f6" style="background:#f3f4f6">
-<tr><td align="center" bgcolor="#f3f4f6" style="background:#f3f4f6">
-<div class="wrap">
-  <div class="hdr">
-    <div class="hdr-top">
-      <h1>⚙️ S1 — Monthly Deep-Dive Report</h1>
-      <span class="badge" style="background:#1f6feb">MONTHLY</span>
-    </div>
-    <div class="meta">{month_label} &nbsp;·&nbsp; Generated by Systems-One &nbsp;·&nbsp; {ts} SAST</div>
-  </div>
-  {body}
-  <div class="footer">S1 Remote Monitoring &nbsp;·&nbsp; systems-one.com &nbsp;·&nbsp; {ts} SAST</div>
-</div>
-</td></tr></table>
-</body></html>"""
-    return html, f"S1 Monthly Deep-Dive — {month_label}", images
+    for customer in CUSTOMER_CAPS:
+        card = customer_section_monthly_card(customer, month_label)
+        post_to_teams(TEAMS_WEBHOOK_URL, card)
+    print(f"✅ Monthly report sent for {len(CUSTOMER_CAPS)} customer(s)")
 
 # ── Email ──────────────────────────────────────────────────────────────────────
 def send_email(subject, html_body, images=None):
@@ -891,11 +740,9 @@ def send_email(subject, html_body, images=None):
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "daily"
     if mode == "daily":
-        html, subject, images = build_daily_report()
-        send_email(subject, html, images)
+        build_and_send_daily_report()
     elif mode == "monthly":
-        html, subject, images = build_monthly_report()
-        send_email(subject, html, images)
+        build_and_send_monthly_report()
     elif mode == "offline":
         # Run this every ~20 min via cron to get near-realtime offline/recovery alerts.
         newly_offline, recovered = check_and_send_offline_alert()
