@@ -435,8 +435,10 @@ jobs:
         env:
           ROLLBACK_TAG: ${{ inputs.tag }}
           ROLE_TAGS: ${{ inputs.tags }}
-        run: echo "Rolled back to $ROLLBACK_TAG (role scope: ${ROLE_TAGS:-all})"
+        run: 'echo "Rolled back to $ROLLBACK_TAG (role scope: ${ROLE_TAGS:-all})"'
 ```
+
+Note: the `run:` value is wrapped in single quotes because it contains an unquoted `: ` (in "role scope: ${ROLE_TAGS...") — YAML's plain-scalar grammar forbids a bare colon-space inside an unquoted value, so without the outer single quotes this line fails to parse.
 
 **Security note:** same rationale as `deploy.yml` — inputs are passed via `env:` and referenced as shell variables, never interpolated directly as `${{ inputs.* }}` inside a `run:` script, to avoid GitHub Actions script injection (CWE-78).
 
