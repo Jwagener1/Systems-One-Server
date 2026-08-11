@@ -320,28 +320,37 @@ jobs:
     steps:
       - name: Checkout target ref on the box
         working-directory: /home/s1/Systems-One-Server
+        env:
+          REF: ${{ inputs.ref }}
         run: |
           git fetch origin --tags
-          git checkout "${{ inputs.ref }}"
-          git merge --ff-only "origin/${{ inputs.ref }}" 2>/dev/null || true
+          git checkout "$REF"
+          git merge --ff-only "origin/$REF" 2>/dev/null || true
 
       - name: Run ansible-playbook
         working-directory: /home/s1/Systems-One-Server
+        env:
+          ROLE_TAGS: ${{ inputs.tags }}
         run: |
-          if [ -n "${{ inputs.tags }}" ]; then
-            ansible-playbook -i production webservers.yml --tags "${{ inputs.tags }}"
+          if [ -n "$ROLE_TAGS" ]; then
+            ansible-playbook -i production webservers.yml --tags "$ROLE_TAGS"
           else
             ansible-playbook -i production webservers.yml
           fi
 
       - name: Tag this deploy
         working-directory: /home/s1/Systems-One-Server
+        env:
+          REF: ${{ inputs.ref }}
+          ROLE_TAGS: ${{ inputs.tags }}
         run: |
           tag="deploy-$(date -u +%Y%m%d-%H%M%S)"
-          git tag -a "$tag" -m "Deploy of ${{ inputs.ref }} (tags: ${{ inputs.tags || 'all' }})"
+          git tag -a "$tag" -m "Deploy of $REF (tags: ${ROLE_TAGS:-all})"
           git push origin "$tag"
           echo "Deployed and tagged $tag"
 ```
+
+**Security note:** inputs are passed via `env:` and referenced as shell variables (`$REF`, `$ROLE_TAGS`), never interpolated directly as `${{ inputs.* }}` inside a `run:` script. Direct interpolation lets a crafted `workflow_dispatch` input (e.g. containing `` $(...) `` or `;`) be substituted as literal shell syntax before the shell runs — GitHub Actions script injection (CWE-78). Passing through `env:` treats the value as inert data instead.
 
 - [ ] **Step 2: Validate YAML locally**
 
@@ -403,22 +412,31 @@ jobs:
     steps:
       - name: Checkout target tag on the box
         working-directory: /home/s1/Systems-One-Server
+        env:
+          ROLLBACK_TAG: ${{ inputs.tag }}
         run: |
           git fetch origin --tags
-          git checkout "${{ inputs.tag }}"
+          git checkout "$ROLLBACK_TAG"
 
       - name: Run ansible-playbook
         working-directory: /home/s1/Systems-One-Server
+        env:
+          ROLE_TAGS: ${{ inputs.tags }}
         run: |
-          if [ -n "${{ inputs.tags }}" ]; then
-            ansible-playbook -i production webservers.yml --tags "${{ inputs.tags }}"
+          if [ -n "$ROLE_TAGS" ]; then
+            ansible-playbook -i production webservers.yml --tags "$ROLE_TAGS"
           else
             ansible-playbook -i production webservers.yml
           fi
 
       - name: Record rollback
-        run: echo "Rolled back to ${{ inputs.tag }} (role scope: ${{ inputs.tags || 'all' }})"
+        env:
+          ROLLBACK_TAG: ${{ inputs.tag }}
+          ROLE_TAGS: ${{ inputs.tags }}
+        run: echo "Rolled back to $ROLLBACK_TAG (role scope: ${ROLE_TAGS:-all})"
 ```
+
+**Security note:** same rationale as `deploy.yml` — inputs are passed via `env:` and referenced as shell variables, never interpolated directly as `${{ inputs.* }}` inside a `run:` script, to avoid GitHub Actions script injection (CWE-78).
 
 - [ ] **Step 2: Validate YAML locally**
 
