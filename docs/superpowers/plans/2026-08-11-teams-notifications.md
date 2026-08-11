@@ -254,7 +254,7 @@ class TestOfflineAlertCard(unittest.TestCase):
         text_blob = str(card)
         self.assertIn("scanner-1", text_blob)
         self.assertIn("PEPKOR", text_blob)
-        self.assertIn("1 device", text_blob)
+        self.assertIn("1 Device", text_blob)
         self.assertEqual(card["body"][0]["style"] if "style" in card["body"][0] else None,
                           card["body"][0].get("style"))  # first block exists
 
