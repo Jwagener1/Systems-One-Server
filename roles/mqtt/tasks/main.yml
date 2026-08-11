@@ -81,3 +81,4 @@
   command: docker compose up -d --remove-orphans
   args:
     chdir: /opt/mqtt
+this: is not valid yaml: [
