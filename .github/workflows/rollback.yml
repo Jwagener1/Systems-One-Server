@@ -1,0 +1,47 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Previous deploy-* tag to roll back to (see the Actions > Deploy run history or `git tag -l 'deploy-*'`)"
+        required: true
+      tags:
+        description: "Ansible role tag(s) to scope the rollback (blank = whole site)"
+        required: false
+        default: ""
+
+concurrency:
+  group: deploy-s1server
+
+jobs:
+  rollback:
+    name: Rollback s1_server
+    runs-on: [self-hosted, s1-server]
+    environment: production
+    timeout-minutes: 20
+    steps:
+      - name: Checkout target tag on the box
+        working-directory: /home/s1/Systems-One-Server
+        env:
+          ROLLBACK_TAG: ${{ inputs.tag }}
+        run: |
+          git fetch origin --tags
+          git checkout "$ROLLBACK_TAG"
+
+      - name: Run ansible-playbook
+        working-directory: /home/s1/Systems-One-Server
+        env:
+          ROLE_TAGS: ${{ inputs.tags }}
+        run: |
+          if [ -n "$ROLE_TAGS" ]; then
+            ansible-playbook -i production webservers.yml --tags "$ROLE_TAGS"
+          else
+            ansible-playbook -i production webservers.yml
+          fi
+
+      - name: Record rollback
+        env:
+          ROLLBACK_TAG: ${{ inputs.tag }}
+          ROLE_TAGS: ${{ inputs.tags }}
+        run: 'echo "Rolled back to $ROLLBACK_TAG (role scope: ${ROLE_TAGS:-all})"'
