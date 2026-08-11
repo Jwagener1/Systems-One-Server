@@ -325,7 +325,10 @@ jobs:
         run: |
           git fetch origin --tags
           git checkout "$REF"
-          git merge --ff-only "origin/$REF" 2>/dev/null || true
+          # Skip merge if ref is a tag or SHA (no matching origin branch); fail on real merge errors
+          if git rev-parse --verify "origin/$REF" >/dev/null 2>&1; then
+            git merge --ff-only "origin/$REF"
+          fi
 
       - name: Run ansible-playbook
         working-directory: /home/s1/Systems-One-Server
@@ -488,6 +491,11 @@ fi
 
 VERSION=$(curl -fsSL https://api.github.com/repos/actions/runner/releases/latest \
   | grep -oP '"tag_name": "v\K[0-9.]+' | head -1)
+
+if [ -z "$VERSION" ]; then
+  echo "failed to detect latest actions/runner version" >&2
+  exit 1
+fi
 
 mkdir -p "$RUNNER_DIR"
 cd "$RUNNER_DIR"
