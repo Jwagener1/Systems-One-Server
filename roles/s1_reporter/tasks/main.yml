@@ -63,6 +63,11 @@
     group: root
     mode: "0755"
 
+- name: Remove legacy .env file (host_vars/vault are source of truth)
+  file:
+    path: "{{ s1_reporter_dir }}/.env"
+    state: absent
+
 - name: Render s1_reporter docker-compose
   template:
     src: docker-compose.s1_reporter.yml.j2
