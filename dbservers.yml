@@ -23,6 +23,7 @@
         name: backup
         tasks_from: gate.yml
       when: backup_enabled | default(false)
+      tags: always
   roles:
     - docker
     - mssql

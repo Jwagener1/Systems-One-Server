@@ -6,6 +6,10 @@
 
 backup_mssql_database: "{{ mssql_rm_database | default('S1_Remote_Monitoring') }}"
 backup_mssql_container: mssql
+# Matched by substring against `docker volume ls` at runtime, not an exact
+# name — the actual volume Docker Compose creates for roles/mqtt is prefixed
+# with its compose project name (e.g. mqtt_mosquitto_data), which isn't
+# pinned anywhere in this repo.
 backup_mosquitto_volume: mosquitto_data
 
 backup_root_dir: /opt/backup
