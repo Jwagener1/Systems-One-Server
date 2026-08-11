@@ -55,6 +55,9 @@ grafana_users:
 # Grafana MSSQL datasource identity (referenced by dashboards)
 grafana_mssql_datasource_uid: "PAAAEB8D7872B0C49"
 
+# s1_reporter chart hosting (Teams notifications) — see Task 9 for Cloudflare DNS setup
+s1_reporter_chart_public_base_url: "https://charts-staging.CHANGEME.example.com"
+
 # MQTT Broker (local)
 mqtt_username: 'admin'
 mqtt_password: 'admin'

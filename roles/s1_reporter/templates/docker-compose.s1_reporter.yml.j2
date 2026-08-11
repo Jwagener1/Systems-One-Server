@@ -17,6 +17,10 @@ services:
       SMTP_USER: "{{ vault_s1_reporter_smtp_user }}"
       SMTP_PASS: "{{ vault_s1_reporter_smtp_pass }}"
       REPORT_TO: "{{ vault_s1_reporter_report_to }}"
+      TEAMS_WEBHOOK_URL: "{{ vault_s1_reporter_teams_webhook_url }}"
+      CHART_DIR: "/data/charts"
+      CHART_PUBLIC_BASE_URL: "{{ s1_reporter_chart_public_base_url }}"
+      CHART_RETENTION_DAYS: "{{ s1_reporter_chart_retention_days }}"
       OFFLINE_CHECK_INTERVAL_MINUTES: "{{ s1_reporter_offline_check_interval_minutes }}"
       OFFLINE_THRESHOLD_MINUTES: "{{ s1_reporter_offline_threshold_minutes }}"
       DAILY_REPORT_HOUR: "{{ s1_reporter_daily_report_hour }}"
@@ -31,6 +35,22 @@ services:
       start_period: 30s
     volumes:
       - s1_reporter_data:/data
+      - s1_reporter_charts:/data/charts
+    networks:
+      - {{ docker_shared_network | default('infra') }}
+
+  s1-charts:
+    image: nginx:alpine
+    container_name: s1_reporter_charts
+    restart: unless-stopped
+    volumes:
+      - s1_reporter_charts:/usr/share/nginx/html:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - {{ docker_shared_network | default('infra') }}
 
@@ -40,3 +60,4 @@ networks:
 
 volumes:
   s1_reporter_data:
+  s1_reporter_charts:
