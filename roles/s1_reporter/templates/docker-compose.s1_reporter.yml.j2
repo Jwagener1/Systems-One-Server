@@ -48,6 +48,8 @@ services:
     image: "{{ s1_reporter_charts_image | default('nginx:alpine') }}"
     container_name: s1_reporter_charts
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:{{ s1_reporter_chart_local_port | default(8091) }}:80"
     volumes:
       - s1_reporter_charts:/usr/share/nginx/html:ro
     healthcheck:

@@ -1,6 +1,10 @@
 ansible_connection: local
 
 cloudflare_tunnel_token: "{{ vault_cloudflare_tunnel_token }}"
+# Matches the live container (confirmed via docker inspect) — cloudflared runs in
+# host network mode here, so tunnel-routed services must publish a host port
+# (127.0.0.1:<port>) rather than rely on the infra bridge network's container DNS.
+cloudflared_network_mode: host
 
 # MSSQL
 mssql_sa_password: "{{ vault_mssql_sa_password }}"
