@@ -31,6 +31,30 @@
     group: root
     mode: "0644"
 
+- name: Copy teams_notifier.py
+  copy:
+    src: teams_notifier.py
+    dest: "{{ s1_reporter_dir }}/teams_notifier.py"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Copy cards.py
+  copy:
+    src: cards.py
+    dest: "{{ s1_reporter_dir }}/cards.py"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Copy chart_store.py
+  copy:
+    src: chart_store.py
+    dest: "{{ s1_reporter_dir }}/chart_store.py"
+    owner: root
+    group: root
+    mode: "0644"
+
 - name: Copy entrypoint.sh
   copy:
     src: entrypoint.sh

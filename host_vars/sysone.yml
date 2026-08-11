@@ -1,6 +1,4 @@
-ansible_host: 192.168.1.110
-ansible_user: s1
-ansible_ssh_private_key_file: /home/jonathan/.ssh/github_ed25519
+ansible_connection: local
 
 cloudflare_tunnel_token: "{{ vault_cloudflare_tunnel_token }}"
 
@@ -51,6 +49,51 @@ grafana_users:
     orgs:
       - name: "Main Org."
         role: "Viewer"
+  - login: "cust_bex"
+    email: "cust_bex"
+    name: "BEX"
+    password: "{{ vault_grafana_cust_bex_password }}"
+    orgs:
+      - name: "Main Org."
+        role: "Viewer"
+  - login: "cust_dcb"
+    email: "cust_dcb"
+    name: "DCB"
+    password: "{{ vault_grafana_cust_dcb_password }}"
+    orgs:
+      - name: "Main Org."
+        role: "Viewer"
+  - login: "cust_madibana"
+    email: "cust_madibana"
+    name: "MADIBANA"
+    password: "{{ vault_grafana_cust_madibana_password }}"
+    orgs:
+      - name: "Main Org."
+        role: "Viewer"
+  - login: "cust_pep"
+    email: "cust_pep"
+    name: "PEP"
+    password: "{{ vault_grafana_cust_pep_password }}"
+    orgs:
+      - name: "Main Org."
+        role: "Viewer"
+  - login: "cust_pep_africa"
+    email: "cust_pep_africa"
+    name: "PEP AFRICA"
+    password: "{{ vault_grafana_cust_pep_africa_password }}"
+    orgs:
+      - name: "Main Org."
+        role: "Viewer"
+  - login: "cust_snowsoft"
+    email: "cust_snowsoft"
+    name: "SNOWSOFT"
+    password: "{{ vault_grafana_cust_snowsoft_password }}"
+    orgs:
+      - name: "Main Org."
+        role: "Viewer"
 
 # Grafana MSSQL datasource identity (referenced by dashboards)
 grafana_mssql_datasource_uid: "PAAAEB8D7872B0C49"
+
+# s1_reporter chart hosting (Teams notifications) — see Task 9 for Cloudflare DNS setup
+s1_reporter_chart_public_base_url: "https://charts.systems-one.com"

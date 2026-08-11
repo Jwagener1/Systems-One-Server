@@ -11,3 +11,9 @@ s1_reporter_offline_check_interval_minutes: 20
 s1_reporter_offline_threshold_minutes: 30
 s1_reporter_daily_report_hour: 6
 s1_reporter_monthly_report_hour: 6
+
+# Teams notifications
+# Public base URL charts are served from (e.g. https://charts.example.com).
+# Empty means charts are still written to disk but no Image is embedded in the card.
+s1_reporter_chart_public_base_url: ""
+s1_reporter_chart_retention_days: 14
