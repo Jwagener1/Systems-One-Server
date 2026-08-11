@@ -8,7 +8,7 @@ on:
         required: false
         default: master
       tags:
-        description: "Ansible role tag(s) to scope the deploy (blank = whole site)"
+        description: "Ansible role tag(s) to scope the deploy (blank = all roles in webservers.yml; does not cover dbservers.yml/mssql)"
         required: false
         default: ""
 
@@ -57,8 +57,25 @@ jobs:
     needs: validate
     runs-on: [self-hosted, s1-server]
     environment: production
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
+      - name: Preflight checks
+        working-directory: /home/s1/Systems-One-Server
+        env:
+          TAGS: ${{ inputs.tags }}
+        run: |
+          command -v ansible-playbook >/dev/null 2>&1 || { echo "::error::ansible-playbook not found on PATH for this runner service"; exit 1; }
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::/home/s1/Systems-One-Server has uncommitted local changes — refusing to deploy over uncommitted work. Resolve manually on the box first."
+            exit 1
+          fi
+          if [ -n "$TAGS" ] && [ ! -d "roles/$TAGS" ]; then
+            echo "::error::'$TAGS' is not a known role (no roles/$TAGS directory) — check for a typo"
+            exit 1
+          fi
+          git config user.name >/dev/null 2>&1 || git config user.name "github-actions[bot]"
+          git config user.email >/dev/null 2>&1 || git config user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Checkout target ref on the box
         working-directory: /home/s1/Systems-One-Server
         env:
