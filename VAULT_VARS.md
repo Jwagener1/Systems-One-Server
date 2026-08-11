@@ -37,6 +37,6 @@ To edit: `ansible-vault edit group_vars/vault.yml`
 | Variable | Description |
 |---|---|
 | `vault_s1_reporter_teams_webhook_url` | Power Automate Workflow webhook URL that posts Adaptive Cards into the Systems-One → Reporting Teams channel |
-| `vault_s1_reporter_smtp_user` | (legacy, removed after Teams migration verified — see Task 11) Gmail address used to send reports |
-| `vault_s1_reporter_smtp_pass` | (legacy, removed after Teams migration verified) Gmail app password |
-| `vault_s1_reporter_report_to` | (legacy, removed after Teams migration verified) Email address to send reports to |
+| `vault_s1_reporter_smtp_user` | (legacy — pending removal from vault once the Teams migration has run cleanly in production for a few days) Gmail address used to send reports |
+| `vault_s1_reporter_smtp_pass` | (legacy — pending removal from vault once the Teams migration has run cleanly in production for a few days) Gmail app password |
+| `vault_s1_reporter_report_to` | (legacy — pending removal from vault once the Teams migration has run cleanly in production for a few days) Email address to send reports to |

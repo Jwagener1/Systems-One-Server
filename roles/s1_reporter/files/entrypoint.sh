@@ -15,7 +15,7 @@ last_daily_date=""
 last_monthly_month=""
 last_baseline_week=""
 
-echo "S1 Reporter starting — offline check every ${OFFLINE_INTERVAL}min, daily at ${DAILY_HOUR}:00, monthly on 1st at ${MONTHLY_HOUR}:30, baselines every Sunday at 02:00 (no emails Sat/Sun)"
+echo "S1 Reporter starting — offline check every ${OFFLINE_INTERVAL}min, daily at ${DAILY_HOUR}:00, monthly on 1st at ${MONTHLY_HOUR}:30, baselines every Sunday at 02:00 (no alerts Sat/Sun)"
 
 while true; do
     now=$(date +%s)
