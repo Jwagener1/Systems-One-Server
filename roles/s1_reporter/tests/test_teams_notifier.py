@@ -3,7 +3,7 @@ import os
 import sys
 import unittest
 import urllib.error
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "files"))
@@ -70,6 +70,14 @@ class TestPostToTeams(unittest.TestCase):
 
         self.assertFalse(ok)
         self.assertEqual(mock_open.call_count, 3)
+
+    def test_bare_oserror_does_not_escape(self):
+        """CPython can raise TimeoutError/OSError from getresponse() without wrapping
+        it in URLError; post_to_teams documents that it never raises."""
+        with patch("teams_notifier.urllib.request.urlopen", side_effect=TimeoutError("timed out")), \
+             patch("teams_notifier.time.sleep"):
+            ok = teams_notifier.post_to_teams("https://example.invalid/webhook", {"type": "AdaptiveCard"}, max_retries=2, backoff_seconds=0)
+        self.assertFalse(ok)
 
     def test_non_2xx_status_is_treated_as_failure_and_retried(self):
         with patch("teams_notifier.urllib.request.urlopen", return_value=FakeResponse(400)), \

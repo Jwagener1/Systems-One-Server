@@ -33,7 +33,7 @@ def post_to_teams(webhook_url, card, max_retries=3, backoff_seconds=2.0):
                 if 200 <= resp.status < 300:
                     return True
                 print(f"⚠️ Teams webhook returned status {resp.status} (attempt {attempt}/{max_retries})")
-        except urllib.error.URLError as e:
+        except (urllib.error.URLError, OSError) as e:
             print(f"⚠️ Teams webhook POST failed: {e} (attempt {attempt}/{max_retries})")
 
         if attempt < max_retries:
