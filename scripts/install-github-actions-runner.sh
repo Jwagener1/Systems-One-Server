@@ -15,6 +15,11 @@ fi
 VERSION=$(curl -fsSL https://api.github.com/repos/actions/runner/releases/latest \
   | grep -oP '"tag_name": "v\K[0-9.]+' | head -1)
 
+if [ -z "$VERSION" ]; then
+  echo "failed to detect latest actions/runner version" >&2
+  exit 1
+fi
+
 mkdir -p "$RUNNER_DIR"
 cd "$RUNNER_DIR"
 curl -fsSL -o actions-runner-linux-x64.tar.gz \
