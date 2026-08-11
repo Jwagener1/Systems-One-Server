@@ -98,7 +98,7 @@ grafana_users:
 grafana_mssql_datasource_uid: "PAAAEB8D7872B0C49"
 
 # s1_reporter chart hosting (Teams notifications) — see Task 9 for Cloudflare DNS setup
-s1_reporter_chart_public_base_url: "https://charts-staging.CHANGEME.example.com"
+s1_reporter_chart_public_base_url: "https://charts-staging.systems-one.com"
 
 # MQTT Broker (local)
 mqtt_username: 'admin'
