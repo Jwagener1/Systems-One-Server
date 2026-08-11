@@ -26,6 +26,13 @@ class TestSaveChart(unittest.TestCase):
             chart_store.save_chart(b"x", nested, "https://charts.example.com")
             self.assertTrue(os.path.isdir(nested))
 
+    def test_empty_base_url_writes_file_but_returns_none(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertIsNone(chart_store.save_chart(b"x", d, ""))
+            written = os.listdir(d)
+            self.assertEqual(len(written), 1)
+            self.assertTrue(written[0].endswith(".png"))
+
     def test_filenames_are_unique(self):
         with tempfile.TemporaryDirectory() as d:
             url1 = chart_store.save_chart(b"a", d, "https://c.example.com")
@@ -48,6 +55,18 @@ class TestCleanupOldCharts(unittest.TestCase):
             self.assertEqual(deleted, 1)
             self.assertFalse(os.path.exists(old_path))
             self.assertTrue(os.path.exists(new_path))
+
+    def test_non_png_files_are_never_deleted(self):
+        with tempfile.TemporaryDirectory() as d:
+            index = os.path.join(d, "index.html")
+            open(index, "wb").close()
+            old_time = time.time() - (20 * 86400)
+            os.utime(index, (old_time, old_time))
+
+            deleted = chart_store.cleanup_old_charts(d, retention_days=14)
+
+            self.assertEqual(deleted, 0)
+            self.assertTrue(os.path.exists(index))
 
     def test_missing_dir_is_noop(self):
         deleted = chart_store.cleanup_old_charts("/nonexistent/path/xyz", retention_days=14)
