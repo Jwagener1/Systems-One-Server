@@ -1,0 +1,43 @@
+---
+- name: Check for a successful-backup status file
+  stat:
+    path: "{{ backup_status_dir }}/last_success"
+  register: s1_backup_status
+
+- name: Fail if backups are enabled but none has ever succeeded
+  fail:
+    msg: >-
+      backup_enabled is true but {{ backup_status_dir }}/last_success does not
+      exist yet. Run {{ backup_script_path }} manually on the box once, confirm
+      it succeeds, then re-run this playbook.
+  when: not s1_backup_status.stat.exists
+
+- name: Read last successful backup timestamp
+  slurp:
+    src: "{{ backup_status_dir }}/last_success"
+  register: s1_backup_last_success
+  when: s1_backup_status.stat.exists
+
+- name: Compute time since last successful backup
+  set_fact:
+    s1_backup_age_timedelta: >-
+      {{ (ansible_date_time.iso8601 | to_datetime('%Y-%m-%dT%H:%M:%SZ'))
+         - (s1_backup_last_success.content | b64decode | trim | to_datetime('%Y-%m-%dT%H:%M:%SZ')) }}
+  when: s1_backup_status.stat.exists
+
+- name: Compute backup age in hours
+  set_fact:
+    s1_backup_age_hours: "{{ (s1_backup_age_timedelta.days * 24) + (s1_backup_age_timedelta.seconds / 3600) }}"
+  when: s1_backup_status.stat.exists
+
+- name: Fail if the last successful backup is too old
+  fail:
+    msg: >-
+      Last successful backup was {{ s1_backup_age_hours | round(1) }} hours ago,
+      exceeding backup_gate_max_age_hours ({{ backup_gate_max_age_hours }}).
+      Refusing to apply changes until a fresh backup completes - run
+      {{ backup_script_path }} manually, or wait for the nightly cron, then
+      re-run this playbook.
+  when:
+    - s1_backup_status.stat.exists
+    - (s1_backup_age_hours | float) > (backup_gate_max_age_hours | int)
