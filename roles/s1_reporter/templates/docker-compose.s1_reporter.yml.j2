@@ -12,11 +12,6 @@ services:
       DB_USER: "{{ s1_reporter_db_user }}"
       DB_PASS: "{{ mssql_sa_password }}"
       DB_NAME: "{{ s1_reporter_db_name }}"
-      SMTP_HOST: "smtp.gmail.com"
-      SMTP_PORT: "587"
-      SMTP_USER: "{{ vault_s1_reporter_smtp_user }}"
-      SMTP_PASS: "{{ vault_s1_reporter_smtp_pass }}"
-      REPORT_TO: "{{ vault_s1_reporter_report_to }}"
       TEAMS_WEBHOOK_URL: "{{ vault_s1_reporter_teams_webhook_url }}"
       CHART_DIR: "/data/charts"
       CHART_PUBLIC_BASE_URL: "{{ s1_reporter_chart_public_base_url }}"
@@ -40,13 +35,15 @@ services:
       - {{ docker_shared_network | default('infra') }}
 
   s1-charts:
-    image: nginx:alpine
+    image: "{{ s1_reporter_charts_image | default('nginx:alpine') }}"
     container_name: s1_reporter_charts
     restart: unless-stopped
     volumes:
       - s1_reporter_charts:/usr/share/nginx/html:ro
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost/"]
+      # The volume holds only UUID-named PNGs, so / returns 403 (no index, autoindex off).
+      # Any HTTP response means nginx is up; only a connection failure is unhealthy.
+      test: ["CMD-SHELL", "wget --spider -S http://localhost/ 2>&1 | grep -qE 'HTTP/1\\.[01] (200|403|404)' || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
