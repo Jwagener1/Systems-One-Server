@@ -66,9 +66,9 @@ jobs:
         run: |
           git fetch origin --tags
           git checkout "$REF"
-          # Only suppress the "no matching remote branch" error; let real failures fail the step
+          # Skip merge if ref is a tag or SHA (no matching origin branch); fail on real merge errors
           if git rev-parse --verify "origin/$REF" >/dev/null 2>&1; then
-            git merge --ff-only "origin/$REF" || true
+            git merge --ff-only "origin/$REF"
           fi
 
       - name: Run ansible-playbook
