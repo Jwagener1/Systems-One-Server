@@ -20,3 +20,4 @@
   roles:
     - docker
     - mssql
+    - backup

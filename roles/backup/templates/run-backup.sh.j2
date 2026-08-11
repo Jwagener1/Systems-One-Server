@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Managed by Ansible (roles/backup) - do not edit by hand, changes will be overwritten.
+set -euo pipefail
+
+STAGING="{{ backup_staging_dir }}"
+STATUS_DIR="{{ backup_status_dir }}"
+RESTIC_REPOSITORY="b2:{{ backup_b2_bucket }}:{{ backup_b2_path }}"
+RESTIC_IMAGE="restic/restic:{{ backup_restic_image_tag }}"
+
+export RESTIC_REPOSITORY
+export RESTIC_PASSWORD="{{ backup_restic_password }}"
+export B2_ACCOUNT_ID="{{ backup_b2_account_id }}"
+export B2_ACCOUNT_KEY="{{ backup_b2_account_key }}"
+
+mkdir -p "$STAGING" "$STATUS_DIR"
+
+log() {
+  echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*"
+}
+
+fail() {
+  log "FAILED: $*"
+  echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $*" >> "$STATUS_DIR/last_failure"
+  exit 1
+}
+
+restic_run() {
+  docker run --rm \
+    -e RESTIC_REPOSITORY -e RESTIC_PASSWORD -e B2_ACCOUNT_ID -e B2_ACCOUNT_KEY \
+    -v "$STAGING:/data:ro" \
+    "$RESTIC_IMAGE" "$@"
+}
+
+log "Ensuring MSSQL backup directory exists inside the container"
+docker exec "{{ backup_mssql_container }}" mkdir -p /var/opt/mssql/backup \
+  || fail "could not create /var/opt/mssql/backup inside container"
+
+log "Running MSSQL BACKUP DATABASE for {{ backup_mssql_database }}"
+docker exec "{{ backup_mssql_container }}" /opt/mssql-tools18/bin/sqlcmd \
+  -S localhost -U sa -P "{{ mssql_sa_password }}" -C \
+  -Q "BACKUP DATABASE [{{ backup_mssql_database }}] TO DISK = N'/var/opt/mssql/backup/{{ backup_mssql_database }}.bak' WITH COMPRESSION, INIT, STATS = 25;" \
+  || fail "MSSQL BACKUP DATABASE failed"
+
+docker cp "{{ backup_mssql_container }}:/var/opt/mssql/backup/{{ backup_mssql_database }}.bak" \
+  "$STAGING/{{ backup_mssql_database }}.bak" \
+  || fail "docker cp of MSSQL .bak file failed"
+
+log "Archiving Mosquitto persistence data"
+MOSQUITTO_MOUNTPOINT="$(docker volume inspect "{{ backup_mosquitto_volume }}" --format '{{ '{{' }} .Mountpoint {{ '}}' }}')" \
+  || fail "could not resolve {{ backup_mosquitto_volume }} volume mountpoint"
+tar -C "$MOSQUITTO_MOUNTPOINT" -czf "$STAGING/mosquitto_data.tar.gz" . \
+  || fail "tar of mosquitto data failed"
+
+log "Ensuring restic repository exists"
+if ! restic_run snapshots >/dev/null 2>&1; then
+  log "No existing restic repository found, initializing"
+  restic_run init || fail "restic init failed"
+fi
+
+log "Pushing backup to Backblaze B2"
+restic_run backup /data --host "{{ inventory_hostname }}" --tag nightly \
+  || fail "restic backup failed"
+
+log "Pruning old snapshots (keep {{ backup_retention_daily }}d / {{ backup_retention_weekly }}w / {{ backup_retention_monthly }}m)"
+restic_run forget --prune \
+  --host "{{ inventory_hostname }}" \
+  --keep-daily {{ backup_retention_daily }} \
+  --keep-weekly {{ backup_retention_weekly }} \
+  --keep-monthly {{ backup_retention_monthly }} \
+  || log "WARNING: prune failed (non-fatal - new backup is already safe offsite)"
+
+rm -f "$STAGING/{{ backup_mssql_database }}.bak" "$STAGING/mosquitto_data.tar.gz"
+
+date -u +%Y-%m-%dT%H:%M:%SZ > "$STATUS_DIR/last_success"
+log "Backup completed successfully"
