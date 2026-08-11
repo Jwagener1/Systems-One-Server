@@ -365,14 +365,16 @@ git commit -m "feat(ci): add one-click deploy workflow for s1_server"
 git push origin master
 ```
 
-- [ ] **Step 4: Test the `validate` job (runner-independent)**
+- [ ] **Step 4: Test the `validate` job — deferred until after merge**
+
+GitHub's API/CLI can only dispatch a `workflow_dispatch` workflow once its file exists on the repository's default branch — `--ref` selects which branch/tag the run checks out, not which branch the workflow definition is read from. So `deploy.yml` cannot be live-triggered from this feature branch/PR at all, the same constraint noted in Task 5. Skip live-triggering here; this workflow is exercised for the first time in Task 7, after the branch merges to `master` via `finishing-a-development-branch`.
 
 ```bash
 gh workflow run deploy.yml -f ref=master -f tags=s1_reporter
 gh run watch --exit-status
 ```
 
-Expected: `validate` job succeeds. The `deploy` job will show `queued` indefinitely until Task 6 registers the self-hosted runner — that's expected at this point in the plan. Cancel the run afterward with `gh run cancel <run-id>` so it doesn't sit queued.
+Expected once run post-merge: `validate` job succeeds. The `deploy` job will show `queued` indefinitely until Task 6 registers the self-hosted runner — that's expected until Task 6 is done. Cancel the run afterward with `gh run cancel <run-id>` so it doesn't sit queued.
 
 ---
 
@@ -537,6 +539,8 @@ Expected: one runner named `s1-server`, `status: "online"`, labels including `se
 ### Task 7: End-to-end verification
 
 **Files:** none — verification only.
+
+**Prerequisite:** `deploy.yml`/`rollback.yml` can only be dispatched via API/CLI once they exist on `master` (see Task 4 Step 4's note). Run this task after the branch has been merged via `finishing-a-development-branch`, not before.
 
 - [ ] **Step 1: Run a scoped deploy dry run**
 
