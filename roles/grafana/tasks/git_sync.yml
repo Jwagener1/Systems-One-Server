@@ -39,8 +39,11 @@
 
 - name: Find existing repository matching our URL
   ansible.builtin.set_fact:
+    # Bracket notation is required here: .items would resolve to Python
+    # dict's built-in items() method (attribute lookup wins over key
+    # lookup in Jinja), not the JSON "items" key.
     grafana_gitsync_existing: >-
-      {{ (grafana_gitsync_repos.json.items | default([]))
+      {{ (grafana_gitsync_repos.json['items'] | default([]))
          | selectattr('spec.github.url', 'defined')
          | selectattr('spec.github.url', 'equalto', grafana_git_sync_repo)
          | list | first | default(None) }}
