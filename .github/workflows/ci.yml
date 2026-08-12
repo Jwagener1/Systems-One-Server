@@ -39,6 +39,9 @@ jobs:
       - name: Run s1_reporter unit tests
         run: python -m unittest discover -s roles/s1_reporter/tests
 
+      - name: Run systems_one_ingest unit tests
+        run: python -m unittest discover -s roles/systems_one_ingest/tests
+
       - name: Create placeholder vault password file
         run: echo "ci-placeholder" > .vault_pass
 
