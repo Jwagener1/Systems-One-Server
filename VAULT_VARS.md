@@ -7,6 +7,8 @@ To edit: `ansible-vault edit group_vars/vault.yml`
 
 | Variable | Description |
 |---|---|
+| `vault_mqtt_username` | Mosquitto broker username (shared by all MQTT clients/devices) |
+| `vault_mqtt_password` | Mosquitto broker password |
 | `vault_mssql_sa_password` | MSSQL SA password |
 | `vault_grafana_admin_password` | Grafana `admin` user password |
 | `vault_grafana_jonathan_password` | Grafana `jonathan` user password |
@@ -61,3 +63,8 @@ token) and re-encrypted under a new vault password. If you need the current
 vault password, ask Jonathan — it is not stored in this repo (only
 `.vault_pass`, gitignored, holds it on each machine that needs to run
 Ansible non-interactively).
+
+`vault_mqtt_username`/`vault_mqtt_password` were missed in that recovery —
+the `mqtt` role's variable validation never ran against the new vault until
+2026-08-12 (nothing had touched the role in between), which is when the gap
+surfaced. Added then with the live broker's actual credentials.
