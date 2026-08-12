@@ -72,3 +72,9 @@ mqtt_ingestor_health_stale_db_write_sec: 120
 mqtt_ingestor_metrics_enabled: true
 mqtt_ingestor_metrics_port: 9108
 mqtt_ingestor_health_port: 8080
+
+# Host-side port mapping. 8083/9110 were already taken (by the legacy
+# broker-ingestor container, per `docker ps`/`ss -tlnp` on sysone) --
+# confirmed free via a live port check before picking these.
+mqtt_ingestor_host_health_port: 8084
+mqtt_ingestor_host_metrics_port: 9111

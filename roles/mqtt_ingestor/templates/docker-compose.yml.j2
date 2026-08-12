@@ -67,8 +67,8 @@ services:
       - spool-data:/var/lib/mqtt-ingestor/spool
       - settings-data:/var/lib/mqtt-ingestor/settings
     ports:
-      - "8083:{{ mqtt_ingestor_health_port }}"
-      - "9110:{{ mqtt_ingestor_metrics_port }}"
+      - "{{ mqtt_ingestor_host_health_port }}:{{ mqtt_ingestor_health_port }}"
+      - "{{ mqtt_ingestor_host_metrics_port }}:{{ mqtt_ingestor_metrics_port }}"
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; r=urllib.request.urlopen('http://localhost:8080/health',timeout=4); sys.exit(0 if r.status==200 else 1)\""]
       interval: 30s
