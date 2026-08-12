@@ -31,6 +31,8 @@
     - mqtt
     - nodered
     - systems_one_ingest
+    - role: mqtt_ingestor
+      tags: mqtt_ingestor
     - s1_dashboard
     - role: s1_reporter
       tags: [s1_reporter]
