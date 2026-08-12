@@ -33,6 +33,9 @@ jobs:
       - name: Run s1_reporter unit tests
         run: python -m unittest discover -s roles/s1_reporter/tests
 
+      - name: Run systems_one_ingest unit tests
+        run: python -m unittest discover -s roles/systems_one_ingest/tests
+
       - name: Run ansible-lint
         run: ansible-lint --profile=min site.yml
         continue-on-error: true
