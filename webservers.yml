@@ -17,6 +17,13 @@
         fail_msg: >-
           Missing required variable 'cloudflare_tunnel_token'.
           Define it in host_vars/<host>.yml, group_vars, or via --extra-vars.
+
+    - name: Enforce recent successful backup before applying changes
+      import_role:
+        name: backup
+        tasks_from: gate.yml
+      when: backup_enabled | default(false)
+      tags: always
   roles:
     - docker
     - cloudflared

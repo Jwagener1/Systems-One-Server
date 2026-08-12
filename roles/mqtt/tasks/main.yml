@@ -27,6 +27,7 @@
     owner: root
     group: root
     mode: "0644"
+  notify: Restart mosquitto
 
 - name: Determine MQTT credentials fingerprint
   set_fact:

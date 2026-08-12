@@ -1,0 +1,111 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or SHA to deploy"
+        required: false
+        default: master
+      tags:
+        description: "Ansible role tag(s) to scope the deploy (blank = all roles in webservers.yml; does not cover dbservers.yml/mssql)"
+        required: false
+        default: ""
+
+concurrency:
+  group: deploy-s1server
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Ansible
+        run: pip install "ansible~=14.3"
+
+      - name: Create placeholder vault password file
+        run: echo "ci-placeholder" > .vault_pass
+
+      - name: Syntax check site.yml
+        run: |
+          ansible-playbook site.yml --syntax-check \
+            -i production \
+            -e "mssql_sa_password=test \
+                mssql_app_login_password=test \
+                grafana_admin_password=test \
+                grafana_jonathan_password=test \
+                grafana_avi_password=test \
+                grafana_chris_password=test \
+                grafana_pkluser_password=test \
+                mqtt_password=test \
+                grafana_git_sync_token=test \
+                cloudflare_tunnel_token=test"
+
+  deploy:
+    name: Deploy to s1_server
+    needs: validate
+    runs-on: [self-hosted, s1-server]
+    environment: production
+    timeout-minutes: 45
+    steps:
+      - name: Preflight checks
+        working-directory: /home/s1/Systems-One-Server
+        env:
+          TAGS: ${{ inputs.tags }}
+        run: |
+          command -v ansible-playbook >/dev/null 2>&1 || { echo "::error::ansible-playbook not found on PATH for this runner service"; exit 1; }
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::/home/s1/Systems-One-Server has uncommitted local changes — refusing to deploy over uncommitted work. Resolve manually on the box first."
+            exit 1
+          fi
+          if [ -n "$TAGS" ] && [ ! -d "roles/$TAGS" ]; then
+            echo "::error::'$TAGS' is not a known role (no roles/$TAGS directory) — check for a typo"
+            exit 1
+          fi
+          git config user.name >/dev/null 2>&1 || git config user.name "github-actions[bot]"
+          git config user.email >/dev/null 2>&1 || git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Checkout target ref on the box
+        working-directory: /home/s1/Systems-One-Server
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          git fetch origin --tags
+          git checkout "$REF"
+          # Skip merge if ref is a tag or SHA (no matching origin branch); fail on real merge errors
+          if git rev-parse --verify "origin/$REF" >/dev/null 2>&1; then
+            git merge --ff-only "origin/$REF"
+          fi
+
+      - name: Run ansible-playbook
+        working-directory: /home/s1/Systems-One-Server
+        env:
+          TAGS: ${{ inputs.tags }}
+        run: |
+          if [ -n "$TAGS" ]; then
+            ansible-playbook -i production webservers.yml --tags "$TAGS"
+          else
+            ansible-playbook -i production webservers.yml
+          fi
+
+      - name: Tag this deploy
+        working-directory: /home/s1/Systems-One-Server
+        env:
+          REF: ${{ inputs.ref }}
+          TAGS: ${{ inputs.tags }}
+        run: |
+          tag="deploy-$(date -u +%Y%m%d-%H%M%S)"
+          git tag -a "$tag" -m "Deploy of $REF (tags: ${TAGS:-all})"
+          git push origin "$tag"
+          echo "Deployed and tagged $tag"

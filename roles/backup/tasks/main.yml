@@ -1,0 +1,61 @@
+---
+- name: Ensure backup directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  loop:
+    - "{{ backup_root_dir }}"
+    - "{{ backup_staging_dir }}"
+    - "{{ backup_status_dir }}"
+  when: backup_enabled | default(false)
+
+- name: Validate required B2/restic variables
+  assert:
+    that:
+      - backup_b2_account_id is defined
+      - backup_b2_account_id | length > 0
+      - backup_b2_account_key is defined
+      - backup_b2_account_key | length > 0
+      - backup_restic_password is defined
+      - backup_restic_password | length > 0
+    fail_msg: >-
+      backup_enabled is true but backup_b2_account_id / backup_b2_account_key /
+      backup_restic_password are missing. Set them via Ansible Vault
+      (group_vars/vault.yml) before enabling backups.
+  when: backup_enabled | default(false)
+
+- name: Render backup script
+  template:
+    src: run-backup.sh.j2
+    dest: "{{ backup_script_path }}"
+    owner: root
+    group: root
+    mode: "0700"
+  when: backup_enabled | default(false)
+  no_log: true
+
+- name: Install nightly backup cron job
+  cron:
+    name: "systems-one offsite backup"
+    user: root
+    minute: "{{ backup_schedule_minute }}"
+    hour: "{{ backup_schedule_hour }}"
+    job: "{{ backup_script_path }} >> {{ backup_log_path }} 2>&1"
+    state: present
+  when: backup_enabled | default(false)
+
+- name: Remove backup script and cron job when disabled
+  block:
+    - name: Remove nightly backup cron job
+      cron:
+        name: "systems-one offsite backup"
+        state: absent
+
+    - name: Remove backup script
+      file:
+        path: "{{ backup_script_path }}"
+        state: absent
+  when: not (backup_enabled | default(false))

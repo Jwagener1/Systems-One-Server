@@ -1,0 +1,30 @@
+---
+# Master toggle (backup_enabled) and gate window (backup_gate_max_age_hours)
+# live in group_vars/all.yml, not here — the pre-deploy gate in
+# webservers.yml/dbservers.yml pre_tasks must see them before this role's
+# tasks (which install the script/cron) ever run.
+
+backup_mssql_database: "{{ mssql_rm_database | default('S1_Remote_Monitoring') }}"
+backup_mssql_container: mssql
+# Matched by substring against `docker volume ls` at runtime, not an exact
+# name — the actual volume Docker Compose creates for roles/mqtt is prefixed
+# with its compose project name (e.g. mqtt_mosquitto_data), which isn't
+# pinned anywhere in this repo.
+backup_mosquitto_volume: mosquitto_data
+
+backup_root_dir: /opt/backup
+backup_staging_dir: /opt/backup/staging
+backup_status_dir: /opt/backup/status
+backup_script_path: /opt/backup/run-backup.sh
+backup_log_path: /opt/backup/backup.log
+
+backup_schedule_hour: "2"
+backup_schedule_minute: "30"
+
+backup_restic_image_tag: "0.17"
+backup_retention_daily: 7
+backup_retention_weekly: 4
+backup_retention_monthly: 6
+
+backup_b2_bucket: "systems-one-backups"
+backup_b2_path: "sysone"

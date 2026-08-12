@@ -6,3 +6,11 @@ docker_shared_network: infra
 # Run Node-RED in host network mode by default.
 # Individual environments/hosts can override (e.g. staging uses bridge mode to publish ports).
 nodered_network_mode: host
+
+# Offsite backup gate — see roles/backup and
+# docs/superpowers/specs/2026-08-11-offsite-backup-b2-design.md.
+# Flip to true (per-host, in host_vars) once B2 credentials are set in
+# group_vars/vault.yml and roles/backup/run-backup.sh has been run manually
+# at least once on that host.
+backup_enabled: false
+backup_gate_max_age_hours: 30

@@ -1,0 +1,62 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Previous deploy-* tag to roll back to (see the Actions > Deploy run history or `git tag -l 'deploy-*'`)"
+        required: true
+      tags:
+        description: "Ansible role tag(s) to scope the rollback (blank = all roles in webservers.yml; does not cover dbservers.yml/mssql)"
+        required: false
+        default: ""
+
+concurrency:
+  group: deploy-s1server
+
+jobs:
+  rollback:
+    name: Rollback s1_server
+    runs-on: [self-hosted, s1-server]
+    environment: production
+    timeout-minutes: 45
+    steps:
+      - name: Preflight checks
+        working-directory: /home/s1/Systems-One-Server
+        env:
+          ROLE_TAGS: ${{ inputs.tags }}
+        run: |
+          command -v ansible-playbook >/dev/null 2>&1 || { echo "::error::ansible-playbook not found on PATH for this runner service"; exit 1; }
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::/home/s1/Systems-One-Server has uncommitted local changes — refusing to roll back over uncommitted work. Resolve manually on the box first."
+            exit 1
+          fi
+          if [ -n "$ROLE_TAGS" ] && [ ! -d "roles/$ROLE_TAGS" ]; then
+            echo "::error::'$ROLE_TAGS' is not a known role (no roles/$ROLE_TAGS directory) — check for a typo"
+            exit 1
+          fi
+
+      - name: Checkout target tag on the box
+        working-directory: /home/s1/Systems-One-Server
+        env:
+          ROLLBACK_TAG: ${{ inputs.tag }}
+        run: |
+          git fetch origin --tags
+          git checkout "$ROLLBACK_TAG"
+
+      - name: Run ansible-playbook
+        working-directory: /home/s1/Systems-One-Server
+        env:
+          ROLE_TAGS: ${{ inputs.tags }}
+        run: |
+          if [ -n "$ROLE_TAGS" ]; then
+            ansible-playbook -i production webservers.yml --tags "$ROLE_TAGS"
+          else
+            ansible-playbook -i production webservers.yml
+          fi
+
+      - name: Record rollback
+        env:
+          ROLLBACK_TAG: ${{ inputs.tag }}
+          ROLE_TAGS: ${{ inputs.tags }}
+        run: 'echo "Rolled back to $ROLLBACK_TAG (role scope: ${ROLE_TAGS:-all})"'
