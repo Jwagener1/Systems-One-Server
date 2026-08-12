@@ -113,3 +113,9 @@ backup_b2_account_id: "{{ vault_backup_b2_account_id }}"
 backup_b2_account_key: "{{ vault_backup_b2_account_key }}"
 backup_restic_password: "{{ vault_backup_restic_password }}"
 backup_b2_path: "sysone"
+
+# scan_fleet_dashboard's default port (8091) collides with s1_reporter's
+# chart-hosting port, which already owns 8091 in production (see
+# s1_reporter_chart_public_base_url above). First deploy of this role to
+# sysone surfaced the clash -- give it a distinct port instead.
+scan_fleet_dashboard_port: 8092
