@@ -1,0 +1,87 @@
+services:
+  mqtt-ingestor:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: "{{ mqtt_ingestor_image }}"
+    container_name: "{{ mqtt_ingestor_container_name | default('mqtt-ingestor-merged') }}"
+    restart: unless-stopped
+    environment:
+      MQTT_HOST: "{{ mqtt_ingestor_mqtt_host }}"
+      MQTT_PORT: "{{ mqtt_ingestor_mqtt_port }}"
+      MQTT_PROTOCOL: "{{ mqtt_ingestor_mqtt_protocol }}"
+      MQTT_URL: "{{ mqtt_ingestor_mqtt_url }}"
+      MQTT_BASEPATH: "{{ mqtt_ingestor_mqtt_basepath }}"
+      MQTT_USERNAME: "{{ mqtt_ingestor_mqtt_username }}"
+      MQTT_PASSWORD: "{{ mqtt_ingestor_mqtt_password }}"
+      MQTT_USE_TLS: "{{ mqtt_ingestor_mqtt_use_tls | ternary('true','false') }}"
+      MQTT_VALIDATE_CERT: "{{ mqtt_ingestor_mqtt_validate_cert | ternary('true','false') }}"
+      MQTT_TOPICS: "{{ mqtt_ingestor_mqtt_topics }}"
+      MQTT_CONNECTION_NAME: "{{ mqtt_ingestor_mqtt_connection_name }}"
+      MQTT_CLIENT_ID: "{{ mqtt_ingestor_mqtt_client_id }}"
+      MQTT_KEEPALIVE_SEC: "{{ mqtt_ingestor_mqtt_keepalive_sec }}"
+      MQTT_CLEAN_SESSION: "{{ mqtt_ingestor_mqtt_clean_session | ternary('true','false') }}"
+      MQTT_TOPIC_PREFIX_DEPTH: "{{ mqtt_ingestor_mqtt_topic_prefix_depth }}"
+
+      DB_HOST: "{{ mqtt_ingestor_db_host }}"
+      DB_PORT: "{{ mqtt_ingestor_db_port }}"
+      DB_NAME: "{{ mqtt_ingestor_db_name }}"
+      DB_USER: "{{ mqtt_ingestor_db_user }}"
+      DB_PASSWORD: "{{ mqtt_ingestor_db_password }}"
+      DB_DRIVER: "{{ mqtt_ingestor_db_driver }}"
+      DB_TRUST_SERVER_CERTIFICATE: "{{ mqtt_ingestor_db_trust_server_certificate | ternary('true','false') }}"
+      DB_CONNECT_TIMEOUT_SEC: "{{ mqtt_ingestor_db_connect_timeout_sec }}"
+      DB_COMMAND_TIMEOUT_SEC: "{{ mqtt_ingestor_db_command_timeout_sec }}"
+
+      INGEST_ALLOWED_CUSTOMERS: "{{ mqtt_ingestor_allowed_customers }}"
+      INGEST_ALLOWED_LOCATIONS: "{{ mqtt_ingestor_allowed_locations }}"
+
+      SPOOL_DIR: "{{ mqtt_ingestor_spool_dir }}"
+      SPOOL_MAX_BYTES: "{{ mqtt_ingestor_spool_max_bytes }}"
+      SPOOL_CRITICAL_PCT: "{{ mqtt_ingestor_spool_critical_pct }}"
+      SPOOL_FULL_MODE: "{{ mqtt_ingestor_spool_full_mode }}"
+      SPOOL_DROP_LOG_INTERVAL_SEC: "{{ mqtt_ingestor_spool_drop_log_interval_sec }}"
+
+      APP_BATCH_SIZE: "{{ mqtt_ingestor_app_batch_size }}"
+      APP_FLUSH_INTERVAL_MS: "{{ mqtt_ingestor_app_flush_interval_ms }}"
+      APP_MAX_RETRIES: "{{ mqtt_ingestor_app_max_retries }}"
+      APP_RETRY_BASE_MS: "{{ mqtt_ingestor_app_retry_base_ms }}"
+      APP_RETRY_MAX_MS: "{{ mqtt_ingestor_app_retry_max_ms }}"
+      APP_DEADLETTER_ENABLED: "{{ mqtt_ingestor_app_deadletter_enabled | ternary('true','false') }}"
+      APP_DEDUPE_MODE: "{{ mqtt_ingestor_app_dedupe_mode }}"
+      SETTINGS_DIR: "{{ mqtt_ingestor_settings_dir }}"
+      BROKER_FLUSH_INTERVAL_SEC: "{{ mqtt_ingestor_broker_flush_interval_sec }}"
+
+      LOG_LEVEL: "{{ mqtt_ingestor_log_level }}"
+      LOG_FORMAT: "{{ mqtt_ingestor_log_format }}"
+      HEALTH_STALE_DB_WRITE_SEC: "{{ mqtt_ingestor_health_stale_db_write_sec }}"
+      METRICS_ENABLED: "{{ mqtt_ingestor_metrics_enabled | ternary('true','false') }}"
+      METRICS_PORT: "{{ mqtt_ingestor_metrics_port }}"
+      HEALTH_PORT: "{{ mqtt_ingestor_health_port }}"
+    volumes:
+      - spool-data:/var/lib/mqtt-ingestor/spool
+      - settings-data:/var/lib/mqtt-ingestor/settings
+    ports:
+      - "8083:{{ mqtt_ingestor_health_port }}"
+      - "9110:{{ mqtt_ingestor_metrics_port }}"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; r=urllib.request.urlopen('http://localhost:8080/health',timeout=4); sys.exit(0 if r.status==200 else 1)\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - {{ mqtt_ingestor_docker_network }}
+
+volumes:
+  spool-data:
+  settings-data:
+
+networks:
+  {{ mqtt_ingestor_docker_network }}:
+    external: true
