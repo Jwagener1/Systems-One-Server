@@ -1,0 +1,59 @@
+- name: Ensure mqtt_ingestor directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ mqtt_ingestor_install_dir }}"
+
+- name: Ensure shared Docker network exists
+  shell: "docker network inspect {{ mqtt_ingestor_docker_network }} >/dev/null 2>&1 || docker network create {{ mqtt_ingestor_docker_network }}"
+  changed_when: false
+
+- name: Validate required variables
+  assert:
+    that:
+      - mqtt_ingestor_mqtt_host is defined
+      - mqtt_ingestor_mqtt_host | length > 0
+      - mqtt_ingestor_mqtt_topics is defined
+      - mqtt_ingestor_mqtt_topics | length > 0
+      - mqtt_ingestor_db_host is defined
+      - mqtt_ingestor_db_host | length > 0
+      - mqtt_ingestor_db_name is defined
+      - mqtt_ingestor_db_name | length > 0
+      - mqtt_ingestor_db_user is defined
+      - mqtt_ingestor_db_user | length > 0
+    fail_msg: >-
+      Missing required mqtt_ingestor variables. Provide MQTT host + topics,
+      and DB host/name/user.
+
+- name: Copy mqtt_ingestor service source (kept identical)
+  copy:
+    src: app/
+    dest: "{{ mqtt_ingestor_install_dir }}/app/"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Render Dockerfile
+  template:
+    src: Dockerfile.j2
+    dest: "{{ mqtt_ingestor_install_dir }}/Dockerfile"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Render docker compose file
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ mqtt_ingestor_install_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Start/Update mqtt_ingestor container
+  command: docker compose up -d --build --remove-orphans
+  args:
+    chdir: "{{ mqtt_ingestor_install_dir }}"

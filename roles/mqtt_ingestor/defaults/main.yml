@@ -1,0 +1,62 @@
+---
+mqtt_ingestor_install_dir: /opt/mqtt_ingestor
+mqtt_ingestor_image: mqtt-ingestor:latest
+mqtt_ingestor_docker_network: "{{ docker_shared_network | default('infra') }}"
+
+# MQTT — subscribes to device telemetry (both prefix variants) and broker health
+mqtt_ingestor_mqtt_connection_name: mqtt-ingestor
+mqtt_ingestor_mqtt_protocol: tcp
+mqtt_ingestor_mqtt_host: mosquitto
+mqtt_ingestor_mqtt_port: "{{ mosquitto_mqtt_port | default(1883) }}"
+mqtt_ingestor_mqtt_basepath: ""
+mqtt_ingestor_mqtt_url: ""
+mqtt_ingestor_mqtt_username: "{{ mqtt_username | default('') }}"
+mqtt_ingestor_mqtt_password: "{{ mqtt_password | default('') }}"
+mqtt_ingestor_mqtt_use_tls: false
+mqtt_ingestor_mqtt_validate_cert: true
+mqtt_ingestor_mqtt_topics: "systems-one/#,systemsone/#,$SYS/#"
+mqtt_ingestor_mqtt_client_id: mqtt-ingestor
+mqtt_ingestor_mqtt_keepalive_sec: 60
+mqtt_ingestor_mqtt_clean_session: false
+mqtt_ingestor_mqtt_topic_prefix_depth: 1
+
+# Database — shares MSSQL with everything else on this box
+mqtt_ingestor_db_host: mssql
+mqtt_ingestor_db_port: "{{ mssql_port | default(1433) }}"
+mqtt_ingestor_db_name: "{{ mssql_rm_database | default('S1_Remote_Monitoring') }}"
+mqtt_ingestor_db_user: sa
+mqtt_ingestor_db_password: "{{ mssql_sa_password | default('') }}"
+mqtt_ingestor_db_driver: "ODBC Driver 18 for SQL Server"
+mqtt_ingestor_db_trust_server_certificate: true
+mqtt_ingestor_db_connect_timeout_sec: 5
+mqtt_ingestor_db_command_timeout_sec: 30
+
+# Device allowlist — unset/empty means allow all (matches validation.py default)
+mqtt_ingestor_allowed_customers: ""
+mqtt_ingestor_allowed_locations: ""
+
+# SQLite spool (device-telemetry durability)
+mqtt_ingestor_spool_dir: /var/lib/mqtt-ingestor/spool
+mqtt_ingestor_spool_max_bytes: 1073741824
+mqtt_ingestor_spool_critical_pct: 95
+mqtt_ingestor_spool_full_mode: drop_oldest
+mqtt_ingestor_spool_drop_log_interval_sec: 30
+
+# Application
+mqtt_ingestor_app_batch_size: 100
+mqtt_ingestor_app_flush_interval_ms: 500
+mqtt_ingestor_app_max_retries: 8
+mqtt_ingestor_app_retry_base_ms: 250
+mqtt_ingestor_app_retry_max_ms: 30000
+mqtt_ingestor_app_deadletter_enabled: true
+mqtt_ingestor_app_dedupe_mode: "off"
+mqtt_ingestor_settings_dir: /var/lib/mqtt-ingestor/settings
+mqtt_ingestor_broker_flush_interval_sec: 60
+
+# Observability
+mqtt_ingestor_log_level: INFO
+mqtt_ingestor_log_format: json
+mqtt_ingestor_health_stale_db_write_sec: 120
+mqtt_ingestor_metrics_enabled: true
+mqtt_ingestor_metrics_port: 9108
+mqtt_ingestor_health_port: 8080
