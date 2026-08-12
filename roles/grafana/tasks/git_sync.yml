@@ -50,12 +50,13 @@
 
 - name: Build desired Git Sync repository spec
   ansible.builtin.set_fact:
+    # On update, the k8s-style provisioning API requires the existing
+    # object's full metadata (notably resourceVersion, for optimistic
+    # concurrency) -- sending only name/namespace gets rejected with 422.
     grafana_gitsync_body:
       apiVersion: "provisioning.grafana.app/v0alpha1"
       kind: "Repository"
-      metadata:
-        name: "{{ grafana_gitsync_existing.metadata.name if grafana_gitsync_existing else 'systems-one-dashboards' }}"
-        namespace: "default"
+      metadata: "{{ grafana_gitsync_existing.metadata if grafana_gitsync_existing else {'name': 'systems-one-dashboards', 'namespace': 'default'} }}"
       spec:
         type: "github"
         github:
