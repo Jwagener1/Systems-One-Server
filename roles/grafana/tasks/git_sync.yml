@@ -53,23 +53,33 @@
     # On update, the k8s-style provisioning API requires the existing
     # object's full metadata (notably resourceVersion, for optimistic
     # concurrency) -- sending only name/namespace gets rejected with 422.
+    #
+    # The token does NOT live under spec.github -- confirmed via the live
+    # object's own metadata.managedFields, which shows a prior successful
+    # `curl` update setting it via a top-level secure.token.create field
+    # (Grafana's newer Secure Values design). spec.github has no token
+    # field at all; sending one there also contributed to the 422.
+    # title/workflows are likewise required top-level spec fields the
+    # original UI-driven creation set that this task never did.
     grafana_gitsync_body:
       apiVersion: "provisioning.grafana.app/v0alpha1"
       kind: "Repository"
       metadata: "{{ grafana_gitsync_existing.metadata if grafana_gitsync_existing else {'name': 'systems-one-dashboards', 'namespace': 'default'} }}"
       spec:
+        title: "{{ grafana_git_sync_repo | regex_replace('^https://github.com/', '') }}"
         type: "github"
+        workflows: ["write", "branch"]
         github:
           url: "{{ grafana_git_sync_repo }}"
           branch: "{{ grafana_git_sync_branch | default('main') }}"
-          token: "{{ grafana_git_sync_token }}"
           path: "{{ grafana_git_sync_path | default('grafana/') }}"
-          showDashboardChanges: true
-          generateDashboardPreviews: false
         sync:
           enabled: true
           target: "instance"
           intervalSeconds: 60
+      secure:
+        token:
+          create: "{{ grafana_git_sync_token }}"
 
 - name: Update existing Git Sync repository (refreshes token on rotation)
   ansible.builtin.uri:
