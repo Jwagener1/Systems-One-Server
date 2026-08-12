@@ -1,0 +1,9 @@
+---
+# mosquitto.conf is a bind mount, so `docker compose up -d` will NOT pick up a
+# config-only change (nothing about the container spec changed). Restart the
+# container explicitly instead. Handlers run at the end of the play, i.e. after
+# the "Start/Update MQTT stack" task has created the container on a first run.
+- name: Restart mosquitto
+  command: docker compose restart mosquitto
+  args:
+    chdir: /opt/mqtt
