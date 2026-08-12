@@ -17,6 +17,14 @@
           Missing required variable 'mssql_sa_password'.
           Provide it via Ansible Vault (group_vars/vault.yml + --ask-vault-pass / --vault-password-file)
           or via --extra-vars.
+
+    - name: Enforce recent successful backup before applying changes
+      import_role:
+        name: backup
+        tasks_from: gate.yml
+      when: backup_enabled | default(false)
+      tags: always
   roles:
     - docker
     - mssql
+    - backup

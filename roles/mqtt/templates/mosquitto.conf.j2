@@ -12,3 +12,11 @@ listener {{ mosquitto_mqtt_port | default(1883) }}
 # WebSockets listener
 listener {{ mosquitto_ws_port | default(9001) }}
 protocol websockets
+{% if mosquitto_max_packet_size | int > 0 %}
+
+# Largest single MQTT packet accepted, in bytes. Applies to both listeners.
+# Counts the whole packet, not just the payload. MQTT v5 clients are told this
+# value in CONNACK; v3.1.1 clients are simply disconnected when they exceed it,
+# with no reason code.
+max_packet_size {{ mosquitto_max_packet_size | int }}
+{% endif %}

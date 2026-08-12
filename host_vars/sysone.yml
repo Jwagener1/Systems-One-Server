@@ -101,3 +101,11 @@ grafana_mssql_datasource_uid: "PAAAEB8D7872B0C49"
 
 # s1_reporter chart hosting (Teams notifications) — see Task 9 for Cloudflare DNS setup
 s1_reporter_chart_public_base_url: "https://charts.sysone.co.za"
+
+# Offsite backup (Backblaze B2) — see roles/backup. backup_enabled itself is
+# a shared default in group_vars/all.yml; flip it here once Step 1's vault
+# vars are populated and you've verified {{ backup_script_path }} runs clean.
+backup_b2_account_id: "{{ vault_backup_b2_account_id }}"
+backup_b2_account_key: "{{ vault_backup_b2_account_key }}"
+backup_restic_password: "{{ vault_backup_restic_password }}"
+backup_b2_path: "sysone"

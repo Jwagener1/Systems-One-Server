@@ -1,0 +1,9 @@
+---
+mosquitto_mqtt_port: 1883
+mosquitto_ws_port: 9001
+
+# Largest single MQTT packet the broker will accept, in bytes.
+# 0 = no limit (mosquitto's own default; the protocol ceiling is 268435455).
+# This counts the WHOLE packet - fixed header + variable header (including the
+# topic name) + payload - so size it with headroom above the largest payload.
+mosquitto_max_packet_size: 0

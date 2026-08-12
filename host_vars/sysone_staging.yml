@@ -162,3 +162,10 @@ systems_one_ingest_db_connect_on_start: false
 systems_one_ingest_db_connect_required: false
 
 systems_one_ingest_run_seconds: ""
+
+# Offsite backup (Backblaze B2) — see roles/backup. Same B2 account/bucket as
+# production, distinct in-bucket path so snapshots never collide.
+backup_b2_account_id: "{{ vault_backup_b2_account_id }}"
+backup_b2_account_key: "{{ vault_backup_b2_account_key }}"
+backup_restic_password: "{{ vault_backup_restic_password }}"
+backup_b2_path: "sysone-staging"
