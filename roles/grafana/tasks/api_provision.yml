@@ -149,7 +149,7 @@
       Content-Type: "application/json"
     body_format: json
     body:
-      userId: "{{ grafana_user_id_map[item.login] }}"
+      loginOrEmail: "{{ item.login }}"
       role: "{{ item.role | default('Viewer') }}"
   loop: "{{ grafana_desired_memberships | default([]) }}"
   loop_control:
