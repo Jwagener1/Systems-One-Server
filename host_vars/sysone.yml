@@ -6,6 +6,10 @@ cloudflare_tunnel_token: "{{ vault_cloudflare_tunnel_token }}"
 # (127.0.0.1:<port>) rather than rely on the infra bridge network's container DNS.
 cloudflared_network_mode: host
 
+# MQTT
+mqtt_username: "{{ vault_mqtt_username }}"
+mqtt_password: "{{ vault_mqtt_password }}"
+
 # MSSQL
 mssql_sa_password: "{{ vault_mssql_sa_password }}"
 
