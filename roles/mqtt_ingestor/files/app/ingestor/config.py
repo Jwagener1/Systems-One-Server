@@ -96,6 +96,7 @@ class AppConfig:
     deadletter_enabled: bool
     dedupe_mode: str  # off | hash_topic_time
     settings_dir: Path
+    broker_flush_interval_sec: int
 
 
 @dataclass(frozen=True)
@@ -194,6 +195,7 @@ def load_config() -> Config:
         deadletter_enabled=_env_bool("APP_DEADLETTER_ENABLED", True),
         dedupe_mode=_env("APP_DEDUPE_MODE", "off"),
         settings_dir=Path(_env("SETTINGS_DIR", "./settings")),
+        broker_flush_interval_sec=_env_int("BROKER_FLUSH_INTERVAL_SEC", 60),
     )
 
     obs = ObsConfig(

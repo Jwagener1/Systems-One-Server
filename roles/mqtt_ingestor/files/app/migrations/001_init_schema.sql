@@ -242,3 +242,39 @@ BEGIN
         ON [dbo].[device_os_metrics] (ts_datetime);
 END
 GO
+
+-- ---------------------------------------------------------------------------
+-- broker schema (broker-health snapshots)
+-- ---------------------------------------------------------------------------
+
+IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'broker')
+    EXEC('CREATE SCHEMA broker')
+GO
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.tables t
+    JOIN sys.schemas s ON t.schema_id = s.schema_id
+    WHERE s.name = 'broker' AND t.name = 'broker_stats'
+)
+BEGIN
+    CREATE TABLE [broker].[broker_stats] (
+        id                   BIGINT        IDENTITY(1,1) NOT NULL,
+        collected_utc        DATETIME2(3)  NOT NULL,
+        clients_connected    INT           NULL,
+        clients_total        INT           NULL,
+        clients_inactive     INT           NULL,
+        clients_max          INT           NULL,
+        msgs_received        BIGINT        NULL,
+        msgs_sent            BIGINT        NULL,
+        msgs_stored          INT           NULL,
+        bytes_received       BIGINT        NULL,
+        bytes_sent           BIGINT        NULL,
+        subscriptions        INT           NULL,
+        uptime_seconds       INT           NULL,
+        version              NVARCHAR(100) NULL,
+        load_msgs_recv_1min  FLOAT         NULL,
+        load_msgs_sent_1min  FLOAT         NULL,
+        CONSTRAINT PK_broker_stats PRIMARY KEY CLUSTERED (id)
+    )
+END
+GO
