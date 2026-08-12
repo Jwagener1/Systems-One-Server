@@ -49,10 +49,21 @@
 
 - name: Remove backup script and cron job when disabled
   block:
+    # The cron module shells out to crontab just to check current state,
+    # even when there's nothing to remove -- fails outright on a box
+    # where the cron package was never installed (no backup was ever
+    # enabled here, so no cron job could exist either).
+    - name: Check whether crontab is available
+      command: which crontab
+      register: backup_crontab_check
+      changed_when: false
+      failed_when: false
+
     - name: Remove nightly backup cron job
       cron:
         name: "systems-one offsite backup"
         state: absent
+      when: backup_crontab_check.rc == 0
 
     - name: Remove backup script
       file:
