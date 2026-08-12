@@ -1,6 +1,15 @@
 ---
 # Configure Grafana Git Sync via the k8s provisioning API (Grafana v12+)
 # Only runs when grafana_git_sync_repo is set.
+#
+# Idempotent by matching on spec.github.url, not by "does any repository
+# exist yet" -- the previous create-only-if-list-is-empty check had two
+# problems: (1) it raced Grafana's provisioning search index, which is not
+# rebuilt until some time after container start, so a fresh restart could
+# see an empty list and attempt a duplicate create; (2) once a repository
+# existed, its token was never touched again, so rotating
+# grafana_git_sync_token in vault never reached Grafana and the existing
+# repository silently ran forever on the old token ("not authorized").
 
 - name: Wait for Grafana API to be ready
   ansible.builtin.uri:
@@ -16,7 +25,7 @@
   delay: 2
   until: grafana_gitsync_health.status == 200
 
-- name: Check if Git Sync repository already configured
+- name: List Git Sync repositories
   ansible.builtin.uri:
     url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/apis/provisioning.grafana.app/v0alpha1/namespaces/default/repositories"
     method: GET
@@ -28,23 +37,21 @@
     return_content: true
   register: grafana_gitsync_repos
 
-- name: Configure Grafana Git Sync repository
-  ansible.builtin.uri:
-    url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/apis/provisioning.grafana.app/v0alpha1/namespaces/default/repositories"
-    method: POST
-    status_code: [200, 201]
-    validate_certs: "{{ grafana_api_validate_certs | bool }}"
-    url_username: "{{ grafana_admin_user | default('admin') }}"
-    url_password: "{{ grafana_admin_password }}"
-    force_basic_auth: true
-    headers:
-      Content-Type: "application/json"
-    body_format: json
-    body:
+- name: Find existing repository matching our URL
+  ansible.builtin.set_fact:
+    grafana_gitsync_existing: >-
+      {{ (grafana_gitsync_repos.json.items | default([]))
+         | selectattr('spec.github.url', 'defined')
+         | selectattr('spec.github.url', 'equalto', grafana_git_sync_repo)
+         | list | first | default(None) }}
+
+- name: Build desired Git Sync repository spec
+  ansible.builtin.set_fact:
+    grafana_gitsync_body:
       apiVersion: "provisioning.grafana.app/v0alpha1"
       kind: "Repository"
       metadata:
-        name: "systems-one-dashboards"
+        name: "{{ grafana_gitsync_existing.metadata.name if grafana_gitsync_existing else 'systems-one-dashboards' }}"
         namespace: "default"
       spec:
         type: "github"
@@ -59,8 +66,39 @@
           enabled: true
           target: "instance"
           intervalSeconds: 60
+
+- name: Update existing Git Sync repository (refreshes token on rotation)
+  ansible.builtin.uri:
+    url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/apis/provisioning.grafana.app/v0alpha1/namespaces/default/repositories/{{ grafana_gitsync_existing.metadata.name }}"
+    method: PUT
+    status_code: [200]
+    validate_certs: "{{ grafana_api_validate_certs | bool }}"
+    url_username: "{{ grafana_admin_user | default('admin') }}"
+    url_password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    body: "{{ grafana_gitsync_body }}"
   no_log: true
-  when: >-
-    (grafana_gitsync_repos.json.items | default([]) | length) == 0
-  register: grafana_gitsync_result
-  changed_when: grafana_gitsync_result.status in [200, 201]
+  when: grafana_gitsync_existing is not none
+  register: grafana_gitsync_update
+  changed_when: grafana_gitsync_update.status == 200
+
+- name: Create Git Sync repository
+  ansible.builtin.uri:
+    url: "{{ grafana_api_scheme }}://{{ grafana_api_host }}:{{ grafana_api_port }}/apis/provisioning.grafana.app/v0alpha1/namespaces/default/repositories"
+    method: POST
+    status_code: [200, 201]
+    validate_certs: "{{ grafana_api_validate_certs | bool }}"
+    url_username: "{{ grafana_admin_user | default('admin') }}"
+    url_password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    body: "{{ grafana_gitsync_body }}"
+  no_log: true
+  when: grafana_gitsync_existing is none
+  register: grafana_gitsync_create
+  changed_when: grafana_gitsync_create.status in [200, 201]
