@@ -6,6 +6,7 @@ services:
     command: tunnel run
     environment:
       - TUNNEL_TOKEN={{ cloudflare_tunnel_token }}
+      - TUNNEL_TRANSPORT_PROTOCOL=http2
     healthcheck:
       test: ["CMD", "/usr/local/bin/cloudflared", "version"]
       interval: 30s
