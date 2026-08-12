@@ -39,6 +39,24 @@ def _parse_topic_segments(
     return parts[prefix_depth], parts[prefix_depth + 1], parts[prefix_depth + 2]
 
 
+def _is_safe_path_component(value: str) -> bool:
+    """Return True if `value` is safe to use as a single filesystem path segment.
+
+    Rejects values that are empty (after stripping), equal to "." or "..",
+    or contain a path separator -- any of which could let untrusted MQTT
+    topic segments or JSON payload fields escape the intended base
+    directory (path traversal).
+    """
+    stripped = value.strip()
+    if not stripped:
+        return False
+    if stripped in (".", ".."):
+        return False
+    if "/" in stripped or "\\" in stripped:
+        return False
+    return True
+
+
 class SettingsWriter:
     def __init__(self, base_dir: Path, prefix_depth: int = 1) -> None:
         self._base_dir = base_dir
@@ -80,6 +98,18 @@ class SettingsWriter:
 
         customer, location, machine_name = segments
 
+        for field_name, value in (
+            ("customer", customer),
+            ("location", location),
+            ("machine_name", machine_name),
+        ):
+            if not _is_safe_path_component(value):
+                logger.warning(
+                    "SettingsWriter: unsafe path component in topic -- skipping",
+                    extra={"topic": entry.topic, "field": field_name, "value": value},
+                )
+                return
+
         if not entry.payload_json:
             logger.debug(
                 "SettingsWriter: no JSON payload -- skipping",
@@ -107,6 +137,13 @@ class SettingsWriter:
         id_leaf = str(raw_id).rsplit(".", 1)[-1] if raw_id else "settings"
         if not id_leaf:
             id_leaf = "settings"
+
+        if not _is_safe_path_component(id_leaf):
+            logger.warning(
+                "SettingsWriter: unsafe path component in payload Id -- skipping",
+                extra={"topic": entry.topic, "field": "id_leaf", "value": id_leaf},
+            )
+            return
 
         value = payload.get("Value")
 

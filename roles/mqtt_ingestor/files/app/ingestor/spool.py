@@ -131,8 +131,43 @@ class Spool:
 
             if current_bytes + event_bytes > self._max_bytes:
                 if self._full_mode == "drop_oldest":
-                    self._drop_oldest_to_fit(conn, event_bytes)
-                    current_bytes = self._meta_get(conn, "total_bytes")
+                    # A single _drop_oldest_to_fit pass scans at most
+                    # _DROP_SCAN_LIMIT rows and may not free enough space
+                    # (many small rows, or an unusually large incoming
+                    # event). Retry a bounded number of times so the cap
+                    # is actually enforced instead of being silently
+                    # exceeded, while never looping unboundedly against a
+                    # pathological spool state.
+                    max_drop_passes = 10
+                    for _ in range(max_drop_passes):
+                        dropped = self._drop_oldest_to_fit(conn, event_bytes)
+                        current_bytes = self._meta_get(conn, "total_bytes")
+                        if current_bytes + event_bytes <= self._max_bytes:
+                            break
+                        if dropped == 0:
+                            # Nothing left to drop -- further passes can't help.
+                            break
+
+                    if current_bytes + event_bytes > self._max_bytes:
+                        # Drop pass(es) were insufficient -- fall back to
+                        # reject_new behavior for this message rather than
+                        # silently exceeding the configured cap.
+                        util = (
+                            int(current_bytes * 100 / self._max_bytes)
+                            if self._max_bytes
+                            else 0
+                        )
+                        logger.critical(
+                            "Spool full: dropping oldest was insufficient, "
+                            "rejecting new message",
+                            extra={
+                                "event": "spool_full_reject",
+                                "spool_bytes": current_bytes,
+                                "max_bytes": self._max_bytes,
+                                "spool_utilization_pct": util,
+                            },
+                        )
+                        return
                 else:
                     # reject_new: log and silently discard the incoming message
                     util = (
@@ -184,10 +219,14 @@ class Spool:
                 self._metrics.spool_messages_current.inc()
                 self._metrics.spool_bytes_current.set(new_bytes)
 
-    def _drop_oldest_to_fit(self, conn: sqlite3.Connection, needed_bytes: int) -> None:
+    def _drop_oldest_to_fit(self, conn: sqlite3.Connection, needed_bytes: int) -> int:
         """
-        Delete oldest rows until there is room for needed_bytes.
+        Delete oldest rows until there is room for needed_bytes, scanning at
+        most _DROP_SCAN_LIMIT rows in this pass.
         Called while the spool lock is held.
+
+        Returns the number of rows dropped in this pass (0 means the spool
+        had nothing left to drop).
         """
         current_bytes = self._meta_get(conn, "total_bytes")
         rows = conn.execute(
@@ -210,7 +249,7 @@ class Spool:
                 break
 
         if not drop_ids:
-            return
+            return 0
 
         placeholders = ",".join("?" * len(drop_ids))
         conn.execute(f"DELETE FROM spool WHERE id IN ({placeholders})", drop_ids)
@@ -257,6 +296,8 @@ class Spool:
             self._metrics.spool_drop_events_total.inc()
             self._metrics.spool_messages_current.dec(len(drop_ids))
             self._metrics.spool_bytes_current.set(new_bytes)
+
+        return len(drop_ids)
 
     def dequeue_batch(self, n: int) -> list[SpoolEntry]:
         with self._lock:
