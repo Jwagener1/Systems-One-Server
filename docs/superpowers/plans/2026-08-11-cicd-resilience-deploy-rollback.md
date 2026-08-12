@@ -320,28 +320,40 @@ jobs:
     steps:
       - name: Checkout target ref on the box
         working-directory: /home/s1/Systems-One-Server
+        env:
+          REF: ${{ inputs.ref }}
         run: |
           git fetch origin --tags
-          git checkout "${{ inputs.ref }}"
-          git merge --ff-only "origin/${{ inputs.ref }}" 2>/dev/null || true
+          git checkout "$REF"
+          # Skip merge if ref is a tag or SHA (no matching origin branch); fail on real merge errors
+          if git rev-parse --verify "origin/$REF" >/dev/null 2>&1; then
+            git merge --ff-only "origin/$REF"
+          fi
 
       - name: Run ansible-playbook
         working-directory: /home/s1/Systems-One-Server
+        env:
+          ROLE_TAGS: ${{ inputs.tags }}
         run: |
-          if [ -n "${{ inputs.tags }}" ]; then
-            ansible-playbook -i production webservers.yml --tags "${{ inputs.tags }}"
+          if [ -n "$ROLE_TAGS" ]; then
+            ansible-playbook -i production webservers.yml --tags "$ROLE_TAGS"
           else
             ansible-playbook -i production webservers.yml
           fi
 
       - name: Tag this deploy
         working-directory: /home/s1/Systems-One-Server
+        env:
+          REF: ${{ inputs.ref }}
+          ROLE_TAGS: ${{ inputs.tags }}
         run: |
           tag="deploy-$(date -u +%Y%m%d-%H%M%S)"
-          git tag -a "$tag" -m "Deploy of ${{ inputs.ref }} (tags: ${{ inputs.tags || 'all' }})"
+          git tag -a "$tag" -m "Deploy of $REF (tags: ${ROLE_TAGS:-all})"
           git push origin "$tag"
           echo "Deployed and tagged $tag"
 ```
+
+**Security note:** inputs are passed via `env:` and referenced as shell variables (`$REF`, `$ROLE_TAGS`), never interpolated directly as `${{ inputs.* }}` inside a `run:` script. Direct interpolation lets a crafted `workflow_dispatch` input (e.g. containing `` $(...) `` or `;`) be substituted as literal shell syntax before the shell runs — GitHub Actions script injection (CWE-78). Passing through `env:` treats the value as inert data instead.
 
 - [ ] **Step 2: Validate YAML locally**
 
@@ -356,14 +368,16 @@ git commit -m "feat(ci): add one-click deploy workflow for s1_server"
 git push origin master
 ```
 
-- [ ] **Step 4: Test the `validate` job (runner-independent)**
+- [ ] **Step 4: Test the `validate` job — deferred until after merge**
+
+GitHub's API/CLI can only dispatch a `workflow_dispatch` workflow once its file exists on the repository's default branch — `--ref` selects which branch/tag the run checks out, not which branch the workflow definition is read from. So `deploy.yml` cannot be live-triggered from this feature branch/PR at all, the same constraint noted in Task 5. Skip live-triggering here; this workflow is exercised for the first time in Task 7, after the branch merges to `master` via `finishing-a-development-branch`.
 
 ```bash
 gh workflow run deploy.yml -f ref=master -f tags=s1_reporter
 gh run watch --exit-status
 ```
 
-Expected: `validate` job succeeds. The `deploy` job will show `queued` indefinitely until Task 6 registers the self-hosted runner — that's expected at this point in the plan. Cancel the run afterward with `gh run cancel <run-id>` so it doesn't sit queued.
+Expected once run post-merge: `validate` job succeeds. The `deploy` job will show `queued` indefinitely until Task 6 registers the self-hosted runner — that's expected until Task 6 is done. Cancel the run afterward with `gh run cancel <run-id>` so it doesn't sit queued.
 
 ---
 
@@ -403,22 +417,33 @@ jobs:
     steps:
       - name: Checkout target tag on the box
         working-directory: /home/s1/Systems-One-Server
+        env:
+          ROLLBACK_TAG: ${{ inputs.tag }}
         run: |
           git fetch origin --tags
-          git checkout "${{ inputs.tag }}"
+          git checkout "$ROLLBACK_TAG"
 
       - name: Run ansible-playbook
         working-directory: /home/s1/Systems-One-Server
+        env:
+          ROLE_TAGS: ${{ inputs.tags }}
         run: |
-          if [ -n "${{ inputs.tags }}" ]; then
-            ansible-playbook -i production webservers.yml --tags "${{ inputs.tags }}"
+          if [ -n "$ROLE_TAGS" ]; then
+            ansible-playbook -i production webservers.yml --tags "$ROLE_TAGS"
           else
             ansible-playbook -i production webservers.yml
           fi
 
       - name: Record rollback
-        run: echo "Rolled back to ${{ inputs.tag }} (role scope: ${{ inputs.tags || 'all' }})"
+        env:
+          ROLLBACK_TAG: ${{ inputs.tag }}
+          ROLE_TAGS: ${{ inputs.tags }}
+        run: 'echo "Rolled back to $ROLLBACK_TAG (role scope: ${ROLE_TAGS:-all})"'
 ```
+
+Note: the `run:` value is wrapped in single quotes because it contains an unquoted `: ` (in "role scope: ${ROLE_TAGS...") — YAML's plain-scalar grammar forbids a bare colon-space inside an unquoted value, so without the outer single quotes this line fails to parse.
+
+**Security note:** same rationale as `deploy.yml` — inputs are passed via `env:` and referenced as shell variables, never interpolated directly as `${{ inputs.* }}` inside a `run:` script, to avoid GitHub Actions script injection (CWE-78).
 
 - [ ] **Step 2: Validate YAML locally**
 
@@ -466,6 +491,11 @@ fi
 
 VERSION=$(curl -fsSL https://api.github.com/repos/actions/runner/releases/latest \
   | grep -oP '"tag_name": "v\K[0-9.]+' | head -1)
+
+if [ -z "$VERSION" ]; then
+  echo "failed to detect latest actions/runner version" >&2
+  exit 1
+fi
 
 mkdir -p "$RUNNER_DIR"
 cd "$RUNNER_DIR"
@@ -519,6 +549,8 @@ Expected: one runner named `s1-server`, `status: "online"`, labels including `se
 ### Task 7: End-to-end verification
 
 **Files:** none — verification only.
+
+**Prerequisite:** `deploy.yml`/`rollback.yml` can only be dispatched via API/CLI once they exist on `master` (see Task 4 Step 4's note). Run this task after the branch has been merged via `finishing-a-development-branch`, not before.
 
 - [ ] **Step 1: Run a scoped deploy dry run**
 
