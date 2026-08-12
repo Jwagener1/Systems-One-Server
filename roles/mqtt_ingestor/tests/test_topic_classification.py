@@ -26,6 +26,27 @@ def _install_db_stub() -> types.ModuleType:
     return stub
 
 
+def _snapshot_ingestor_modules() -> dict:
+    """
+    Capture (and remove) every 'ingestor' / 'ingestor.*' entry currently in
+    sys.modules. Sibling test files in this suite (test_spool.py,
+    test_settings_writer.py) register their own incomplete
+    sys.modules["ingestor.models"] stubs at module-import time and never
+    clean them up, so under a combined run (`pytest roles/mqtt_ingestor/tests/`)
+    those stale stubs -- lacking BrokerSnapshot -- would otherwise be reused
+    here instead of the real models.py. Clearing the namespace first forces
+    a fresh, correct import graph regardless of collection order.
+    """
+    stale = {
+        k: v
+        for k, v in sys.modules.items()
+        if k == "ingestor" or k.startswith("ingestor.")
+    }
+    for k in stale:
+        del sys.modules[k]
+    return stale
+
+
 def load():
     # pipeline.py uses package-relative imports (`from .config import
     # Config`, etc.) for its sibling modules, which are all real, already-
@@ -34,6 +55,7 @@ def load():
     # a dotted, package-qualified name -- with the app dir on sys.path --
     # lets those relative imports resolve normally against the real files,
     # matching the pattern used in test_spool.py.
+    saved = _snapshot_ingestor_modules()
     _install_db_stub()
     sys.path.insert(0, APP_DIR)
     try:
@@ -45,6 +67,16 @@ def load():
         return mod
     finally:
         sys.path.remove(APP_DIR)
+        # Undo everything this load() added to sys.modules (our db stub,
+        # "ingestor" itself, and every real submodule pipeline.py pulled in
+        # via relative import), then restore whatever was there before --
+        # so this test's loading doesn't leak "ingestor.*" state into
+        # sibling test files collected after it (e.g. Task 5's future
+        # db.py tests).
+        for k in list(sys.modules):
+            if k == "ingestor" or k.startswith("ingestor."):
+                del sys.modules[k]
+        sys.modules.update(saved)
 
 
 pipeline_mod = load()
