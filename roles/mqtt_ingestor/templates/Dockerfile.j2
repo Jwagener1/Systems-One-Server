@@ -55,8 +55,8 @@ COPY --from=builder /install /usr/local
 # Create non-root user
 RUN groupadd --gid 1001 appuser \
     && useradd --uid 1001 --gid appuser --no-create-home appuser \
-    && mkdir -p /var/lib/mqtt-ingestor/spool \
-    && chown appuser:appuser /var/lib/mqtt-ingestor/spool
+    && mkdir -p /var/lib/mqtt-ingestor/spool /var/lib/mqtt-ingestor/settings \
+    && chown -R appuser:appuser /var/lib/mqtt-ingestor
 
 WORKDIR /app
 

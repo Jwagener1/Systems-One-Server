@@ -262,7 +262,7 @@ class MqttIngestor:
             extra={
                 "host": self._cfg.host,
                 "port": self._cfg.port,
-                "topic": self._cfg.topic_filter,
+                "topic": list(self._cfg.topics),
                 "client_id": self._cfg.client_id,
             },
         )

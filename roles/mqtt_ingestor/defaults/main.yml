@@ -1,6 +1,10 @@
 ---
 mqtt_ingestor_install_dir: /opt/mqtt_ingestor
-mqtt_ingestor_image: mqtt-ingestor:latest
+# Distinct image/container identity from the legacy hand-deployed mqtt-ingestor
+# service at /home/s1/mqtt-ingestor -- both run side-by-side during the staging
+# comparison period, so they must not collide on name or image tag.
+mqtt_ingestor_image: mqtt-ingestor-merged:latest
+mqtt_ingestor_container_name: mqtt-ingestor-merged
 mqtt_ingestor_docker_network: "{{ docker_shared_network | default('infra') }}"
 
 # MQTT — subscribes to device telemetry (both prefix variants) and broker health
@@ -14,7 +18,13 @@ mqtt_ingestor_mqtt_username: "{{ mqtt_username | default('') }}"
 mqtt_ingestor_mqtt_password: "{{ mqtt_password | default('') }}"
 mqtt_ingestor_mqtt_use_tls: false
 mqtt_ingestor_mqtt_validate_cert: true
-mqtt_ingestor_mqtt_topics: "systems-one/#,systemsone/#,$SYS/#"
+# $$ (not $) is required before SYS: docker compose interpolates $VAR-shaped
+# tokens from its own invoking shell when parsing the compose file, before the
+# container even starts -- since $SYS isn't set there, a single $ gets
+# silently substituted with an empty string and the container never
+# subscribes to $SYS/#. $$ passes a literal $ through so the container
+# receives the real MQTT_TOPICS env var value at runtime.
+mqtt_ingestor_mqtt_topics: "systems-one/#,systemsone/#,$$SYS/#"
 mqtt_ingestor_mqtt_client_id: mqtt-ingestor
 mqtt_ingestor_mqtt_keepalive_sec: 60
 mqtt_ingestor_mqtt_clean_session: false
@@ -24,8 +34,10 @@ mqtt_ingestor_mqtt_topic_prefix_depth: 1
 mqtt_ingestor_db_host: mssql
 mqtt_ingestor_db_port: "{{ mssql_port | default(1433) }}"
 mqtt_ingestor_db_name: "{{ mssql_rm_database | default('S1_Remote_Monitoring') }}"
-mqtt_ingestor_db_user: sa
-mqtt_ingestor_db_password: "{{ mssql_sa_password | default('') }}"
+# Least-privilege login, mirroring systems_one_ingest's fallback chain --
+# not the sysadmin `sa` account.
+mqtt_ingestor_db_user: "{{ mssql_rm_admin_login | default(mssql_app_login | default('')) }}"
+mqtt_ingestor_db_password: "{{ mssql_rm_admin_password | default(mssql_app_login_password | default('')) }}"
 mqtt_ingestor_db_driver: "ODBC Driver 18 for SQL Server"
 mqtt_ingestor_db_trust_server_certificate: true
 mqtt_ingestor_db_connect_timeout_sec: 5

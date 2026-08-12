@@ -75,6 +75,11 @@ def _coerce_broker_field(field: str, raw: str):
             return float(raw)
         except ValueError:
             return None
+    elif field == "version":
+        # broker.broker_stats.version is NVARCHAR(100) -- truncate to avoid a
+        # SQL truncation error (which would burn all retries and drop the
+        # whole snapshot) on an unexpectedly long broker version string.
+        return raw[:100]
     return raw
 
 
@@ -266,7 +271,8 @@ class Pipeline:
                 break
             self._flush_broker_snapshot()
 
-        logger.info("Broker flush loop stopping")
+        logger.info("Broker flush loop stopping — flushing final broker snapshot")
+        self._flush_broker_snapshot()
 
     def _flush_broker_snapshot(self) -> None:
         with self._broker_buffer_lock:
@@ -279,7 +285,8 @@ class Pipeline:
         if self._db.write_broker_snapshot(snapshot):
             self._broker_last_flush_utc = datetime.now(UTC)
             self._metrics.broker_snapshots_flushed_total.inc()
-            self._metrics.broker_last_flush_age_seconds.set(0)
+            with self._broker_buffer_lock:
+                self._broker_buffer.clear()
 
     # ── metrics update ────────────────────────────────────────────────────────
 
@@ -295,6 +302,12 @@ class Pipeline:
             if self._last_db_write_utc:
                 age = (datetime.now(UTC) - self._last_db_write_utc).total_seconds()
                 self._metrics.last_successful_db_write_age_seconds.set(age)
+
+            if self._broker_last_flush_utc:
+                broker_age = (
+                    datetime.now(UTC) - self._broker_last_flush_utc
+                ).total_seconds()
+                self._metrics.broker_last_flush_age_seconds.set(broker_age)
 
             oldest_utc = self._spool.oldest_enqueued_utc()
             if oldest_utc:
@@ -398,7 +411,7 @@ class Pipeline:
             extra={
                 "health_port": self._cfg.obs.health_port,
                 "metrics_port": self._cfg.obs.metrics_port,
-                "topic": self._cfg.mqtt.topic_filter,
+                "topic": list(self._cfg.mqtt.topics),
             },
         )
 

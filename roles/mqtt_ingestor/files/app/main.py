@@ -114,7 +114,7 @@ def main() -> None:
         "MQTT ingestor starting",
         extra={
             "mqtt_host": cfg.mqtt.host,
-            "mqtt_topic": cfg.mqtt.topic_filter,
+            "mqtt_topic": list(cfg.mqtt.topics),
             "db_host": cfg.db.host,
             "db_name": cfg.db.name,
         },

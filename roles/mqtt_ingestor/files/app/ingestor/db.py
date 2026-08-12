@@ -41,7 +41,7 @@ import pyodbc
 
 from .config import DbConfig
 from .models import BrokerSnapshot, SpoolEntry
-from .validation import validate_device
+from .validation import MACHINE_NAME_ONLY_RE
 
 if TYPE_CHECKING:
     from .metrics import Metrics
@@ -710,7 +710,11 @@ class DbWriter:
 
         ts_epoch, ts_dt = _ts_pair(entry)
 
-        if serial_number and not validate_device(serial_number, customer, location, machine_name, logger):
+        if serial_number and MACHINE_NAME_ONLY_RE.match(serial_number):
+            logger.warning(
+                "Rejecting device: serial_number looks like a machine name (serial=%s customer=%s location=%s machine=%s)",
+                serial_number, customer, location, machine_name,
+            )
             return
         if not self._validate_customer_location(customer, location):
             return

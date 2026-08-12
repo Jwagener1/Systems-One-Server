@@ -9,7 +9,7 @@ services:
       context: .
       dockerfile: Dockerfile
     image: "{{ mqtt_ingestor_image }}"
-    container_name: mqtt-ingestor
+    container_name: "{{ mqtt_ingestor_container_name | default('mqtt-ingestor-merged') }}"
     restart: unless-stopped
     environment:
       MQTT_HOST: "{{ mqtt_ingestor_mqtt_host }}"
@@ -65,9 +65,10 @@ services:
       HEALTH_PORT: "{{ mqtt_ingestor_health_port }}"
     volumes:
       - spool-data:/var/lib/mqtt-ingestor/spool
+      - settings-data:/var/lib/mqtt-ingestor/settings
     ports:
-      - "8083:8080"
-      - "9110:9108"
+      - "8083:{{ mqtt_ingestor_health_port }}"
+      - "9110:{{ mqtt_ingestor_metrics_port }}"
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; r=urllib.request.urlopen('http://localhost:8080/health',timeout=4); sys.exit(0 if r.status==200 else 1)\""]
       interval: 30s
@@ -79,6 +80,7 @@ services:
 
 volumes:
   spool-data:
+  settings-data:
 
 networks:
   {{ mqtt_ingestor_docker_network }}:

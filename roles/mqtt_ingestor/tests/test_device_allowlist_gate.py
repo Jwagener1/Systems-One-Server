@@ -146,5 +146,58 @@ class AllowlistGateInDispatch(EnvSandbox):
         writer._resolve_device.assert_called_once()
 
 
+class SerialFormatGateInDispatch(EnvSandbox):
+    """
+    db.py's _dispatch_entry should only reject serials that look like a
+    machine-name placeholder (MACHINE_NAME_ONLY_RE, e.g. "DIM5"/"STATIC1"),
+    matching the vendored pipeline's original scope -- it must NOT also
+    enforce validation.py's stricter SERIAL_RE minimum-length/format check,
+    which would wrongly reject short/non-standard-but-real serials like
+    "N/A" that the vendored pipeline auto-registered via the
+    placeholder-then-upgrade mechanism in _resolve_device.
+    """
+
+    def test_short_non_standard_serial_is_not_rejected(self):
+        writer = db_mod.DbWriter.__new__(db_mod.DbWriter)
+        writer._prefix_depth = 1
+        writer._resolve_device = MagicMock(return_value=1)
+        writer._handle_status = MagicMock()
+
+        entry = FakeEntry(id=1, topic="systems-one/PEPKOR/JBH/DIM1/status", payload_json='{"serial_number":"N/A"}')
+        conn = MagicMock()
+        writer._dispatch_entry(conn, entry)
+
+        writer._resolve_device.assert_called_once()
+
+    def test_machine_name_placeholder_serial_is_still_rejected(self):
+        for placeholder in ("DIM5", "STATIC1"):
+            with self.subTest(placeholder=placeholder):
+                writer = db_mod.DbWriter.__new__(db_mod.DbWriter)
+                writer._prefix_depth = 1
+                writer._resolve_device = MagicMock()
+
+                entry = FakeEntry(
+                    id=1,
+                    topic="systems-one/PEPKOR/JBH/DIM1/status",
+                    payload_json='{"serial_number":"%s"}' % placeholder,
+                )
+                conn = MagicMock()
+                writer._dispatch_entry(conn, entry)
+
+                writer._resolve_device.assert_not_called()
+
+    def test_allowlist_gate_still_applies_alongside_narrower_serial_check(self):
+        os.environ["INGEST_ALLOWED_CUSTOMERS"] = "PEPKOR"
+        writer = db_mod.DbWriter.__new__(db_mod.DbWriter)
+        writer._prefix_depth = 1
+        writer._resolve_device = MagicMock()
+
+        entry = FakeEntry(id=1, topic="systems-one/OTHERCO/JBH/DIM1/status", payload_json='{"serial_number":"N/A"}')
+        conn = MagicMock()
+        writer._dispatch_entry(conn, entry)
+
+        writer._resolve_device.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
