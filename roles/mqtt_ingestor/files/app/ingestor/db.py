@@ -33,6 +33,7 @@ from __future__ import annotations
 import json
 import logging
 import random
+import threading
 import time
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -327,6 +328,12 @@ class DbWriter:
         self._retry_max_ms = retry_max_ms
         self._metrics = metrics
         self._conn: pyodbc.Connection | None = None
+        # The single pyodbc connection is shared by the writer loop and the
+        # broker-flush loop threads; pyodbc connections are not safe for
+        # concurrent statements (MARS off), so every public method must hold
+        # this lock while touching the connection. Released during retry
+        # back-off sleeps so a failing path doesn't stall the other loop.
+        self._conn_lock = threading.Lock()
         # device cache: (customer, location, machine_name) -> device_id
         self._device_cache: dict[tuple[str, str, str], int] = {}
 
@@ -792,10 +799,11 @@ class DbWriter:
         last_exc: Exception | None = None
         for attempt in range(self._max_retries + 1):
             try:
-                conn = self._get_conn()
-                for entry in entries:
-                    self._dispatch_entry(conn, entry)
-                conn.commit()
+                with self._conn_lock:
+                    conn = self._get_conn()
+                    for entry in entries:
+                        self._dispatch_entry(conn, entry)
+                    conn.commit()
 
                 committed_ids = [e.id for e in entries]
                 if self._metrics:
@@ -807,11 +815,12 @@ class DbWriter:
                 last_exc = exc
                 if self._metrics:
                     self._metrics.db_write_failure_total.inc()
-                try:
-                    self._get_conn().rollback()
-                except Exception:
-                    pass
-                self._close_conn()
+                with self._conn_lock:
+                    try:
+                        self._get_conn().rollback()
+                    except Exception:
+                        pass
+                    self._close_conn()
                 logger.warning(
                     "DB write failed -- retrying",
                     extra={
@@ -855,16 +864,18 @@ class DbWriter:
 
         for attempt in range(3):
             try:
-                conn = self._get_conn()
-                cursor = conn.cursor()
-                cursor.fast_executemany = True
-                cursor.executemany(_INSERT_DEADLETTER, params)
-                conn.commit()
+                with self._conn_lock:
+                    conn = self._get_conn()
+                    cursor = conn.cursor()
+                    cursor.fast_executemany = True
+                    cursor.executemany(_INSERT_DEADLETTER, params)
+                    conn.commit()
                 if self._metrics:
                     self._metrics.db_deadletter_total.inc(len(entries))
                 return
             except pyodbc.Error as exc:
-                self._close_conn()
+                with self._conn_lock:
+                    self._close_conn()
                 logger.error(
                     "Dead-letter write failed",
                     extra={"attempt": attempt + 1, "error": str(exc)},
@@ -881,12 +892,14 @@ class DbWriter:
         now_utc = datetime.now(UTC).isoformat()
         for attempt in range(3):
             try:
-                conn = self._get_conn()
-                conn.execute(_UPSERT_PIPELINE_STATE, (key, value, now_utc))
-                conn.commit()
+                with self._conn_lock:
+                    conn = self._get_conn()
+                    conn.execute(_UPSERT_PIPELINE_STATE, (key, value, now_utc))
+                    conn.commit()
                 return
             except pyodbc.Error as exc:
-                self._close_conn()
+                with self._conn_lock:
+                    self._close_conn()
                 logger.warning(
                     "pipeline_state update failed",
                     extra={"key": key, "error": str(exc)},
@@ -904,20 +917,22 @@ class DbWriter:
         )
         for attempt in range(self._max_retries + 1):
             try:
-                conn = self._get_conn()
-                conn.execute(_INSERT_BROKER_STATS, params)
-                conn.commit()
+                with self._conn_lock:
+                    conn = self._get_conn()
+                    conn.execute(_INSERT_BROKER_STATS, params)
+                    conn.commit()
                 if self._metrics:
                     self._metrics.db_write_success_total.inc()
                 return True
             except pyodbc.Error as exc:
                 if self._metrics:
                     self._metrics.db_write_failure_total.inc()
-                try:
-                    self._get_conn().rollback()
-                except Exception:
-                    pass
-                self._close_conn()
+                with self._conn_lock:
+                    try:
+                        self._get_conn().rollback()
+                    except Exception:
+                        pass
+                    self._close_conn()
                 logger.warning(
                     "Broker stats write failed -- retrying",
                     extra={"attempt": attempt + 1, "error": str(exc)},
@@ -934,18 +949,20 @@ class DbWriter:
 
         batches = [b.strip() for b in raw.split("\nGO") if b.strip()]
 
-        conn = self._get_conn()
-        conn.autocommit = True
-        try:
-            for batch in batches:
-                if batch:
-                    conn.execute(batch)
-            logger.info(
-                "Migrations applied",
-                extra={"file": sql_path, "batches": len(batches)},
-            )
-        finally:
-            conn.autocommit = False
+        with self._conn_lock:
+            conn = self._get_conn()
+            conn.autocommit = True
+            try:
+                for batch in batches:
+                    if batch:
+                        conn.execute(batch)
+                logger.info(
+                    "Migrations applied",
+                    extra={"file": sql_path, "batches": len(batches)},
+                )
+            finally:
+                conn.autocommit = False
 
     def close(self) -> None:
-        self._close_conn()
+        with self._conn_lock:
+            self._close_conn()
