@@ -285,8 +285,12 @@ class Pipeline:
         if self._db.write_broker_snapshot(snapshot):
             self._broker_last_flush_utc = datetime.now(UTC)
             self._metrics.broker_snapshots_flushed_total.inc()
-            with self._broker_buffer_lock:
-                self._broker_buffer.clear()
+            # Deliberately NOT cleared: mosquitto publishes many $SYS topics
+            # (clients/connected, subscriptions/count, version, ...) only on
+            # change, so clearing here leaves those columns NULL in every
+            # quiet minute and empties the broker-health dashboard's
+            # latest-row stat panels. The buffer holds one value per known
+            # $SYS field, so carrying it forward is bounded.
 
     # ── metrics update ────────────────────────────────────────────────────────
 
