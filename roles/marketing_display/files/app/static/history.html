@@ -312,6 +312,21 @@ tfoot td { padding: 8px 10px; font-weight: 700; font-size: 12px; border-top: 1px
 .chart-box { position: relative; width: 100%; height: 260px; }
 .chart-box.chart-tall { height: 300px; }
 
+/* ── GAUGE TILES ─────────────────────────────────────────────────────── */
+.gauge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.gauge-body { display: flex; flex-direction: column; align-items: center; padding: 16px 15px 14px; }
+.gauge-wrap { position: relative; width: 156px; }
+.gauge-wrap svg { width: 100%; display: block; }
+.gauge-value {
+  position: absolute; left: 0; right: 0; top: 56%;
+  text-align: center;
+  font-size: 30px; font-weight: 700; line-height: 1;
+  letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+}
+.gauge-counts { margin-top: 10px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.gauge-counts b { color: var(--text); font-weight: 600; }
+@media (max-width: 900px) { .gauge-grid { grid-template-columns: 1fr; } }
+
 .no-data { text-align: center; color: var(--faint); padding: 40px; font-size: 13px; }
 .loading-msg { text-align: center; color: var(--muted); padding: 60px 20px; font-size: 13.5px; }
 .loading-msg strong { color: var(--text); }
@@ -630,6 +645,29 @@ function machinesWithoutData(d) {
   return all.filter(m=>!have.has(key(m)));
 }
 
+// One gauge tile: 270° arc, percentage in the metric's hue, and the raw
+// count/total that produced it. `scaleMax` is shared across the row so the
+// three arcs are comparable.
+function gaugeTile(title, color, count, total, scaleMax) {
+  const pct = total > 0 ? count / total * 100 : null;
+  const fill = pct == null ? 0 : Math.min(100, pct / scaleMax * 100);
+  const arc = 'M27.5 96.5 A46 46 0 1 1 92.5 96.5';
+  return `
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">${title}</span></div>
+    <div class="panel-body gauge-body">
+      <div class="gauge-wrap">
+        <svg viewBox="0 0 120 104" aria-hidden="true">
+          <path d="${arc}" pathLength="100" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="11" stroke-linecap="round"/>
+          ${fill > 0 ? `<path d="${arc}" pathLength="100" fill="none" stroke="${color}" stroke-width="11" stroke-linecap="round" stroke-dasharray="${fill.toFixed(2)} 100"/>` : ''}
+        </svg>
+        <div class="gauge-value" style="color:${color}">${pct==null ? '—' : pct.toFixed(1)+'%'}</div>
+      </div>
+      <div class="gauge-counts"><b>${fmt(count)}</b> of <b>${fmt(total)}</b> items</div>
+    </div>
+  </div>`;
+}
+
 function renderResults(d) {
   const container = document.getElementById('results');
 
@@ -639,9 +677,16 @@ function renderResults(d) {
     no_read: acc.no_read+(r.no_read||0),
     hand_scanned: acc.hand_scanned+(r.hand_scanned||0),
     not_sent: acc.not_sent+(r.not_sent||0),
-  }), {total_items:0,good_read:0,no_read:0,hand_scanned:0,not_sent:0});
+    no_dimension: acc.no_dimension+(r.no_dimension||0),
+    out_of_spec: acc.out_of_spec+(r.out_of_spec||0),
+    multi_item: acc.multi_item+(r.multi_item||0),
+  }), {total_items:0,good_read:0,no_read:0,hand_scanned:0,not_sent:0,no_dimension:0,out_of_spec:0,multi_item:0});
   const totGrPct = tot.total_items > 0 ? (tot.good_read / tot.total_items * 100) : null;
   const days = (d.fleetDaily||[]).length;
+
+  const gaugePcts = tot.total_items > 0
+    ? [tot.no_dimension, tot.out_of_spec, tot.multi_item].map(c=>c/tot.total_items*100) : [0];
+  const gaugeMax = Math.max(10, Math.ceil(Math.max(...gaugePcts) / 5) * 5);
 
   container.innerHTML = `
     <!-- Period summary -->
@@ -670,6 +715,17 @@ function renderResults(d) {
         <div class="scope-line">${scopeLabel()}</div>
         <div class="scope-dates">${d.date_from} → ${d.date_to}</div>
       </div>
+    </div>
+
+    <!-- Scan quality gauges -->
+    <div class="section-head">
+      <h2>Scan quality</h2>
+      <span class="section-note">Share of items in the period · arcs scaled to 0–${gaugeMax}%</span>
+    </div>
+    <div class="gauge-grid">
+      ${gaugeTile('No Dimensions %', '#E17A16', tot.no_dimension, tot.total_items, gaugeMax)}
+      ${gaugeTile('Out of Spec %',   '#EFD43B', tot.out_of_spec,  tot.total_items, gaugeMax)}
+      ${gaugeTile('Multiple Items %','#9b59b6', tot.multi_item,   tot.total_items, gaugeMax)}
     </div>
 
     <!-- Daily trend -->

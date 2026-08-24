@@ -592,6 +592,9 @@ async def get_history(date_from: str, date_to: str, customer: str = "", machine:
                 SUM(s.no_read)      AS no_read,
                 SUM(s.hand_scanned) AS hand_scanned,
                 SUM(s.not_sent)     AS not_sent,
+                COALESCE(SUM(s.no_dimension), 0)     AS no_dimension,
+                COALESCE(SUM(s.item_out_of_spec), 0) AS out_of_spec,
+                COALESCE(SUM(s.more_than_1_item), 0) AS multi_item,
                 CAST(COALESCE(100.0*SUM(s.good_read)/NULLIF(SUM(s.total_items),0),0)
                     AS DECIMAL(5,1)) AS good_read_pct
             FROM dbo.device_statistics s
