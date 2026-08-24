@@ -1024,6 +1024,7 @@ function renderMachineGrChart(d) {
       indexAxis:'y',
       responsive:true,
       maintainAspectRatio:false,
+      layout:{padding:{right:48}},
       plugins:{
         legend:{display:false},
         tooltip:{ callbacks:{ label: ctx=>rowIdle[ctx.dataIndex] ? 'No scans in period' : `${ctx.parsed.x.toFixed(1)}%` } }
