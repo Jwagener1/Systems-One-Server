@@ -3,144 +3,182 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
 <title>S1 Remote Monitoring — History</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%230f1117'/%3E%3Cpath d='M4 12h4l2.5-5.5 3 11 2.5-5.5H20' fill='none' stroke='%231D9E75' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" integrity="sha384-NrKB+u6Ts6AtkIhwPixiKTzgSKNblyhlk0Sohlgar9UHUBzai/sgnNNWWd291xqt" crossorigin="anonymous"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
   --bg: #0f1117;
+  --bg-deep: #0b0d12;
   --panel: #161b22;
-  --border: #21262d;
-  --row-bg: #1a1f28;
+  --panel-raised: #1b212b;
+  --border: #232936;
+  --border-soft: rgba(255,255,255,0.06);
   --text: #e2e8f0;
+  --text-bright: #f4f7fb;
   --muted: #94a3b8;
+  --faint: #5f6b7d;
   --green: #1D9E75;
   --red: #E24B4A;
   --amber: #EF9F27;
   --blue: #378ADD;
   --purple: #9b59b6;
   --grey: #6b7280;
+  --shadow-panel: 0 1px 2px rgba(0,0,0,.45), 0 8px 24px -12px rgba(0,0,0,.55);
 }
+
+html { scrollbar-color: #2a3240 var(--bg); }
 
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 13px;
   line-height: 1.5;
   min-height: 100vh;
+  caret-color: var(--blue);
 }
 
-/* TOP BAR */
+::selection { background: rgba(55,138,221,0.35); color: var(--text-bright); }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a3240; border-radius: 4px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: #38424f; }
+
+.icon { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+
+/* ── TOP BAR ─────────────────────────────────────────────────────────── */
 #topbar {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: #0d1117;
+  background: rgba(11,13,18,0.88);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
-  height: 48px;
-  backdrop-filter: blur(8px);
+  height: 50px;
 }
 
-.topbar-left { display: flex; align-items: center; gap: 10px; }
-.topbar-icon { font-size: 18px; color: var(--blue); }
-.topbar-title { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: 0.01em; }
-.pill-dws {
-  background: rgba(29,158,117,0.15);
-  border: 1px solid rgba(29,158,117,0.4);
-  color: var(--green);
-  border-radius: 20px;
-  padding: 2px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+.topbar-left { display: flex; align-items: center; gap: 11px; }
+
+.logo-mark {
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  background: linear-gradient(145deg, #182430, #121820);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
 }
+.logo-mark svg { width: 16px; height: 16px; stroke: var(--green); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.topbar-title { font-size: 14px; font-weight: 600; color: var(--text-bright); letter-spacing: 0.01em; }
+
+.pill-dws {
+  border: 1px solid rgba(29,158,117,0.35);
+  color: var(--green);
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
 .page-tag {
-  background: rgba(55,138,221,0.12);
-  border: 1px solid rgba(55,138,221,0.35);
   color: var(--blue);
-  border-radius: 4px;
+  border: 1px solid rgba(55,138,221,0.3);
+  background: rgba(55,138,221,0.08);
+  border-radius: 6px;
   padding: 2px 9px;
   font-size: 11px;
   font-weight: 600;
 }
+
 .topbar-right { display: flex; align-items: center; gap: 14px; }
-#utc-clock {
+
+.back-link {
+  display: inline-flex; align-items: center; gap: 7px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+  border-radius: 6px;
+  padding: 5px 12px;
   font-size: 12px;
   font-weight: 500;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.03em;
+  text-decoration: none;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.back-link:hover { color: var(--text-bright); border-color: #303a48; background: rgba(255,255,255,0.05); }
+
+#utc-clock {
+  font-size: 12px; font-weight: 500; color: var(--muted);
+  font-variant-numeric: tabular-nums; letter-spacing: 0.03em;
 }
 
-/* CONTROLS BAR */
+/* ── CONTROLS BAR ────────────────────────────────────────────────────── */
 #controls-bar {
-  background: var(--row-bg);
+  background: var(--bg-deep);
   border-bottom: 1px solid var(--border);
-  padding: 10px 20px;
+  padding: 12px 20px;
   display: flex;
   align-items: flex-end;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 12px 14px;
 }
 
-.ctrl-group { display: flex; flex-direction: column; gap: 4px; }
+.ctrl-group { display: flex; flex-direction: column; gap: 5px; }
 .ctrl-label {
   font-size: 10px;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--faint);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
 input[type="date"], select.ctrl-select {
-  background: var(--bg);
+  background: var(--panel);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 5px 10px;
   font-size: 12px;
-  font-family: 'Inter', sans-serif;
-  outline: none;
+  font-family: inherit;
   cursor: pointer;
-  height: 30px;
+  height: 31px;
 }
-input[type="date"]:focus, select.ctrl-select:focus { border-color: var(--blue); }
-input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.6);
-  cursor: pointer;
-}
+input[type="date"]:hover, select.ctrl-select:hover { border-color: #303a48; }
+input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; }
 
-/* Quick range pills */
 .quick-ranges {
   display: flex;
   gap: 6px;
   align-items: center;
   flex-wrap: wrap;
-  margin-top: 20px;
 }
 .qr-btn {
-  background: rgba(255,255,255,0.04);
+  background: transparent;
   border: 1px solid var(--border);
   color: var(--muted);
-  border-radius: 4px;
-  padding: 4px 10px;
+  border-radius: 999px;
+  padding: 4px 12px;
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s;
-  font-family: 'Inter', sans-serif;
+  transition: color .15s, border-color .15s, background .15s;
+  font-family: inherit;
 }
-.qr-btn:hover, .qr-btn.active {
-  background: rgba(55,138,221,0.15);
+.qr-btn:hover { color: var(--text); border-color: #303a48; }
+.qr-btn.active {
+  background: rgba(55,138,221,0.12);
   border-color: rgba(55,138,221,0.5);
   color: var(--blue);
 }
@@ -149,146 +187,132 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   background: var(--blue);
   color: #fff;
   border: none;
-  border-radius: 4px;
-  padding: 0 16px;
-  height: 30px;
-  font-size: 13px;
+  border-radius: 6px;
+  padding: 0 18px;
+  height: 31px;
+  font-size: 12.5px;
   font-weight: 600;
-  font-family: 'Inter', sans-serif;
+  font-family: inherit;
   cursor: pointer;
   transition: background 0.15s;
-  align-self: flex-end;
 }
-#btn-load:hover { background: #5aa0e8; }
-#btn-load:disabled { background: var(--grey); cursor: default; }
+#btn-load:hover { background: #4d9ae4; }
+#btn-load:disabled { background: #2c3440; color: var(--muted); cursor: default; }
 
-/* MAIN */
-#main { padding: 0 20px 40px; }
+#ctrl-msg { font-size: 11.5px; color: var(--amber); align-self: center; }
+#ctrl-msg:empty { display: none; }
 
-.row-divider {
+/* ── MAIN ────────────────────────────────────────────────────────────── */
+#main { padding: 0 20px 48px; max-width: 1720px; margin: 0 auto; }
+
+.section-head {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--row-bg);
-  padding: 8px 14px;
-  margin: 20px -20px 14px;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 30px 2px 12px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--border-soft);
 }
-.row-divider .chevron { color: var(--blue); font-size: 12px; }
-.row-divider .label {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
+.section-head h2 { font-size: 13px; font-weight: 600; color: var(--text); letter-spacing: 0.03em; }
+.section-head .section-note { font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
 
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.4);
+  border-radius: 10px;
+  box-shadow: var(--shadow-panel);
   overflow: hidden;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 .panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px 8px;
-  border-bottom: 1px solid var(--border);
-  position: relative;
+  gap: 10px;
+  padding: 11px 15px 9px;
+  border-bottom: 1px solid var(--border-soft);
 }
-.panel-header::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  background: var(--accent-color, var(--blue));
-}
-.panel-title { font-size: 12px; font-weight: 600; color: var(--text); letter-spacing: 0.02em; }
-.panel-sub { font-size: 10px; color: var(--muted); }
-.panel-body { padding: 12px 14px; }
+.panel-title { font-size: 12.5px; font-weight: 600; color: var(--text); letter-spacing: 0.01em; }
+.panel-sub { font-size: 10.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.panel-body { padding: 13px 15px; }
 
-.two-col { display: grid; gap: 10px; }
+.two-col { display: grid; gap: 12px; margin-bottom: 12px; }
 .two-col-5050 { grid-template-columns: 1fr 1fr; }
 
-/* STAT CARDS ROW */
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
-  margin-bottom: 14px;
-}
-.stat-panel {
+/* ── PERIOD SUMMARY STRIP ────────────────────────────────────────────── */
+.summary-strip {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: clamp(20px, 3vw, 48px);
+  margin-top: 16px;
+  padding: 18px 22px 16px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  height: 82px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 0 16px;
-  position: relative;
-  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: var(--shadow-panel);
 }
-.stat-panel::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: var(--accent-color, var(--grey));
-  border-radius: 6px 6px 0 0;
+.sum-item { min-width: 0; }
+.sum-value {
+  font-size: clamp(24px, 2vw, 32px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--text-bright);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
-.stat-value { font-size: 24px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.stat-label { font-size: 10px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px; }
+.sum-label { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
 
-/* TABLE */
+/* ── TABLE ───────────────────────────────────────────────────────────── */
 .tbl-wrap { overflow-x: auto; overflow-y: auto; max-height: 460px; }
-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
 thead th {
-  position: sticky; top: 0;
-  background: #1a1f28;
+  position: sticky; top: 0; z-index: 2;
+  background: var(--panel-raised);
   color: var(--muted);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   font-size: 10px;
-  padding: 7px 10px;
+  padding: 8px 10px;
   text-align: left;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
-  z-index: 2;
 }
-tbody tr:nth-child(odd) { background: var(--panel); }
-tbody tr:nth-child(even) { background: var(--bg); }
-tbody tr:hover { background: rgba(55,138,221,0.08); }
-tbody td { padding: 6px 10px; border-bottom: 1px solid rgba(33,38,45,0.5); white-space: nowrap; vertical-align: middle; }
-tfoot tr { background: #1e2530 !important; }
-tfoot td { padding: 7px 10px; font-weight: 700; font-size: 12px; border-top: 2px solid var(--border); }
+tbody tr:nth-child(even) { background: rgba(255,255,255,0.015); }
+tbody tr { transition: background .12s; }
+tbody tr:hover { background: rgba(55,138,221,0.07); }
+tbody td { padding: 6px 10px; border-bottom: 1px solid rgba(35,41,54,0.55); white-space: nowrap; vertical-align: middle; }
+tfoot tr { background: var(--panel-raised); }
+tfoot td { padding: 8px 10px; font-weight: 700; font-size: 12px; border-top: 1px solid var(--border); }
 
-.pill { display: inline-block; border-radius: 4px; padding: 2px 7px; font-size: 11px; font-weight: 600; }
-.pill-green { background: rgba(29,158,117,0.15); color: var(--green); }
-.pill-red { background: rgba(226,75,74,0.15); color: var(--red); }
-.pill-amber { background: rgba(239,159,39,0.15); color: var(--amber); }
-.pill-grey { background: rgba(107,114,128,0.15); color: var(--grey); }
+.pill {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.pill-green { background: rgba(29,158,117,0.14); color: #2fc394; }
+.pill-red   { background: rgba(226,75,74,0.14);  color: #f0706f; }
+.pill-amber { background: rgba(239,159,39,0.14); color: #f4b04e; }
+.pill-grey  { background: rgba(107,114,128,0.16); color: #9aa1ad; }
 
-.no-data { text-align: center; color: var(--muted); padding: 40px; font-size: 13px; }
-.loading-msg { text-align: center; color: var(--muted); padding: 60px; font-size: 14px; }
+.no-data { text-align: center; color: var(--faint); padding: 40px; font-size: 13px; }
+.loading-msg { text-align: center; color: var(--muted); padding: 60px 20px; font-size: 13.5px; }
+.loading-msg strong { color: var(--text); }
 
 canvas { display: block; }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
 @media (max-width: 900px) {
-  .stat-grid { grid-template-columns: repeat(3, 1fr); }
   .two-col-5050 { grid-template-columns: 1fr; }
 }
-@media (max-width: 600px) {
-  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0.01ms !important; }
 }
 </style>
 </head>
@@ -297,14 +321,17 @@ canvas { display: block; }
 <!-- TOP BAR -->
 <div id="topbar">
   <div class="topbar-left">
-    <span class="topbar-icon">⚙</span>
-    <span class="pill-dws">DWS</span>
+    <div class="logo-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M4 12h4l2.5-5.5 3 11 2.5-5.5H20"/></svg>
+    </div>
     <span class="topbar-title">S1 Remote Monitoring</span>
-    <span class="page-tag">📈 History</span>
+    <span class="pill-dws">DWS</span>
+    <span class="page-tag">History</span>
   </div>
   <div class="topbar-right">
-    <a href="/" style="display:inline-flex;align-items:center;gap:6px;background:rgba(55,138,221,0.08);border:1px solid rgba(55,138,221,0.25);color:#378ADD;border-radius:5px;padding:4px 12px;font-size:12px;font-weight:600;text-decoration:none;">
-      ← Live Dashboard
+    <a href="/" class="back-link">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></svg>
+      Live Dashboard
     </a>
     <span id="utc-clock">--:--:-- UTC</span>
   </div>
@@ -333,6 +360,7 @@ canvas { display: block; }
     </select>
   </div>
   <button id="btn-load" onclick="loadHistory()">Load</button>
+  <span id="ctrl-msg"></span>
 
   <div class="quick-ranges">
     <button class="qr-btn" onclick="setRange(7)">7 Days</button>
@@ -354,17 +382,33 @@ canvas { display: block; }
 </div>
 
 <script>
-// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
 const GREEN='#1D9E75', RED='#E24B4A', AMBER='#EF9F27', BLUE='#378ADD', PURPLE='#9b59b6', GREY='#6b7280';
 const CUSTOMER_COLORS = {
   PEPKOR: BLUE, DCB: RED, MADIBANA: AMBER, BEX: PURPLE, PEP: GREEN,
   'PEP AFRICA': '#e67e22', SNOWSOFT: GREY
 };
 
-Chart.defaults.color = '#94a3b8';
-Chart.defaults.borderColor = '#21262d';
-Chart.defaults.font.family = 'Inter, sans-serif';
+const GRID = 'rgba(255,255,255,0.05)';
+Chart.defaults.color = '#8b97a8';
+Chart.defaults.borderColor = GRID;
+Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
 Chart.defaults.font.size = 11;
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
+Chart.defaults.plugins.legend.labels.pointStyle = 'circle';
+Chart.defaults.plugins.legend.labels.boxWidth = 7;
+Chart.defaults.plugins.legend.labels.boxHeight = 7;
+Chart.defaults.plugins.legend.labels.padding = 14;
+Chart.defaults.plugins.tooltip.backgroundColor = '#1c232e';
+Chart.defaults.plugins.tooltip.borderColor = 'rgba(255,255,255,0.08)';
+Chart.defaults.plugins.tooltip.borderWidth = 1;
+Chart.defaults.plugins.tooltip.titleColor = '#e2e8f0';
+Chart.defaults.plugins.tooltip.bodyColor = '#94a3b8';
+Chart.defaults.plugins.tooltip.cornerRadius = 7;
+Chart.defaults.plugins.tooltip.padding = 10;
+Chart.defaults.plugins.tooltip.usePointStyle = true;
+Chart.defaults.plugins.tooltip.boxWidth = 7;
+Chart.defaults.plugins.tooltip.boxHeight = 7;
 
 let charts = {};
 let allMachines = [];
@@ -419,7 +463,7 @@ function setLastMonth() {
   event.target.classList.add('active');
 }
 
-// ─── CLOCK ────────────────────────────────────────────────────────────────────
+// ─── CLOCK ───────────────────────────────────────────────────────────────────
 const clockEl = document.getElementById('utc-clock');
 setInterval(()=>{
   const n = new Date();
@@ -438,7 +482,6 @@ async function loadFilters() {
     if(!res.ok) return;
     const data = await res.json();
 
-    // Populate customer dropdown
     const custSel = document.getElementById('filter-customer');
     custSel.innerHTML = '<option value="">All Customers</option>';
     (data.customers||[]).forEach(c=>{
@@ -475,9 +518,11 @@ async function loadHistory() {
   const to = document.getElementById('date-to').value;
   const customer = document.getElementById('filter-customer').value;
   const machine = document.getElementById('filter-machine').value;
+  const msg = document.getElementById('ctrl-msg');
+  msg.textContent = '';
 
-  if(!from || !to) { alert('Please select both dates.'); return; }
-  if(from > to) { alert('From date must be before To date.'); return; }
+  if(!from || !to) { msg.textContent = 'Select both dates to load a range.'; return; }
+  if(from > to) { msg.textContent = 'The From date must be on or before the To date.'; return; }
 
   const btn = document.getElementById('btn-load');
   btn.disabled = true;
@@ -485,7 +530,6 @@ async function loadHistory() {
   document.getElementById('empty-state').style.display = 'none';
   document.getElementById('results').style.display = 'none';
 
-  // Destroy old charts
   Object.values(charts).forEach(c=>c.destroy());
   charts = {};
 
@@ -501,8 +545,9 @@ async function loadHistory() {
     renderResults(data);
     document.getElementById('results').style.display = '';
   } catch(e) {
-    document.getElementById('empty-state').textContent = '⚠ Failed to load data: ' + e.message;
-    document.getElementById('empty-state').style.display = '';
+    const es = document.getElementById('empty-state');
+    es.textContent = 'Could not load history (' + e.message + '). Check the connection and try Load again.';
+    es.style.display = '';
   } finally {
     btn.disabled = false;
     btn.textContent = 'Load';
@@ -513,7 +558,6 @@ async function loadHistory() {
 function renderResults(d) {
   const container = document.getElementById('results');
 
-  // Compute totals
   const tot = (d.machineSummary||[]).reduce((acc,r)=>({
     total_items: acc.total_items+(r.total_items||0),
     good_read: acc.good_read+(r.good_read||0),
@@ -525,42 +569,40 @@ function renderResults(d) {
   const days = (d.fleetDaily||[]).length;
 
   container.innerHTML = `
-    <!-- KPI Row -->
-    <div class="row-divider" style="margin-top:14px">
-      <span class="chevron">▸</span>
-      <span class="label">Period Summary — ${d.date_from} to ${d.date_to}</span>
-    </div>
-
-    <div class="stat-grid">
-      <div class="stat-panel" style="--accent-color:var(--blue)">
-        <div class="stat-value" style="color:var(--blue)" id="kpi-items">${fmt(tot.total_items)}</div>
-        <div class="stat-label">Total Items</div>
+    <!-- Period summary -->
+    <div class="summary-strip">
+      <div class="sum-item">
+        <div class="sum-value">${fmt(tot.total_items)}</div>
+        <div class="sum-label">Total items</div>
       </div>
-      <div class="stat-panel" style="--accent-color:${grColor(totGrPct)}">
-        <div class="stat-value" style="color:${grColor(totGrPct)}">${fmtPct(totGrPct)}</div>
-        <div class="stat-label">Good Read %</div>
+      <div class="sum-item">
+        <div class="sum-value" style="color:${grColor(totGrPct)}">${fmtPct(totGrPct)}</div>
+        <div class="sum-label">Good read</div>
       </div>
-      <div class="stat-panel" style="--accent-color:${(tot.no_read>0)?RED:GREY}">
-        <div class="stat-value" style="color:${(tot.no_read>0)?RED:GREY}">${fmt(tot.no_read)}</div>
-        <div class="stat-label">No Reads</div>
+      <div class="sum-item">
+        <div class="sum-value" style="color:${(tot.no_read>0)?RED:'var(--text-bright)'}">${fmt(tot.no_read)}</div>
+        <div class="sum-label">No reads</div>
       </div>
-      <div class="stat-panel" style="--accent-color:var(--amber)">
-        <div class="stat-value" style="color:var(--amber)">${fmt(tot.hand_scanned)}</div>
-        <div class="stat-label">Hand Scanned</div>
+      <div class="sum-item">
+        <div class="sum-value">${fmt(tot.hand_scanned)}</div>
+        <div class="sum-label">Hand scanned</div>
       </div>
-      <div class="stat-panel" style="--accent-color:var(--grey)">
-        <div class="stat-value" style="color:var(--muted)">${days}</div>
-        <div class="stat-label">Days with Data</div>
+      <div class="sum-item">
+        <div class="sum-value" style="color:var(--muted)">${days}</div>
+        <div class="sum-label">Days with data</div>
+      </div>
+      <div class="sum-item" style="margin-left:auto;align-self:center;text-align:right;">
+        <div class="sum-label" style="margin-top:0">Period</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;">${d.date_from} → ${d.date_to}</div>
       </div>
     </div>
 
     <!-- Fleet daily trend -->
-    <div class="row-divider">
-      <span class="chevron">▸</span>
-      <span class="label">Daily Fleet Performance</span>
+    <div class="section-head">
+      <h2>Daily fleet performance</h2>
     </div>
 
-    <div class="panel" style="--accent-color:var(--blue)">
+    <div class="panel">
       <div class="panel-header">
         <span class="panel-title">Daily Items &amp; Good Read % — Fleet Total</span>
       </div>
@@ -569,14 +611,14 @@ function renderResults(d) {
       </div>
     </div>
 
-    <!-- Customer GR% trends -->
-    <div class="row-divider">
-      <span class="chevron">▸</span>
-      <span class="label">Customer Trends</span>
+    <!-- Customer trends -->
+    <div class="section-head">
+      <h2>Customer trends</h2>
+      <span class="section-note">Good read target 98% · minimum 90%</span>
     </div>
 
     <div class="two-col two-col-5050">
-      <div class="panel" style="--accent-color:var(--green)">
+      <div class="panel">
         <div class="panel-header">
           <span class="panel-title">Good Read % by Customer</span>
           <span class="panel-sub">Daily</span>
@@ -585,7 +627,7 @@ function renderResults(d) {
           <canvas id="chart-cust-gr" height="220"></canvas>
         </div>
       </div>
-      <div class="panel" style="--accent-color:var(--blue)">
+      <div class="panel">
         <div class="panel-header">
           <span class="panel-title">Daily Items by Customer</span>
           <span class="panel-sub">Stacked</span>
@@ -597,15 +639,14 @@ function renderResults(d) {
     </div>
 
     <!-- Machine summary table -->
-    <div class="row-divider">
-      <span class="chevron">▸</span>
-      <span class="label">Machine Summary — Period Totals</span>
+    <div class="section-head">
+      <h2>Machine summary</h2>
+      <span class="section-note">${d.date_from} → ${d.date_to}</span>
     </div>
 
-    <div class="panel" style="--accent-color:var(--blue)">
+    <div class="panel">
       <div class="panel-header">
-        <span class="panel-title">All Machines</span>
-        <span class="panel-sub">${d.date_from} → ${d.date_to}</span>
+        <span class="panel-title">All Machines — Period Totals</span>
       </div>
       <div class="tbl-wrap">
         <table>
@@ -629,15 +670,14 @@ function renderResults(d) {
     </div>
 
     <!-- Per-machine GR% chart -->
-    <div class="row-divider">
-      <span class="chevron">▸</span>
-      <span class="label">Machine Good Read % — Period Average</span>
+    <div class="section-head">
+      <h2>Machine good read</h2>
+      <span class="section-note">Period average, sorted ascending</span>
     </div>
 
-    <div class="panel" style="--accent-color:var(--green)">
+    <div class="panel">
       <div class="panel-header">
         <span class="panel-title">Good Read % by Machine</span>
-        <span class="panel-sub">Sorted ascending — period average</span>
       </div>
       <div class="panel-body" id="machine-gr-wrap">
         <canvas id="chart-machine-gr"></canvas>
@@ -645,7 +685,6 @@ function renderResults(d) {
     </div>
   `;
 
-  // Now render charts & tables
   renderFleetDailyChart(d);
   renderCustomerCharts(d);
   renderMachineSummaryTable(d);
@@ -695,10 +734,10 @@ function renderFleetDailyChart(d) {
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode:'index', intersect:false },
-      plugins: { legend: { position:'top', labels:{boxWidth:12, padding:12} } },
+      plugins: { legend: { position:'top' } },
       scales: {
-        x: { grid:{color:'#21262d'}, ticks:{maxTicksLimit:20, maxRotation:45} },
-        y: { grid:{color:'#21262d'}, ticks:{callback: v=>v>=1000?(v/1000).toFixed(0)+'k':v}, position:'left' },
+        x: { grid:{display:false}, ticks:{maxTicksLimit:20, maxRotation:45} },
+        y: { grid:{color:GRID}, ticks:{callback: v=>v>=1000?(v/1000).toFixed(0)+'k':v}, position:'left' },
         y2: { grid:{display:false}, position:'right', min:80, max:100, ticks:{callback:v=>v+'%', color:grLine} }
       },
       animation: false
@@ -711,7 +750,6 @@ function renderCustomerCharts(d) {
   const allDays = [...new Set(custDaily.map(r=>r.day))].sort();
   const customers = [...new Set(custDaily.map(r=>r.customer))];
 
-  // GR% chart
   const grDatasets = customers.map(cust => {
     const color = CUSTOMER_COLORS[cust] || GREY;
     return {
@@ -733,16 +771,15 @@ function renderCustomerCharts(d) {
     data:{ labels: allDays, datasets: grDatasets },
     options:{
       responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{position:'top',labels:{boxWidth:12,padding:10}} },
+      plugins:{ legend:{position:'top'} },
       scales:{
-        x:{grid:{color:'#21262d'},ticks:{maxTicksLimit:15,maxRotation:45}},
-        y:{min:0,max:100,grid:{color:'#21262d'},ticks:{callback:v=>v+'%'}}
+        x:{grid:{display:false},ticks:{maxTicksLimit:15,maxRotation:45}},
+        y:{min:0,max:100,grid:{color:GRID},ticks:{callback:v=>v+'%'}}
       },
       animation:false
     }
   });
 
-  // Volume chart
   const volDatasets = customers.map(cust=>{
     const color = CUSTOMER_COLORS[cust] || GREY;
     return {
@@ -759,10 +796,10 @@ function renderCustomerCharts(d) {
     data:{ labels: allDays, datasets: volDatasets },
     options:{
       responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{position:'top',labels:{boxWidth:12,padding:10}} },
+      plugins:{ legend:{position:'top'} },
       scales:{
-        x:{stacked:true,grid:{color:'#21262d'},ticks:{maxTicksLimit:15,maxRotation:45}},
-        y:{stacked:true,grid:{color:'#21262d'},ticks:{callback:v=>v>=1000?Math.round(v/1000)+'k':v}}
+        x:{stacked:true,grid:{display:false},ticks:{maxTicksLimit:15,maxRotation:45}},
+        y:{stacked:true,grid:{color:GRID},ticks:{callback:v=>v>=1000?Math.round(v/1000)+'k':v}}
       },
       animation:false
     }
@@ -777,7 +814,7 @@ function renderMachineSummaryTable(d) {
   tbody.innerHTML = rows.map((r,i)=>{
     const ns = r.not_sent||0;
     return `<tr>
-      <td style="color:var(--muted)">${i+1}</td>
+      <td style="color:var(--faint)">${i+1}</td>
       <td style="font-weight:600">${r.machine_name||'—'}</td>
       <td>${r.customer||'—'}</td>
       <td>${r.location||'—'}</td>
@@ -789,7 +826,6 @@ function renderMachineSummaryTable(d) {
     </tr>`;
   }).join('');
 
-  // Totals
   const tot = rows.reduce((acc,r)=>({
     total_items:acc.total_items+(r.total_items||0),
     good_read:acc.good_read+(r.good_read||0),
@@ -839,7 +875,7 @@ function renderMachineGrChart(d) {
         tooltip:{ callbacks:{ label: ctx=>`${ctx.parsed.x.toFixed(1)}%` } }
       },
       scales:{
-        x:{min:0,max:100,grid:{color:'#21262d'},ticks:{callback:v=>v+'%'}},
+        x:{min:0,max:100,grid:{color:GRID},ticks:{callback:v=>v+'%'}},
         y:{grid:{display:false},ticks:{color:'#94a3b8',font:{size:10}}}
       },
       animation:false
@@ -864,7 +900,7 @@ function renderMachineGrChart(d) {
   });
 }
 
-// ─── INIT ─────────────────────────────────────────────────────────────────────
+// ─── INIT ────────────────────────────────────────────────────────────────────
 loadFilters();
 </script>
 </body>

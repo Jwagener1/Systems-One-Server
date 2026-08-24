@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-08-24T09:51:44.557Z",
+        "reason": "user confirmed: incumbent S1 brand pins Inter in PRODUCT.md Brand Commitments (init interview answer 'Yes, keep this identity')"
+      }
+    ]
+  }
+}
