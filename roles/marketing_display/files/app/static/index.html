@@ -416,6 +416,15 @@ select.filter-select:focus-visible { outline-offset: 0; }
 
 canvas { display: block; }
 
+/* Chart.js with maintainAspectRatio:false needs a positioned parent with an
+   explicit height, or it falls back to width/2 and charts fill the viewport. */
+.chart-box { position: relative; width: 100%; height: 240px; }
+.chart-box.chart-tall { height: 280px; }
+.chart-box.chart-short { height: 200px; }
+body.tv .chart-box { height: 300px; }
+body.tv .chart-box.chart-tall { height: 340px; }
+body.tv .chart-box.chart-short { height: 260px; }
+
 .no-data { text-align: center; color: var(--faint); padding: 30px; font-size: 12px; }
 
 /* ── RESPONSIVE ──────────────────────────────────────────────────────── */
@@ -559,7 +568,7 @@ body.tv .doughnut-center-value { font-size: 26px; }
         <span class="panel-timestamp" id="ts-machineperf">—</span>
       </div>
       <div class="panel-body" style="padding: 10px;">
-        <canvas id="chart-machine-gr" style="max-height:360px;"></canvas>
+        <div class="chart-box" id="machine-gr-box"><canvas id="chart-machine-gr"></canvas></div>
       </div>
     </div>
     <div class="panel">
@@ -599,7 +608,7 @@ body.tv .doughnut-center-value { font-size: 26px; }
         <span class="panel-timestamp" id="ts-hourly">—</span>
       </div>
       <div class="panel-body">
-        <canvas id="chart-hourly" height="200"></canvas>
+        <div class="chart-box"><canvas id="chart-hourly"></canvas></div>
       </div>
     </div>
     <div class="panel">
@@ -688,7 +697,7 @@ body.tv .doughnut-center-value { font-size: 26px; }
       <span class="panel-timestamp" id="ts-custtrend">—</span>
     </div>
     <div class="panel-body">
-      <canvas id="chart-cust-gr" height="200"></canvas>
+      <div class="chart-box"><canvas id="chart-cust-gr"></canvas></div>
     </div>
   </div>
 
@@ -697,7 +706,7 @@ body.tv .doughnut-center-value { font-size: 26px; }
       <span class="panel-title">Daily Items Volume by Customer — Last 7 Days</span>
     </div>
     <div class="panel-body">
-      <canvas id="chart-cust-vol" height="160"></canvas>
+      <div class="chart-box chart-short"><canvas id="chart-cust-vol"></canvas></div>
     </div>
   </div>
 
@@ -707,7 +716,7 @@ body.tv .doughnut-center-value { font-size: 26px; }
       <span class="panel-timestamp" id="ts-dailytrend">—</span>
     </div>
     <div class="panel-body">
-      <canvas id="chart-daily-trend" height="200"></canvas>
+      <div class="chart-box chart-tall"><canvas id="chart-daily-trend"></canvas></div>
     </div>
   </div>
 
@@ -1129,6 +1138,8 @@ function renderMachineGoodReadChart(d) {
   });
 
   const ctx = document.getElementById('chart-machine-gr').getContext('2d');
+  const dynH = Math.max(200, machines.length * 28 + 40);
+  document.getElementById('machine-gr-box').style.height = dynH + 'px';
 
   if(charts.machineGr) {
     charts.machineGr.data.labels = labels;
@@ -1137,9 +1148,6 @@ function renderMachineGoodReadChart(d) {
     charts.machineGr.options.scales.y.ticks.count = labels.length;
     charts.machineGr.update();
   } else {
-    const dynH = Math.max(200, machines.length * 28);
-    ctx.canvas.height = dynH;
-
     charts.machineGr = new Chart(ctx, {
       type: 'bar',
       data: {
