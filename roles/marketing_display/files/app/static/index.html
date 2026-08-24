@@ -1118,12 +1118,13 @@ function renderMachineGoodReadChart(d) {
   const machines = [...(d.machineGoodRead||[])].filter(m=>m.total_items>0).sort((a,b)=>a.good_read_pct-b.good_read_pct);
   const thresholds = d.thresholds||[];
 
-  const labels = machines.map(m=>`${m.machine_name} · ${m.customer}`);
+  const labels = machines.map(m=>[m.machine_name, m.customer, m.location].filter(Boolean).join(' · '));
   const values = machines.map(m=>m.good_read_pct);
   const colors = values.map(v=>v>=98?GREEN:v>=90?AMBER:RED);
 
   const warnLines = machines.map(m=>{
-    const thr = thresholds.find(t=>t.machine_name===m.machine_name&&t.customer===m.customer&&t.metric==='good_read_pct');
+    const thr = thresholds.find(t=>t.machine_name===m.machine_name&&t.customer===m.customer
+      &&(!t.location||!m.location||t.location===m.location)&&t.metric==='good_read_pct');
     return thr ? thr.warn_value : null;
   });
 

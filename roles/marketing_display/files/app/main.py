@@ -516,10 +516,14 @@ async def health():
 # API — historical performance over a date range
 # ---------------------------------------------------------------------------
 @app.get("/api/history")
-async def get_history(date_from: str, date_to: str, customer: str = "", machine: str = ""):
+async def get_history(date_from: str, date_to: str, customer: str = "", machine: str = "", location: str = ""):
     """
     Returns per-day performance data for all (or filtered) machines between
     date_from and date_to (inclusive, YYYY-MM-DD format).
+
+    machine_name alone is not unique across the fleet (several sites run a
+    "DIM1"), so single-machine queries should also pass location (and
+    customer) to pin one physical device.
     """
     try:
         import datetime
@@ -530,9 +534,11 @@ async def get_history(date_from: str, date_to: str, customer: str = "", machine:
 
     cust_filter = "AND d.customer = ?" if customer else ""
     mach_filter = "AND d.machine_name = ?" if machine else ""
+    loc_filter = "AND d.location = ?" if location else ""
     filter_params = (date_from, date_to) \
         + ((customer,) if customer else ()) \
-        + ((machine,) if machine else ())
+        + ((machine,) if machine else ()) \
+        + ((location,) if location else ())
 
     def _run():
         # Daily per-machine stats
@@ -552,7 +558,7 @@ async def get_history(date_from: str, date_to: str, customer: str = "", machine:
             FROM dbo.device_statistics s
             JOIN dbo.devices d ON d.id = s.device_id
             WHERE CAST(s.ts_datetime AS DATE) BETWEEN ? AND ?
-              {cust_filter} {mach_filter}
+              {cust_filter} {mach_filter} {loc_filter}
             GROUP BY CAST(s.ts_datetime AS DATE), d.machine_name, d.customer, d.location
             ORDER BY day, d.customer, d.machine_name
         """, filter_params)
@@ -570,7 +576,7 @@ async def get_history(date_from: str, date_to: str, customer: str = "", machine:
             FROM dbo.device_statistics s
             JOIN dbo.devices d ON d.id = s.device_id
             WHERE CAST(s.ts_datetime AS DATE) BETWEEN ? AND ?
-              {cust_filter} {mach_filter}
+              {cust_filter} {mach_filter} {loc_filter}
             GROUP BY CAST(s.ts_datetime AS DATE)
             ORDER BY day
         """, filter_params)
@@ -591,7 +597,7 @@ async def get_history(date_from: str, date_to: str, customer: str = "", machine:
             FROM dbo.device_statistics s
             JOIN dbo.devices d ON d.id = s.device_id
             WHERE CAST(s.ts_datetime AS DATE) BETWEEN ? AND ?
-              {cust_filter} {mach_filter}
+              {cust_filter} {mach_filter} {loc_filter}
             GROUP BY d.machine_name, d.customer, d.location
             ORDER BY good_read_pct ASC
         """, filter_params)
@@ -608,7 +614,7 @@ async def get_history(date_from: str, date_to: str, customer: str = "", machine:
             FROM dbo.device_statistics s
             JOIN dbo.devices d ON d.id = s.device_id
             WHERE CAST(s.ts_datetime AS DATE) BETWEEN ? AND ?
-              {cust_filter} {mach_filter}
+              {cust_filter} {mach_filter} {loc_filter}
             GROUP BY CAST(s.ts_datetime AS DATE), d.customer
             ORDER BY day, d.customer
         """, filter_params)
