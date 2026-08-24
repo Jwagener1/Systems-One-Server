@@ -163,7 +163,10 @@ input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; }
   gap: 6px;
   align-items: center;
   flex-wrap: wrap;
+  min-height: 31px;
 }
+
+.ctrl-sep { width: 1px; align-self: stretch; background: var(--border-soft); margin: 0 4px; }
 .qr-btn {
   background: transparent;
   border: 1px solid var(--border);
@@ -254,6 +257,9 @@ input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; }
   box-shadow: var(--shadow-panel);
 }
 .sum-item { min-width: 0; }
+.sum-scope { margin-left: auto; align-self: center; text-align: right; }
+.scope-line { font-size: 13px; font-weight: 600; color: var(--text); }
+.scope-dates { font-size: 11.5px; color: var(--faint); margin-top: 3px; font-variant-numeric: tabular-nums; }
 .sum-value {
   font-size: clamp(24px, 2vw, 32px);
   font-weight: 700;
@@ -348,6 +354,19 @@ canvas { display: block; }
     <input type="date" id="date-to">
   </div>
   <div class="ctrl-group">
+    <span class="ctrl-label">Quick range</span>
+    <div class="quick-ranges">
+      <button class="qr-btn" onclick="setRange(7)">7 Days</button>
+      <button class="qr-btn active" onclick="setRange(30)">30 Days</button>
+      <button class="qr-btn" onclick="setRange(90)">90 Days</button>
+      <button class="qr-btn" onclick="setRange(180)">6 Months</button>
+      <button class="qr-btn" onclick="setRange(365)">1 Year</button>
+      <button class="qr-btn" onclick="setThisMonth()">This Month</button>
+      <button class="qr-btn" onclick="setLastMonth()">Last Month</button>
+    </div>
+  </div>
+  <div class="ctrl-sep" aria-hidden="true"></div>
+  <div class="ctrl-group">
     <span class="ctrl-label">Customer</span>
     <select class="ctrl-select" id="filter-customer" style="min-width:150px">
       <option value="">All Customers</option>
@@ -355,22 +374,12 @@ canvas { display: block; }
   </div>
   <div class="ctrl-group">
     <span class="ctrl-label">Machine</span>
-    <select class="ctrl-select" id="filter-machine" style="min-width:160px">
+    <select class="ctrl-select" id="filter-machine" style="min-width:210px">
       <option value="">All Machines</option>
     </select>
   </div>
   <button id="btn-load" onclick="loadHistory()">Load</button>
   <span id="ctrl-msg"></span>
-
-  <div class="quick-ranges">
-    <button class="qr-btn" onclick="setRange(7)">7 Days</button>
-    <button class="qr-btn active" onclick="setRange(30)">30 Days</button>
-    <button class="qr-btn" onclick="setRange(90)">90 Days</button>
-    <button class="qr-btn" onclick="setRange(180)">6 Months</button>
-    <button class="qr-btn" onclick="setRange(365)">1 Year</button>
-    <button class="qr-btn" onclick="setThisMonth()">This Month</button>
-    <button class="qr-btn" onclick="setLastMonth()">Last Month</button>
-  </div>
 </div>
 
 <!-- MAIN CONTENT (filled on load) -->
@@ -412,6 +421,7 @@ Chart.defaults.plugins.tooltip.boxHeight = 7;
 
 let charts = {};
 let allMachines = [];
+let lastScope = null;   // {customer, machine, location} of the loaded query
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const fmt = n => (n==null) ? '—' : typeof n==='number' ? n.toLocaleString() : n;
@@ -507,7 +517,7 @@ function updateMachineDropdown() {
   filtered.forEach(m=>{
     const o = document.createElement('option');
     o.value = m.machine_name;
-    o.textContent = `${m.machine_name}${customer?'':' · '+m.customer}`;
+    o.textContent = m.location ? `${m.machine_name} · ${m.location}` : m.machine_name;
     machSel.appendChild(o);
   });
 }
@@ -523,6 +533,13 @@ async function loadHistory() {
 
   if(!from || !to) { msg.textContent = 'Select both dates to load a range.'; return; }
   if(from > to) { msg.textContent = 'The From date must be on or before the To date.'; return; }
+
+  const machineRow = machine ? allMachines.find(m=>m.machine_name===machine) : null;
+  lastScope = {
+    customer: customer || null,
+    machine: machine || null,
+    location: machineRow ? machineRow.location : null
+  };
 
   const btn = document.getElementById('btn-load');
   btn.disabled = true;
@@ -555,6 +572,16 @@ async function loadHistory() {
 }
 
 // ─── RENDER ──────────────────────────────────────────────────────────────────
+function scopeLabel() {
+  if(!lastScope || (!lastScope.customer && !lastScope.machine)) return 'Entire fleet';
+  if(lastScope.machine) {
+    const parts = [lastScope.machine];
+    if(lastScope.location) parts.push(lastScope.location);
+    return parts.join(' · ');
+  }
+  return lastScope.customer + ' · all machines';
+}
+
 function renderResults(d) {
   const container = document.getElementById('results');
 
@@ -591,20 +618,21 @@ function renderResults(d) {
         <div class="sum-value" style="color:var(--muted)">${days}</div>
         <div class="sum-label">Days with data</div>
       </div>
-      <div class="sum-item" style="margin-left:auto;align-self:center;text-align:right;">
-        <div class="sum-label" style="margin-top:0">Period</div>
-        <div style="font-size:13px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;">${d.date_from} → ${d.date_to}</div>
+      <div class="sum-item sum-scope">
+        <div class="scope-line">${scopeLabel()}</div>
+        <div class="scope-dates">${d.date_from} → ${d.date_to}</div>
       </div>
     </div>
 
-    <!-- Fleet daily trend -->
+    <!-- Daily trend -->
     <div class="section-head">
-      <h2>Daily fleet performance</h2>
+      <h2>Daily performance</h2>
+      <span class="section-note">${scopeLabel()}</span>
     </div>
 
     <div class="panel">
       <div class="panel-header">
-        <span class="panel-title">Daily Items &amp; Good Read % — Fleet Total</span>
+        <span class="panel-title">Daily Items &amp; Good Read % — ${scopeLabel()}</span>
       </div>
       <div class="panel-body">
         <canvas id="chart-fleet-daily" height="220"></canvas>
