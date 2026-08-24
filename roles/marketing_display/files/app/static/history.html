@@ -307,6 +307,11 @@ tfoot td { padding: 8px 10px; font-weight: 700; font-size: 12px; border-top: 1px
 .pill-amber { background: rgba(239,159,39,0.14); color: #f4b04e; }
 .pill-grey  { background: rgba(107,114,128,0.16); color: #9aa1ad; }
 
+/* Chart.js with maintainAspectRatio:false needs a positioned parent with an
+   explicit height, or it falls back to width/2 and charts fill the viewport. */
+.chart-box { position: relative; width: 100%; height: 260px; }
+.chart-box.chart-tall { height: 300px; }
+
 .no-data { text-align: center; color: var(--faint); padding: 40px; font-size: 13px; }
 .loading-msg { text-align: center; color: var(--muted); padding: 60px 20px; font-size: 13.5px; }
 .loading-msg strong { color: var(--text); }
@@ -610,6 +615,21 @@ function scopeLabel() {
   return lastScope.customer + ' · all machines';
 }
 
+// Machines registered in the DB but with no statistics rows in the loaded
+// period are absent from machineSummary entirely — surface them instead of
+// letting them silently vanish. Respects the loaded scope.
+function machinesWithoutData(d) {
+  const key = m => `${m.machine_name}|${m.customer}|${m.location||''}`;
+  const have = new Set((d.machineSummary||[]).map(key));
+  let all = d.machines||[];
+  if(lastScope) {
+    if(lastScope.customer) all = all.filter(m=>m.customer===lastScope.customer);
+    if(lastScope.machine) all = all.filter(m=>m.machine_name===lastScope.machine
+      && (!lastScope.location || m.location===lastScope.location));
+  }
+  return all.filter(m=>!have.has(key(m)));
+}
+
 function renderResults(d) {
   const container = document.getElementById('results');
 
@@ -663,7 +683,7 @@ function renderResults(d) {
         <span class="panel-title">Daily Items &amp; Good Read % — ${scopeLabel()}</span>
       </div>
       <div class="panel-body">
-        <canvas id="chart-fleet-daily" height="220"></canvas>
+        <div class="chart-box chart-tall"><canvas id="chart-fleet-daily"></canvas></div>
       </div>
     </div>
 
@@ -680,7 +700,7 @@ function renderResults(d) {
           <span class="panel-sub">Daily</span>
         </div>
         <div class="panel-body">
-          <canvas id="chart-cust-gr" height="220"></canvas>
+          <div class="chart-box"><canvas id="chart-cust-gr"></canvas></div>
         </div>
       </div>
       <div class="panel">
@@ -689,7 +709,7 @@ function renderResults(d) {
           <span class="panel-sub">Stacked</span>
         </div>
         <div class="panel-body">
-          <canvas id="chart-cust-vol" height="220"></canvas>
+          <div class="chart-box"><canvas id="chart-cust-vol"></canvas></div>
         </div>
       </div>
     </div>
@@ -735,8 +755,8 @@ function renderResults(d) {
       <div class="panel-header">
         <span class="panel-title">Good Read % by Machine</span>
       </div>
-      <div class="panel-body" id="machine-gr-wrap">
-        <canvas id="chart-machine-gr"></canvas>
+      <div class="panel-body">
+        <div class="chart-box" id="machine-gr-box"><canvas id="chart-machine-gr"></canvas></div>
       </div>
     </div>
   `;
@@ -867,6 +887,7 @@ function renderMachineSummaryTable(d) {
   const tbody = document.getElementById('tbody-machine-summary');
   const tfoot = document.getElementById('tfoot-machine-summary');
 
+  const noData = machinesWithoutData(d);
   tbody.innerHTML = rows.map((r,i)=>{
     const ns = r.not_sent||0;
     return `<tr>
@@ -880,7 +901,17 @@ function renderMachineSummaryTable(d) {
       <td style="text-align:right">${fmt(r.hand_scanned)}</td>
       <td style="text-align:right;${ns>0?'color:'+RED+';font-weight:700':''}">${ns>0?fmt(ns):'—'}</td>
     </tr>`;
-  }).join('');
+  }).join('') + noData.map((m,i)=>`<tr style="color:var(--faint)">
+      <td>${rows.length+i+1}</td>
+      <td style="font-weight:600">${m.machine_name||'—'}</td>
+      <td>${m.customer||'—'}</td>
+      <td>${m.location||'—'}</td>
+      <td style="text-align:right">0</td>
+      <td style="text-align:center"><span class="pill pill-grey">no scans</span></td>
+      <td style="text-align:right">—</td>
+      <td style="text-align:right">—</td>
+      <td style="text-align:right">—</td>
+    </tr>`).join('');
 
   const tot = rows.reduce((acc,r)=>({
     total_items:acc.total_items+(r.total_items||0),
@@ -901,7 +932,9 @@ function renderMachineSummaryTable(d) {
 }
 
 function renderMachineGrChart(d) {
-  const machines = [...(d.machineSummary||[])].filter(m=>m.total_items>0).sort((a,b)=>a.good_read_pct-b.good_read_pct);
+  const active = [...(d.machineSummary||[])].filter(m=>m.total_items>0).sort((a,b)=>a.good_read_pct-b.good_read_pct);
+  const idle = [...(d.machineSummary||[])].filter(m=>!(m.total_items>0)).concat(machinesWithoutData(d));
+  const machines = [...active, ...idle];
   const custFiltered = lastScope && lastScope.customer;
   const labels = machines.map(m=>{
     const parts = [m.machine_name];
@@ -909,12 +942,15 @@ function renderMachineGrChart(d) {
     if(m.location) parts.push(m.location);
     return parts.join(' · ');
   });
-  const values = machines.map(m=>m.good_read_pct);
-  const colors = values.map(v=>v>=98?GREEN:v>=90?AMBER:RED);
+  const values = machines.map(m=>(m.total_items>0) ? m.good_read_pct : 0);
+  const colors = machines.map(m=>(m.total_items>0)
+    ? (m.good_read_pct>=98?GREEN:m.good_read_pct>=90?AMBER:RED)
+    : 'rgba(107,114,128,0.3)');
+  const rowIdle = machines.map(m=>!(m.total_items>0));
 
-  const dynH = Math.max(200, machines.length * 26);
+  const dynH = Math.max(200, machines.length * 26 + 40);
   const canvas = document.getElementById('chart-machine-gr');
-  canvas.height = dynH;
+  document.getElementById('machine-gr-box').style.height = dynH + 'px';
 
   charts.machineGr = new Chart(canvas.getContext('2d'), {
     type:'bar',
@@ -934,7 +970,7 @@ function renderMachineGrChart(d) {
       maintainAspectRatio:false,
       plugins:{
         legend:{display:false},
-        tooltip:{ callbacks:{ label: ctx=>`${ctx.parsed.x.toFixed(1)}%` } }
+        tooltip:{ callbacks:{ label: ctx=>rowIdle[ctx.dataIndex] ? 'No scans in period' : `${ctx.parsed.x.toFixed(1)}%` } }
       },
       scales:{
         x:{min:0,max:100,grid:{color:GRID},ticks:{callback:v=>v+'%'}},
@@ -950,11 +986,11 @@ function renderMachineGrChart(d) {
           const meta=chart.getDatasetMeta(0);
           const bar=meta.data[i];
           ctx.save();
-          ctx.fillStyle='#e2e8f0';
-          ctx.font='600 10px Inter,sans-serif';
+          ctx.fillStyle=rowIdle[i] ? '#5f6b7d' : '#e2e8f0';
+          ctx.font=(rowIdle[i] ? '500' : '600')+' 10px Inter,sans-serif';
           ctx.textAlign='left';
           ctx.textBaseline='middle';
-          ctx.fillText(val.toFixed(1)+'%',bar.x+4,bar.y);
+          ctx.fillText(rowIdle[i] ? 'no scans in period' : val.toFixed(1)+'%',bar.x+4,bar.y);
           ctx.restore();
         });
       }
