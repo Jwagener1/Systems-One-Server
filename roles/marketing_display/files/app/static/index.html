@@ -1123,19 +1123,29 @@ function renderCustomerSummary(d) {
 }
 
 // ─── MACHINE GOOD READ CHART ─────────────────────────────────────────────────
+// Persisted per render so the value-label plugin reads current rows on updates
+let machineGrMeta = { rows: [], warnLines: [] };
+
 function renderMachineGoodReadChart(d) {
-  const machines = [...(d.machineGoodRead||[])].filter(m=>m.total_items>0).sort((a,b)=>a.good_read_pct-b.good_read_pct);
+  const all = [...(d.machineGoodRead||[])];
+  const active = all.filter(m=>m.total_items>0).sort((a,b)=>a.good_read_pct-b.good_read_pct);
+  const idle = all.filter(m=>!(m.total_items>0));   // shown greyed, never hidden
+  const machines = [...active, ...idle];
   const thresholds = d.thresholds||[];
 
   const labels = machines.map(m=>[m.machine_name, m.customer, m.location].filter(Boolean).join(' · '));
-  const values = machines.map(m=>m.good_read_pct);
-  const colors = values.map(v=>v>=98?GREEN:v>=90?AMBER:RED);
+  const values = machines.map(m=>m.total_items>0 ? m.good_read_pct : 0);
+  const colors = machines.map(m=>m.total_items>0
+    ? (m.good_read_pct>=98?GREEN:m.good_read_pct>=90?AMBER:RED)
+    : 'rgba(107,114,128,0.3)');
 
   const warnLines = machines.map(m=>{
+    if(!(m.total_items>0)) return null;
     const thr = thresholds.find(t=>t.machine_name===m.machine_name&&t.customer===m.customer
       &&(!t.location||!m.location||t.location===m.location)&&t.metric==='good_read_pct');
     return thr ? thr.warn_value : null;
   });
+  machineGrMeta = { rows: machines, warnLines };
 
   const ctx = document.getElementById('chart-machine-gr').getContext('2d');
   const dynH = Math.max(200, machines.length * 28 + 40);
@@ -1169,7 +1179,10 @@ function renderMachineGoodReadChart(d) {
           legend: {display:false},
           tooltip: {
             callbacks: {
-              label: ctx => `${ctx.parsed.x.toFixed(1)}%`
+              label: ctx => {
+                const row = machineGrMeta.rows[ctx.dataIndex];
+                return row && !(row.total_items > 0) ? 'No scans today' : `${ctx.parsed.x.toFixed(1)}%`;
+              }
             }
           }
         },
@@ -1194,15 +1207,17 @@ function renderMachineGoodReadChart(d) {
           chart.data.datasets[0].data.forEach((val, i) => {
             const meta = chart.getDatasetMeta(0);
             const bar = meta.data[i];
+            const row = machineGrMeta.rows[i];
+            const isIdle = row && !(row.total_items > 0);
             ctx.save();
-            ctx.fillStyle = '#e2e8f0';
-            ctx.font = '600 10px Inter, sans-serif';
+            ctx.fillStyle = isIdle ? '#5f6b7d' : '#e2e8f0';
+            ctx.font = (isIdle ? '500' : '600') + ' 10px Inter, sans-serif';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
-            ctx.fillText(val.toFixed(1)+'%', bar.x + 4, bar.y);
+            ctx.fillText(isIdle ? 'no scans today' : val.toFixed(1)+'%', bar.x + 4, bar.y);
             ctx.restore();
           });
-          warnLines.forEach((wl, i) => {
+          machineGrMeta.warnLines.forEach((wl, i) => {
             if(wl == null) return;
             const meta = chart.getDatasetMeta(0);
             const bar = meta.data[i];
