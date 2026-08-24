@@ -514,12 +514,33 @@ function updateMachineDropdown() {
   const machSel = document.getElementById('filter-machine');
   const filtered = customer ? allMachines.filter(m=>m.customer===customer) : allMachines;
   machSel.innerHTML = '<option value="">All Machines</option>';
-  filtered.forEach(m=>{
+
+  // machine_name alone is not unique (several sites run a "DIM1"), so each
+  // option carries its customer + location to pin one physical device.
+  const addOption = (parent, m) => {
     const o = document.createElement('option');
     o.value = m.machine_name;
+    o.dataset.customer = m.customer || '';
+    o.dataset.location = m.location || '';
     o.textContent = m.location ? `${m.machine_name} · ${m.location}` : m.machine_name;
-    machSel.appendChild(o);
-  });
+    parent.appendChild(o);
+  };
+
+  if(customer) {
+    filtered.forEach(m=>addOption(machSel, m));
+  } else {
+    const byCustomer = new Map();
+    filtered.forEach(m=>{
+      if(!byCustomer.has(m.customer)) byCustomer.set(m.customer, []);
+      byCustomer.get(m.customer).push(m);
+    });
+    byCustomer.forEach((ms, cust)=>{
+      const g = document.createElement('optgroup');
+      g.label = cust || '—';
+      ms.forEach(m=>addOption(g, m));
+      machSel.appendChild(g);
+    });
+  }
 }
 
 // ─── LOAD HISTORY ────────────────────────────────────────────────────────────
@@ -534,11 +555,14 @@ async function loadHistory() {
   if(!from || !to) { msg.textContent = 'Select both dates to load a range.'; return; }
   if(from > to) { msg.textContent = 'The From date must be on or before the To date.'; return; }
 
-  const machineRow = machine ? allMachines.find(m=>m.machine_name===machine) : null;
+  const machSel = document.getElementById('filter-machine');
+  const machOpt = machine ? machSel.selectedOptions[0] : null;
+  const machCustomer = machOpt ? (machOpt.dataset.customer || '') : '';
+  const machLocation = machOpt ? (machOpt.dataset.location || '') : '';
   lastScope = {
-    customer: customer || null,
+    customer: customer || machCustomer || null,
     machine: machine || null,
-    location: machineRow ? machineRow.location : null
+    location: machine ? (machLocation || null) : null
   };
 
   const btn = document.getElementById('btn-load');
@@ -552,8 +576,10 @@ async function loadHistory() {
 
   try {
     const params = new URLSearchParams({ date_from: from, date_to: to });
-    if(customer) params.append('customer', customer);
+    const effCustomer = customer || machCustomer;   // pin the device even without a customer filter
+    if(effCustomer) params.append('customer', effCustomer);
     if(machine) params.append('machine', machine);
+    if(machine && machLocation) params.append('location', machLocation);
 
     const res = await fetch('/api/history?' + params);
     if(!res.ok) throw new Error('HTTP ' + res.status);
@@ -575,7 +601,9 @@ async function loadHistory() {
 function scopeLabel() {
   if(!lastScope || (!lastScope.customer && !lastScope.machine)) return 'Entire fleet';
   if(lastScope.machine) {
-    const parts = [lastScope.machine];
+    const parts = [];
+    if(lastScope.customer) parts.push(lastScope.customer);
+    parts.push(lastScope.machine);
     if(lastScope.location) parts.push(lastScope.location);
     return parts.join(' · ');
   }
@@ -874,7 +902,13 @@ function renderMachineSummaryTable(d) {
 
 function renderMachineGrChart(d) {
   const machines = [...(d.machineSummary||[])].filter(m=>m.total_items>0).sort((a,b)=>a.good_read_pct-b.good_read_pct);
-  const labels = machines.map(m=>`${m.machine_name} · ${m.customer}`);
+  const custFiltered = lastScope && lastScope.customer;
+  const labels = machines.map(m=>{
+    const parts = [m.machine_name];
+    if(!custFiltered && m.customer) parts.push(m.customer);
+    if(m.location) parts.push(m.location);
+    return parts.join(' · ');
+  });
   const values = machines.map(m=>m.good_read_pct);
   const colors = values.map(v=>v>=98?GREEN:v>=90?AMBER:RED);
 
