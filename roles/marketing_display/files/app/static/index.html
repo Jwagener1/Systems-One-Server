@@ -3,225 +3,292 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
 <title>S1 Remote Monitoring</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%230f1117'/%3E%3Cpath d='M4 12h4l2.5-5.5 3 11 2.5-5.5H20' fill='none' stroke='%231D9E75' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" integrity="sha384-NrKB+u6Ts6AtkIhwPixiKTzgSKNblyhlk0Sohlgar9UHUBzai/sgnNNWWd291xqt" crossorigin="anonymous"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
   --bg: #0f1117;
+  --bg-deep: #0b0d12;
   --panel: #161b22;
-  --border: #21262d;
-  --row-bg: #1a1f28;
+  --panel-raised: #1b212b;
+  --border: #232936;
+  --border-soft: rgba(255,255,255,0.06);
   --text: #e2e8f0;
+  --text-bright: #f4f7fb;
   --muted: #94a3b8;
+  --faint: #5f6b7d;
   --green: #1D9E75;
   --red: #E24B4A;
   --amber: #EF9F27;
   --blue: #378ADD;
   --purple: #9b59b6;
   --grey: #6b7280;
+  --shadow-panel: 0 1px 2px rgba(0,0,0,.45), 0 8px 24px -12px rgba(0,0,0,.55);
 }
+
+html { scrollbar-color: #2a3240 var(--bg); }
 
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 13px;
   line-height: 1.5;
   min-height: 100vh;
+  caret-color: var(--blue);
 }
 
-/* TOP BAR */
+::selection { background: rgba(55,138,221,0.35); color: var(--text-bright); }
+
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a3240; border-radius: 4px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: #38424f; }
+
+.icon { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+
+/* ── TOP BAR ─────────────────────────────────────────────────────────── */
 #topbar {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: #0d1117;
+  background: rgba(11,13,18,0.88);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
-  height: 48px;
-  backdrop-filter: blur(8px);
+  height: 50px;
 }
 
-.topbar-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
+.topbar-left { display: flex; align-items: center; gap: 11px; }
 
-.topbar-icon {
-  font-size: 18px;
-  color: var(--blue);
+.logo-mark {
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  background: linear-gradient(145deg, #182430, #121820);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
 }
+.logo-mark svg { width: 16px; height: 16px; stroke: var(--green); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.topbar-title { font-size: 14px; font-weight: 600; color: var(--text-bright); letter-spacing: 0.01em; }
 
 .pill-dws {
-  background: rgba(29, 158, 117, 0.15);
-  border: 1px solid rgba(29, 158, 117, 0.4);
+  border: 1px solid rgba(29,158,117,0.35);
   color: var(--green);
-  border-radius: 20px;
-  padding: 2px 10px;
-  font-size: 11px;
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-size: 10.5px;
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
 }
 
-.topbar-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text);
-  letter-spacing: 0.01em;
-}
+.topbar-right { display: flex; align-items: center; gap: 14px; }
 
-.topbar-right {
-  display: flex;
-  align-items: center;
-  gap: 14px;
+.history-link {
+  display: inline-flex; align-items: center; gap: 7px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color .15s, border-color .15s, background .15s;
 }
+.history-link:hover { color: var(--text-bright); border-color: #303a48; background: rgba(255,255,255,0.05); }
 
 #alert-badge {
   background: var(--red);
   color: #fff;
-  border-radius: 20px;
+  border-radius: 999px;
   padding: 2px 9px;
   font-size: 11px;
   font-weight: 700;
   min-width: 24px;
   text-align: center;
+  font-variant-numeric: tabular-nums;
   display: none;
 }
-
 #alert-badge.visible { display: inline-block; }
-#alert-badge.zero { background: var(--grey); }
+#alert-badge.zero { background: transparent; border: 1px solid var(--border); color: var(--faint); }
 
 .live-dot-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: var(--muted);
-  font-weight: 500;
-  letter-spacing: 0.05em;
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: 0.08em;
 }
-
-.live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--green);
-  animation: pulse-green 2s infinite;
-}
-
+.live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse-green 2.4s cubic-bezier(0.16,1,0.3,1) infinite; }
 @keyframes pulse-green {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(29,158,117,0.6); }
-  50% { box-shadow: 0 0 0 5px rgba(29,158,117,0); }
+  0% { box-shadow: 0 0 0 0 rgba(29,158,117,0.55); }
+  70% { box-shadow: 0 0 0 6px rgba(29,158,117,0); }
+  100% { box-shadow: 0 0 0 0 rgba(29,158,117,0); }
 }
+body.stale .live-dot { background: var(--amber); animation: none; }
+body.stale .live-dot-wrap { color: var(--amber); }
 
 #utc-clock {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--muted);
+  font-size: 12px; font-weight: 500; color: var(--muted);
+  font-variant-numeric: tabular-nums; letter-spacing: 0.03em;
+}
+
+/* ── MAIN ────────────────────────────────────────────────────────────── */
+#main { padding: 0 20px 48px; max-width: 1720px; margin: 0 auto; }
+
+/* ── STATUS BAND ─────────────────────────────────────────────────────── */
+#band {
+  --state-color: var(--grey);
+  display: flex;
+  align-items: stretch;
+  gap: clamp(18px, 2.6vw, 40px);
+  margin-top: 18px;
+  padding: 20px 24px 18px;
+  background: linear-gradient(115deg, color-mix(in oklab, var(--state-color) 9%, var(--panel)), var(--panel) 58%);
+  border: 1px solid color-mix(in oklab, var(--state-color) 24%, var(--border));
+  border-radius: 12px;
+  box-shadow: var(--shadow-panel);
+  transition: border-color .6s, background .6s;
+}
+#band[data-state="ok"]   { --state-color: var(--green); }
+#band[data-state="warn"] { --state-color: var(--amber); }
+#band[data-state="bad"]  { --state-color: var(--red); }
+
+.band-cluster { display: flex; align-items: center; flex-wrap: wrap; gap: 12px clamp(18px, 2.2vw, 36px); flex: 1; min-width: 0; }
+
+.band-main { min-width: 0; }
+
+.band-value {
+  font-size: clamp(30px, 2.6vw, 42px);
+  font-weight: 700;
+  color: var(--text-bright);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.03em;
+  white-space: nowrap;
 }
+.band-denom { color: var(--faint); font-size: 0.62em; font-weight: 600; }
 
-/* MAIN CONTENT */
-#main {
-  padding: 0 20px 40px;
+.band-label { font-size: 12px; color: var(--muted); margin-top: 5px; }
+
+.band-chips {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 7px 22px;
+  align-content: center;
 }
+.chip { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
+.chip b { font-size: 15px; font-weight: 700; color: var(--faint); font-variant-numeric: tabular-nums; min-width: 2ch; }
+.chip span { font-size: 11.5px; color: var(--faint); }
+.chip.lit b { color: var(--chip-color, var(--red)); }
+.chip.lit span { color: var(--muted); }
 
-/* ROW DIVIDER */
-.row-divider {
+.band-divider { width: 1px; background: var(--border-soft); flex-shrink: 0; }
+
+@keyframes value-tick {
+  0% { text-shadow: 0 0 16px currentColor; }
+  100% { text-shadow: 0 0 0 transparent; }
+}
+.tick { animation: value-tick 0.9s cubic-bezier(0.16,1,0.3,1); }
+
+.band-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 28px;
+  padding: 10px 6px 0;
+  font-size: 12px;
+  color: var(--faint);
+}
+.band-context b { color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+#data-stamp { margin-left: auto; font-variant-numeric: tabular-nums; }
+body.stale #data-stamp { color: var(--amber); }
+
+/* ── ALL CLEAR / ALERTS ──────────────────────────────────────────────── */
+#alerts-area { margin-top: 14px; }
+
+#all-clear[hidden], #alerts-block[hidden] { display: none; }
+
+#all-clear {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: var(--row-bg);
-  padding: 8px 14px;
-  margin: 20px -20px 14px;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  padding: 11px 16px;
+  border: 1px solid rgba(29,158,117,0.22);
+  background: rgba(29,158,117,0.05);
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: color-mix(in oklab, var(--green) 55%, var(--muted));
 }
+#all-clear .icon { color: var(--green); }
 
-.row-divider .chevron {
-  color: var(--blue);
-  font-size: 12px;
-}
-
-.row-divider .label {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-/* STAT PANELS */
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+.alerts-head {
+  display: flex; align-items: center; gap: 9px;
   margin-bottom: 10px;
+  color: var(--red);
+  font-size: 13px; font-weight: 600;
+}
+.alerts-head .count { color: color-mix(in oklab, var(--red) 40%, var(--muted)); font-weight: 500; font-size: 12px; }
+
+.alerts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 10px;
 }
 
-.stat-panel {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.4);
-  height: 90px;
+.alert-card {
+  --alert-color: var(--red);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--alert-color) 9%, var(--panel)), var(--panel) 80%);
+  border: 1px solid color-mix(in oklab, var(--alert-color) 30%, var(--border));
+  border-radius: 10px;
+  padding: 13px 15px;
+  box-shadow: var(--shadow-panel);
+}
+.alert-card.warn { --alert-color: var(--amber); }
+
+.alert-machine { font-size: 13px; font-weight: 700; color: var(--text-bright); }
+.alert-meta { font-size: 11px; color: color-mix(in oklab, var(--alert-color) 22%, var(--muted)); margin-top: 2px; }
+.alert-metric {
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+  color: color-mix(in oklab, var(--alert-color) 45%, var(--muted));
+  margin-top: 9px;
+}
+.alert-values { display: flex; align-items: flex-end; gap: 18px; margin-top: 6px; }
+.alert-val-current { color: var(--alert-color); font-weight: 700; font-size: 19px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.alert-val-label { font-size: 10px; color: color-mix(in oklab, var(--alert-color) 18%, var(--faint)); }
+
+.alert-progress-wrap { margin-top: 9px; background: rgba(255,255,255,0.06); border-radius: 4px; height: 4px; overflow: hidden; }
+.alert-progress-bar { height: 100%; border-radius: 4px; background: var(--alert-color); }
+
+/* ── SECTIONS ────────────────────────────────────────────────────────── */
+.section-head {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 0 16px;
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  cursor: default;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 30px 2px 12px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--border-soft);
 }
+.section-head h2 { font-size: 13px; font-weight: 600; color: var(--text); letter-spacing: 0.03em; }
+.section-head .section-note { font-size: 11px; color: var(--faint); }
 
-.stat-panel:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,.5);
-}
-
-.stat-panel::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: var(--accent-color, var(--grey));
-  border-radius: 6px 6px 0 0;
-}
-
-.stat-value {
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--accent-color, var(--text));
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-}
-
-.stat-label {
-  font-size: 10px;
-  font-weight: 500;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-top: 4px;
-}
-
-/* PANEL */
+/* ── PANELS ──────────────────────────────────────────────────────────── */
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.4);
+  border-radius: 10px;
+  box-shadow: var(--shadow-panel);
   overflow: hidden;
 }
 
@@ -229,390 +296,174 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px 8px;
-  border-bottom: 1px solid var(--border);
-  position: relative;
-}
-
-.panel-header::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  background: var(--accent-color, var(--blue));
-}
-
-.panel-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text);
-  letter-spacing: 0.02em;
-}
-
-.panel-timestamp {
-  font-size: 10px;
-  color: var(--muted);
-}
-
-.panel-body {
-  padding: 12px 14px;
-}
-
-/* CHARTS LAYOUT */
-.two-col {
-  display: grid;
   gap: 10px;
-  margin-bottom: 10px;
+  padding: 11px 15px 9px;
+  border-bottom: 1px solid var(--border-soft);
 }
+.panel-header .icon { color: var(--faint); }
+.panel-title { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--text); letter-spacing: 0.01em; }
+.panel-timestamp { font-size: 10.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.panel-body { padding: 13px 15px; }
 
+/* ── LAYOUT GRIDS ────────────────────────────────────────────────────── */
+.two-col { display: grid; gap: 12px; margin-bottom: 12px; }
 .two-col-perf { grid-template-columns: 58fr 42fr; }
 .two-col-scan { grid-template-columns: 62fr 38fr; }
+.three-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px; }
 
-/* ALERT CARDS */
-#alerts-section { margin-bottom: 10px; }
+/* ── TABLES ──────────────────────────────────────────────────────────── */
+.tbl-wrap { overflow-x: auto; overflow-y: auto; max-height: 480px; }
 
-.alerts-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 10px;
-}
-
-.alert-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  border-left: 4px solid var(--red);
-  padding: 12px 14px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.4);
-}
-
-.alert-card.warn { border-left-color: var(--amber); }
-.alert-card.bad { border-left-color: var(--red); }
-
-.alert-machine {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.alert-meta {
-  font-size: 11px;
-  color: var(--muted);
-  margin-top: 2px;
-}
-
-.alert-metric {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  margin-top: 8px;
-}
-
-.alert-values {
-  display: flex;
-  gap: 14px;
-  margin-top: 6px;
-  font-size: 11px;
-}
-
-.alert-val-current {
-  color: var(--red);
-  font-weight: 700;
-  font-size: 18px;
-}
-
-.alert-val-label {
-  font-size: 10px;
-  color: var(--muted);
-}
-
-.alert-progress-wrap {
-  margin-top: 8px;
-  background: rgba(255,255,255,0.06);
-  border-radius: 4px;
-  height: 5px;
-  overflow: hidden;
-}
-
-.alert-progress-bar {
-  height: 100%;
-  border-radius: 4px;
-  background: var(--red);
-  transition: width 0.5s ease;
-}
-
-/* TABLES */
-.tbl-wrap {
-  overflow-x: auto;
-  overflow-y: auto;
-  max-height: 480px;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
+table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
 
 thead th {
-  position: sticky;
-  top: 0;
-  background: #1a1f28;
+  position: sticky; top: 0; z-index: 2;
+  background: var(--panel-raised);
   color: var(--muted);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   font-size: 10px;
-  padding: 7px 10px;
+  padding: 8px 10px;
   text-align: left;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
-  z-index: 2;
 }
 
-tbody tr:nth-child(odd) { background: var(--panel); }
-tbody tr:nth-child(even) { background: var(--bg); }
-tbody tr:hover { background: rgba(55, 138, 221, 0.08); }
+tbody tr:nth-child(even) { background: rgba(255,255,255,0.015); }
+tbody tr { transition: background .12s; }
+tbody tr:hover { background: rgba(55,138,221,0.07); }
 
 tbody td {
   padding: 6px 10px;
-  border-bottom: 1px solid rgba(33,38,45,0.5);
+  border-bottom: 1px solid rgba(35,41,54,0.55);
   white-space: nowrap;
   vertical-align: middle;
 }
 
-tfoot tr { background: #1e2530 !important; }
-tfoot td {
-  padding: 7px 10px;
-  font-weight: 700;
-  font-size: 12px;
-  border-top: 2px solid var(--border);
-}
+tfoot tr { background: var(--panel-raised); }
+tfoot td { padding: 8px 10px; font-weight: 700; font-size: 12px; border-top: 1px solid var(--border); }
 
-/* PILLS */
+/* ── PILLS ───────────────────────────────────────────────────────────── */
 .pill {
   display: inline-block;
-  border-radius: 4px;
-  padding: 2px 7px;
+  border-radius: 999px;
+  padding: 2px 9px;
   font-size: 11px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
+.pill-green { background: rgba(29,158,117,0.14); color: #2fc394; }
+.pill-red   { background: rgba(226,75,74,0.14);  color: #f0706f; }
+.pill-amber { background: rgba(239,159,39,0.14); color: #f4b04e; }
+.pill-blue  { background: rgba(55,138,221,0.14); color: #5ea3e8; }
+.pill-grey  { background: rgba(107,114,128,0.16); color: #9aa1ad; }
 
-.pill-green { background: rgba(29,158,117,0.15); color: var(--green); }
-.pill-red { background: rgba(226,75,74,0.15); color: var(--red); }
-.pill-amber { background: rgba(239,159,39,0.15); color: var(--amber); }
-.pill-blue { background: rgba(55,138,221,0.15); color: var(--blue); }
-.pill-grey { background: rgba(107,114,128,0.15); color: var(--grey); }
+/* ── DISK BAR ────────────────────────────────────────────────────────── */
+.disk-bar-wrap { display: flex; align-items: center; gap: 7px; }
+.disk-bar-track { width: 60px; height: 5px; background: rgba(255,255,255,0.07); border-radius: 3px; overflow: hidden; flex-shrink: 0; }
+.disk-bar-fill { height: 100%; border-radius: 3px; }
 
-/* DISK BAR */
-.disk-bar-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
+/* ── DOUGHNUT ────────────────────────────────────────────────────────── */
+.doughnut-wrap { position: relative; display: flex; justify-content: center; align-items: center; }
+.doughnut-center { position: absolute; text-align: center; pointer-events: none; }
+.doughnut-center-value { font-size: 21px; font-weight: 700; color: var(--text-bright); line-height: 1; font-variant-numeric: tabular-nums; }
+.doughnut-center-label { font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 3px; }
 
-.disk-bar-track {
-  width: 60px;
-  height: 6px;
-  background: rgba(255,255,255,0.06);
-  border-radius: 3px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.disk-bar-fill {
-  height: 100%;
-  border-radius: 3px;
-  transition: width 0.4s ease;
-}
-
-/* DOUGHNUT CENTER LABEL */
-.doughnut-wrap {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.doughnut-center {
-  position: absolute;
-  text-align: center;
-  pointer-events: none;
-}
-
-.doughnut-center-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1;
-}
-
-.doughnut-center-label {
-  font-size: 10px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-/* BREAKDOWN STATS */
-.breakdown-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-}
-
-.breakdown-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 11px;
-}
-
+.breakdown-stats { display: flex; flex-direction: column; gap: 7px; margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+.breakdown-row { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; }
 .breakdown-label { color: var(--muted); }
 
-/* CUSTOMER TRENDS */
-.chart-stacked {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
+/* ── MINI STATS / ROWS ───────────────────────────────────────────────── */
+.mini-stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mini-stat { background: rgba(255,255,255,0.025); border: 1px solid var(--border-soft); border-radius: 7px; padding: 8px 11px; }
+.mini-stat-label { font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.06em; }
+.mini-stat-value { font-size: 13px; font-weight: 600; color: var(--text); margin-top: 2px; font-variant-numeric: tabular-nums; }
 
-/* MINI STAT GRID FOR MQTT */
-.mini-stat-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.mini-stat {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 7px 10px;
-}
-
-.mini-stat-label {
-  font-size: 10px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.mini-stat-value {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-  margin-top: 2px;
-}
-
-/* PIPELINE ROWS */
-.pipeline-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.pipeline-row, .insight-row {
+  display: flex; justify-content: space-between; align-items: center;
   padding: 7px 0;
-  border-bottom: 1px solid rgba(33,38,45,0.5);
+  border-bottom: 1px solid rgba(35,41,54,0.55);
   font-size: 12px;
 }
+.pipeline-row:last-child, .insight-row:last-child { border-bottom: none; }
+.pipeline-key, .insight-label { color: var(--muted); font-size: 11.5px; }
+.pipeline-val { font-weight: 600; color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
+.pipeline-age { font-size: 10px; color: var(--faint); }
+.insight-value { font-weight: 600; font-variant-numeric: tabular-nums; }
 
-.pipeline-row:last-child { border-bottom: none; }
-.pipeline-key { color: var(--muted); font-size: 11px; }
-.pipeline-val { font-weight: 600; color: var(--text); text-align: right; }
-.pipeline-age { font-size: 10px; color: var(--muted); }
-
-/* FLEET INSIGHTS */
-.insight-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 7px 0;
-  border-bottom: 1px solid rgba(33,38,45,0.5);
-  font-size: 12px;
-}
-
-.insight-row:last-child { border-bottom: none; }
-.insight-label { color: var(--muted); font-size: 11px; }
-.insight-value { font-weight: 600; }
-
-/* FILTER ROW */
+/* ── FILTER ROW ──────────────────────────────────────────────────────── */
 .filter-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  background: rgba(255,255,255,0.02);
-  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 15px;
+  background: rgba(255,255,255,0.015);
+  border-bottom: 1px solid var(--border-soft);
 }
-
-.filter-label {
-  font-size: 11px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
+.filter-label { font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.06em; }
 
 select.filter-select {
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 4px 10px;
   font-size: 12px;
-  font-family: 'Inter', sans-serif;
-  outline: none;
+  font-family: inherit;
   cursor: pointer;
 }
+select.filter-select:hover { border-color: #303a48; }
+select.filter-select:focus-visible { outline-offset: 0; }
 
-select.filter-select:focus {
-  border-color: var(--blue);
-}
+canvas { display: block; }
 
-/* 3-col system health */
-.three-col {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-bottom: 10px;
-}
+.no-data { text-align: center; color: var(--faint); padding: 30px; font-size: 12px; }
 
-/* Responsive tweaks */
-@media (max-width: 1100px) {
+/* ── RESPONSIVE ──────────────────────────────────────────────────────── */
+@media (max-width: 1180px) {
+  #band { flex-wrap: wrap; }
+  .band-divider { display: none; }
+  .band-cluster { flex-basis: 100%; }
   .two-col-perf, .two-col-scan { grid-template-columns: 1fr; }
   .three-col { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 768px) {
-  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .band-cluster { flex-wrap: wrap; }
   .three-col { grid-template-columns: 1fr; }
+  .topbar-title { display: none; }
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #30363d; }
+/* ── TV MODE ─────────────────────────────────────────────────────────── */
+body.tv { font-size: 14.5px; }
+body.tv #main { padding: 0 34px 56px; max-width: none; }
+body.tv .history-link, body.tv .filter-row { display: none; }
+body.tv #topbar { height: 58px; padding: 0 34px; }
+body.tv .topbar-title { font-size: 16px; }
+body.tv #band { padding: 30px 34px 26px; }
+body.tv .band-value { font-size: clamp(40px, 3.4vw, 60px); }
+body.tv .band-label { font-size: 15px; }
+body.tv .chip b { font-size: 22px; }
+body.tv .chip span { font-size: 14px; }
+body.tv .band-context, body.tv #all-clear { font-size: 15px; }
+body.tv .section-head h2 { font-size: 16px; }
+body.tv .panel-title { font-size: 15px; }
+body.tv .panel-timestamp { font-size: 12px; }
+body.tv table { font-size: 14px; }
+body.tv thead th { font-size: 11.5px; }
+body.tv .pill { font-size: 13px; }
+body.tv .mini-stat-value { font-size: 16px; }
+body.tv .mini-stat-label { font-size: 11px; }
+body.tv .pipeline-row, body.tv .insight-row { font-size: 14px; }
+body.tv .pipeline-key, body.tv .insight-label { font-size: 13px; }
+body.tv .alert-machine { font-size: 16px; }
+body.tv .alert-val-current { font-size: 24px; }
+body.tv .breakdown-row { font-size: 14px; }
+body.tv .doughnut-center-value { font-size: 26px; }
 
-canvas { display: block; }
-
-.no-data {
-  text-align: center;
-  color: var(--muted);
-  padding: 30px;
-  font-size: 12px;
-}
-
-.loading-overlay {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 200px;
-  color: var(--muted);
-  font-size: 13px;
+@media (prefers-reduced-motion: reduce) {
+  .live-dot { animation: none; }
+  .tick { animation: none; }
+  * { transition-duration: 0.01ms !important; }
 }
 </style>
 </head>
@@ -621,18 +472,21 @@ canvas { display: block; }
 <!-- TOP BAR -->
 <div id="topbar">
   <div class="topbar-left">
-    <span class="topbar-icon">⚙</span>
-    <span class="pill-dws">DWS</span>
+    <div class="logo-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M4 12h4l2.5-5.5 3 11 2.5-5.5H20"/></svg>
+    </div>
     <span class="topbar-title">S1 Remote Monitoring</span>
+    <span class="pill-dws">DWS</span>
   </div>
   <div class="topbar-right">
-    <a href="/static/history.html" style="display:inline-flex;align-items:center;gap:6px;background:rgba(55,138,221,0.12);border:1px solid rgba(55,138,221,0.35);color:#378ADD;border-radius:5px;padding:4px 12px;font-size:12px;font-weight:600;text-decoration:none;letter-spacing:0.03em;" title="Performance over time with date range selector">
-      📈 History
+    <a href="/static/history.html" class="history-link" title="Performance over time with date range selector">
+      <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+      History
     </a>
     <span id="alert-badge">0</span>
     <div class="live-dot-wrap">
       <div class="live-dot"></div>
-      <span>LIVE</span>
+      <span id="live-label">LIVE</span>
     </div>
     <span id="utc-clock">--:--:-- UTC</span>
   </div>
@@ -640,90 +494,66 @@ canvas { display: block; }
 
 <div id="main">
 
-  <!-- FLEET OVERVIEW -->
-  <div class="row-divider">
-    <span class="chevron">▸</span>
-    <span class="label">Fleet Overview</span>
+  <!-- STATUS BAND -->
+  <section id="band" data-state="">
+    <div class="band-cluster">
+      <div class="band-main">
+        <div class="band-value" id="b-online-wrap"><span id="b-online">—</span><span class="band-denom">/<span id="b-total">—</span></span></div>
+        <div class="band-label">Devices online</div>
+      </div>
+      <div class="band-chips">
+        <div class="chip" id="ch-offline"><b>—</b><span>Offline</span></div>
+        <div class="chip" id="ch-stopped"><b>—</b><span>Apps stopped</span></div>
+        <div class="chip" id="ch-alerts"><b>—</b><span>Active alerts</span></div>
+        <div class="chip" id="ch-notsent"><b>—</b><span>Not sent</span></div>
+      </div>
+    </div>
+    <div class="band-divider"></div>
+    <div class="band-cluster">
+      <div class="band-main">
+        <div class="band-value" id="b-today-items">—</div>
+        <div class="band-label">Items today</div>
+      </div>
+      <div class="band-main">
+        <div class="band-value" id="b-today-gr">—</div>
+        <div class="band-label">Good read today</div>
+      </div>
+      <div class="band-chips">
+        <div class="chip" id="ch-noread"><b>—</b><span>No reads</span></div>
+        <div class="chip" id="ch-hand"><b>—</b><span>Hand scanned</span></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="band-context">
+    <span>Month&ensp;<b id="b-month-items">—</b> items · <b id="b-month-gr">—</b> good read</span>
+    <span>Year&ensp;<b id="b-year-items">—</b> items · <b id="b-year-gr">—</b> good read</span>
+    <span id="data-stamp">Waiting for data…</span>
   </div>
 
-  <!-- Row 1: Year stats -->
-  <div class="stat-grid" id="stat-row1">
-    <div class="stat-panel" style="--accent-color: var(--blue)">
-      <div class="stat-value" id="s-year-items">—</div>
-      <div class="stat-label">Year Parcels</div>
+  <!-- ALERTS / ALL CLEAR -->
+  <div id="alerts-area">
+    <div id="all-clear">
+      <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/></svg>
+      <span id="all-clear-text">All systems operating normally — no active alerts.</span>
     </div>
-    <div class="stat-panel" id="sp-year-gr" style="--accent-color: var(--green)">
-      <div class="stat-value" id="s-year-gr">—</div>
-      <div class="stat-label">Year Good Read %</div>
+    <div id="alerts-block" hidden>
+      <div class="alerts-head">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M12 4L2.8 19.5h18.4L12 4z"/><path d="M12 10v4.2"/><path d="M12 17.2v.1"/></svg>
+        Active alerts <span class="count" id="alerts-count"></span>
+      </div>
+      <div class="alerts-grid" id="alerts-grid"></div>
     </div>
-    <div class="stat-panel" style="--accent-color: var(--blue)">
-      <div class="stat-value" id="s-month-items">—</div>
-      <div class="stat-label">Month Parcels</div>
-    </div>
-    <div class="stat-panel" id="sp-month-gr" style="--accent-color: var(--green)">
-      <div class="stat-value" id="s-month-gr">—</div>
-      <div class="stat-label">Month Good Read %</div>
-    </div>
-  </div>
-
-  <!-- Row 2: Today stats -->
-  <div class="stat-grid">
-    <div class="stat-panel" style="--accent-color: var(--blue)">
-      <div class="stat-value" id="s-today-items">—</div>
-      <div class="stat-label">Today Items</div>
-    </div>
-    <div class="stat-panel" id="sp-today-gr" style="--accent-color: var(--green)">
-      <div class="stat-value" id="s-today-gr">—</div>
-      <div class="stat-label">Today Good Read %</div>
-    </div>
-    <div class="stat-panel" id="sp-no-read" style="--accent-color: var(--grey)">
-      <div class="stat-value" id="s-no-read">—</div>
-      <div class="stat-label">No Reads Today</div>
-    </div>
-    <div class="stat-panel" style="--accent-color: var(--amber)">
-      <div class="stat-value" style="color: var(--amber)" id="s-hand-scanned">—</div>
-      <div class="stat-label">Hand Scanned</div>
-    </div>
-  </div>
-
-  <!-- Row 3: Fleet stats -->
-  <div class="stat-grid">
-    <div class="stat-panel" style="--accent-color: var(--grey)">
-      <div class="stat-value" style="color: var(--grey)" id="s-total-devices">—</div>
-      <div class="stat-label">Total Devices</div>
-    </div>
-    <div class="stat-panel" id="sp-online" style="--accent-color: var(--green)">
-      <div class="stat-value" id="s-online">—</div>
-      <div class="stat-label">Online</div>
-    </div>
-    <div class="stat-panel" id="sp-offline" style="--accent-color: var(--green)">
-      <div class="stat-value" id="s-offline">—</div>
-      <div class="stat-label">Offline</div>
-    </div>
-    <div class="stat-panel" id="sp-apps-stopped" style="--accent-color: var(--green)">
-      <div class="stat-value" id="s-apps-stopped">—</div>
-      <div class="stat-label">Apps Stopped</div>
-      <div style="font-size:10px;color:var(--muted);margin-top:2px;">Not Sent: <span id="s-not-sent" style="font-weight:700">—</span></div>
-    </div>
-  </div>
-
-  <!-- ACTIVE ALERTS -->
-  <div id="alerts-section" style="display:none;">
-    <div class="row-divider" style="border-left: 3px solid var(--red);">
-      <span class="chevron" style="color:var(--red)">▸</span>
-      <span class="label" style="color:var(--red)">⚠ Active Alerts</span>
-    </div>
-    <div class="alerts-grid" id="alerts-grid"></div>
   </div>
 
   <!-- PERFORMANCE -->
-  <div class="row-divider">
-    <span class="chevron">▸</span>
-    <span class="label">Performance</span>
+  <div class="section-head">
+    <h2>Performance</h2>
+    <span class="section-note">Good read target 98% · minimum 90%</span>
   </div>
 
   <div class="two-col two-col-perf">
-    <div class="panel" style="--accent-color: var(--green)">
+    <div class="panel">
       <div class="panel-header">
         <span class="panel-title">Good Read % by Machine — Today</span>
         <span class="panel-timestamp" id="ts-machineperf">—</span>
@@ -732,7 +562,7 @@ canvas { display: block; }
         <canvas id="chart-machine-gr" style="max-height:360px;"></canvas>
       </div>
     </div>
-    <div class="panel" style="--accent-color: var(--blue)">
+    <div class="panel">
       <div class="panel-header">
         <span class="panel-title">Customer Summary</span>
         <span class="panel-timestamp" id="ts-custsummary">—</span>
@@ -758,13 +588,12 @@ canvas { display: block; }
   </div>
 
   <!-- SCAN VOLUME -->
-  <div class="row-divider">
-    <span class="chevron">▸</span>
-    <span class="label">Scan Volume</span>
+  <div class="section-head">
+    <h2>Scan volume</h2>
   </div>
 
   <div class="two-col two-col-scan">
-    <div class="panel" style="--accent-color: var(--green)">
+    <div class="panel">
       <div class="panel-header">
         <span class="panel-title">Hourly Scan Volume — Today</span>
         <span class="panel-timestamp" id="ts-hourly">—</span>
@@ -773,7 +602,7 @@ canvas { display: block; }
         <canvas id="chart-hourly" height="200"></canvas>
       </div>
     </div>
-    <div class="panel" style="--accent-color: var(--blue)">
+    <div class="panel">
       <div class="panel-header">
         <span class="panel-title">Today's Breakdown</span>
       </div>
@@ -804,12 +633,12 @@ canvas { display: block; }
   </div>
 
   <!-- DEVICE FLEET -->
-  <div class="row-divider">
-    <span class="chevron">▸</span>
-    <span class="label">Device Fleet</span>
+  <div class="section-head">
+    <h2>Device fleet</h2>
+    <span class="section-note" id="fleet-note"></span>
   </div>
 
-  <div class="panel" style="--accent-color: var(--blue); margin-bottom: 10px;">
+  <div class="panel" style="margin-bottom: 12px;">
     <div class="panel-header">
       <span class="panel-title">All Machines — Today</span>
       <span class="panel-timestamp" id="ts-fleet">—</span>
@@ -847,13 +676,13 @@ canvas { display: block; }
     </div>
   </div>
 
-  <!-- 7-DAY CUSTOMER TRENDS -->
-  <div class="row-divider">
-    <span class="chevron">▸</span>
-    <span class="label">7-Day Customer Trends</span>
+  <!-- TRENDS -->
+  <div class="section-head">
+    <h2>Trends</h2>
+    <span class="section-note">Rolling 7 and 14 day windows</span>
   </div>
 
-  <div class="panel" style="--accent-color: var(--purple); margin-bottom: 10px;">
+  <div class="panel" style="margin-bottom: 12px;">
     <div class="panel-header">
       <span class="panel-title">Good Read % by Customer — Last 7 Days</span>
       <span class="panel-timestamp" id="ts-custtrend">—</span>
@@ -863,7 +692,7 @@ canvas { display: block; }
     </div>
   </div>
 
-  <div class="panel" style="--accent-color: var(--blue); margin-bottom: 10px;">
+  <div class="panel" style="margin-bottom: 12px;">
     <div class="panel-header">
       <span class="panel-title">Daily Items Volume by Customer — Last 7 Days</span>
     </div>
@@ -872,13 +701,7 @@ canvas { display: block; }
     </div>
   </div>
 
-  <!-- 14-DAY FLEET TREND -->
-  <div class="row-divider">
-    <span class="chevron">▸</span>
-    <span class="label">14-Day Fleet Trend</span>
-  </div>
-
-  <div class="panel" style="--accent-color: var(--blue); margin-bottom: 10px;">
+  <div class="panel" style="margin-bottom: 12px;">
     <div class="panel-header">
       <span class="panel-title">14-Day Scan Trend — Fleet Total</span>
       <span class="panel-timestamp" id="ts-dailytrend">—</span>
@@ -889,12 +712,12 @@ canvas { display: block; }
   </div>
 
   <!-- STORAGE -->
-  <div class="row-divider">
-    <span class="chevron">▸</span>
-    <span class="label">Storage</span>
+  <div class="section-head">
+    <h2>Storage</h2>
+    <span class="section-note">Warning above 70% · critical above 80%</span>
   </div>
 
-  <div class="panel" style="--accent-color: var(--amber); margin-bottom: 10px;">
+  <div class="panel" style="margin-bottom: 12px;">
     <div class="panel-header">
       <span class="panel-title">Drive Storage — All Devices</span>
       <span class="panel-timestamp" id="ts-storage">—</span>
@@ -919,16 +742,19 @@ canvas { display: block; }
   </div>
 
   <!-- SYSTEM HEALTH -->
-  <div class="row-divider">
-    <span class="chevron">▸</span>
-    <span class="label">System Health</span>
+  <div class="section-head">
+    <h2>System health</h2>
+    <span class="section-note">Broker, ingest pipeline, and fleet internals</span>
   </div>
 
   <div class="three-col">
     <!-- MQTT Broker -->
-    <div class="panel" style="--accent-color: var(--purple)">
+    <div class="panel">
       <div class="panel-header">
-        <span class="panel-title">🔌 MQTT Broker</span>
+        <span class="panel-title">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M9 7V3.5M15 7V3.5"/><path d="M6.5 7h11v4a5.5 5.5 0 0 1-11 0V7z"/><path d="M12 16.5v4"/></svg>
+          MQTT Broker
+        </span>
       </div>
       <div class="panel-body">
         <div class="mini-stat-grid" id="mqtt-grid"></div>
@@ -936,13 +762,16 @@ canvas { display: block; }
     </div>
 
     <!-- Pipeline & Ingest -->
-    <div class="panel" style="--accent-color: var(--blue)">
+    <div class="panel">
       <div class="panel-header">
-        <span class="panel-title">⚡ Pipeline &amp; Ingest</span>
+        <span class="panel-title">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M3 7h6l3 5 3-5h6"/><path d="M3 17h6l3-5"/><path d="M15 12l3 5h3"/></svg>
+          Pipeline &amp; Ingest
+        </span>
       </div>
       <div class="panel-body">
         <div id="pipeline-rows"></div>
-        <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border);">
+        <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border-soft);">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <span class="insight-label">Dead Letter Queue</span>
             <span id="deadletter-badge">—</span>
@@ -952,9 +781,12 @@ canvas { display: block; }
     </div>
 
     <!-- Fleet Insights -->
-    <div class="panel" style="--accent-color: var(--green)">
+    <div class="panel">
       <div class="panel-header">
-        <span class="panel-title">📊 Fleet Insights</span>
+        <span class="panel-title">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-8"/><path d="M22 20H2"/></svg>
+          Fleet Insights
+        </span>
       </div>
       <div class="panel-body">
         <div id="fleet-insights"></div>
@@ -965,6 +797,10 @@ canvas { display: block; }
 </div><!-- /main -->
 
 <script>
+// ─── TV MODE ─────────────────────────────────────────────────────────────────
+const TV = new URLSearchParams(location.search).get('tv') === '1';
+if (TV) document.body.classList.add('tv');
+
 // ─── COLOR CONSTANTS ─────────────────────────────────────────────────────────
 const GREEN='#1D9E75', RED='#E24B4A', AMBER='#EF9F27', BLUE='#378ADD', PURPLE='#9b59b6', GREY='#6b7280';
 const CUSTOMER_COLORS = {
@@ -972,11 +808,27 @@ const CUSTOMER_COLORS = {
   'PEP AFRICA': '#e67e22', SNOWSOFT: GREY
 };
 
-// ─── CHART.JS GLOBALS ────────────────────────────────────────────────────────
-Chart.defaults.color = '#94a3b8';
-Chart.defaults.borderColor = '#21262d';
-Chart.defaults.font.family = 'Inter, sans-serif';
-Chart.defaults.font.size = 11;
+// ─── CHART.JS THEME ──────────────────────────────────────────────────────────
+const GRID = 'rgba(255,255,255,0.05)';
+Chart.defaults.color = '#8b97a8';
+Chart.defaults.borderColor = GRID;
+Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
+Chart.defaults.font.size = TV ? 13 : 11;
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
+Chart.defaults.plugins.legend.labels.pointStyle = 'circle';
+Chart.defaults.plugins.legend.labels.boxWidth = 7;
+Chart.defaults.plugins.legend.labels.boxHeight = 7;
+Chart.defaults.plugins.legend.labels.padding = 14;
+Chart.defaults.plugins.tooltip.backgroundColor = '#1c232e';
+Chart.defaults.plugins.tooltip.borderColor = 'rgba(255,255,255,0.08)';
+Chart.defaults.plugins.tooltip.borderWidth = 1;
+Chart.defaults.plugins.tooltip.titleColor = '#e2e8f0';
+Chart.defaults.plugins.tooltip.bodyColor = '#94a3b8';
+Chart.defaults.plugins.tooltip.cornerRadius = 7;
+Chart.defaults.plugins.tooltip.padding = 10;
+Chart.defaults.plugins.tooltip.usePointStyle = true;
+Chart.defaults.plugins.tooltip.boxWidth = 7;
+Chart.defaults.plugins.tooltip.boxHeight = 7;
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const fmt = (n, dec=0) => (n==null || n===undefined) ? '—' : typeof n==='number' ? n.toLocaleString(undefined,{minimumFractionDigits:dec,maximumFractionDigits:dec}) : n;
@@ -1043,7 +895,9 @@ const statusOsVersion = ver => {
 };
 const nowTs = () => new Date().toLocaleTimeString('en-GB',{timeZone:'UTC',hour12:false});
 
-// ─── UTC CLOCK ────────────────────────────────────────────────────────────────
+// ─── CLOCK + STALENESS ───────────────────────────────────────────────────────
+let lastSync = null;   // epoch ms of last successful fetch
+let fetchFailed = false;
 const clockEl = document.getElementById('utc-clock');
 setInterval(()=>{
   const now = new Date();
@@ -1051,24 +905,43 @@ setInterval(()=>{
   const m = String(now.getUTCMinutes()).padStart(2,'0');
   const s = String(now.getUTCSeconds()).padStart(2,'0');
   clockEl.textContent = `${h}:${m}:${s} UTC`;
+
+  const stale = fetchFailed || (lastSync != null && Date.now() - lastSync > 90000);
+  document.body.classList.toggle('stale', stale);
+  document.getElementById('live-label').textContent = stale ? 'STALE' : 'LIVE';
+  const stamp = document.getElementById('data-stamp');
+  if(lastSync != null) {
+    const t = new Date(lastSync).toLocaleTimeString('en-GB',{timeZone:'UTC',hour12:false});
+    stamp.textContent = (stale ? 'Data stale — last synced ' : 'Synced ') + t + ' UTC';
+  } else if(fetchFailed) {
+    stamp.textContent = 'Cannot reach server — retrying every 30s';
+  }
 },1000);
 
 // ─── CHART INSTANCES ─────────────────────────────────────────────────────────
 let charts = {};
 let lastData = null;
-let fleetFilterCustomer = '';
 
-// ─── RENDER FUNCTIONS ────────────────────────────────────────────────────────
-function setStatPanel(id, value, color) {
+// ─── STATUS BAND ─────────────────────────────────────────────────────────────
+function bandVal(id, value, color) {
   const el = document.getElementById(id);
   if(!el) return;
+  const changed = el.textContent !== String(value) && el.textContent !== '—';
   el.textContent = value;
   if(color) el.style.color = color;
+  if(changed) {
+    el.classList.remove('tick');
+    void el.offsetWidth;   // restart animation
+    el.classList.add('tick');
+  }
 }
-function setPanelAccent(id, color) {
+
+function chip(id, value, litColor) {
   const el = document.getElementById(id);
   if(!el) return;
-  el.style.setProperty('--accent-color', color);
+  el.querySelector('b').textContent = fmt(value);
+  el.classList.toggle('lit', !!litColor);
+  el.style.setProperty('--chip-color', litColor || '');
 }
 
 function renderStats(d) {
@@ -1076,83 +949,90 @@ function renderStats(d) {
   const t = d.totals || {};
   const fl = d.fleet || {};
 
-  // Row 1: Year
-  setStatPanel('s-year-items', fmt(y.items_year), BLUE);
-  const ygrC = grColor(y.good_read_pct_year);
-  setStatPanel('s-year-gr', y.good_read_pct_year!=null ? y.good_read_pct_year.toFixed(1)+'%' : '—', ygrC);
-  setPanelAccent('sp-year-gr', ygrC);
-  setStatPanel('s-month-items', fmt(y.items_month), BLUE);
-  const mgrC = grColor(y.good_read_pct_month);
-  setStatPanel('s-month-gr', y.good_read_pct_month!=null ? y.good_read_pct_month.toFixed(1)+'%' : '—', mgrC);
-  setPanelAccent('sp-month-gr', mgrC);
-
-  // Row 2: Today
-  setStatPanel('s-today-items', fmt(t.total_items), BLUE);
-  const grTotal = t.total_items > 0 ? (t.good_read / t.total_items * 100) : null;
-  const tgrC = grColor(grTotal);
-  setStatPanel('s-today-gr', grTotal!=null ? grTotal.toFixed(1)+'%' : '—', tgrC);
-  setPanelAccent('sp-today-gr', tgrC);
-  const noRead = t.no_read || 0;
-  setStatPanel('s-no-read', fmt(noRead), noRead > 0 ? RED : GREY);
-  setPanelAccent('sp-no-read', noRead > 0 ? RED : GREY);
-  setStatPanel('s-hand-scanned', fmt(t.hand_scanned), AMBER);
-
-  // Row 3: Fleet
-  setStatPanel('s-total-devices', fmt(fl.total_machines), GREY);
-  const allOnline = fl.offline === 0;
-  setStatPanel('s-online', fmt(fl.online), allOnline ? GREEN : AMBER);
-  setPanelAccent('sp-online', allOnline ? GREEN : AMBER);
   const offlineN = fl.offline || 0;
-  setStatPanel('s-offline', fmt(offlineN), offlineN > 0 ? RED : GREEN);
-  setPanelAccent('sp-offline', offlineN > 0 ? RED : GREEN);
   const stoppedN = fl.apps_stopped || 0;
-  setStatPanel('s-apps-stopped', fmt(stoppedN), stoppedN > 0 ? RED : GREEN);
-  setPanelAccent('sp-apps-stopped', stoppedN > 0 ? RED : GREEN);
-  const notSentEl = document.getElementById('s-not-sent');
-  if(notSentEl) {
-    const ns = t.not_sent || 0;
-    notSentEl.textContent = fmt(ns);
-    notSentEl.style.color = ns > 0 ? RED : GREY;
-  }
+  const notSent = t.not_sent || 0;
+  const noRead = t.no_read || 0;
+  const breachesN = (d.thresholdBreaches||[]).length;
+  const alertCount = breachesN + offlineN;
 
-  // Alert badge
-  const alertCount = (d.thresholdBreaches||[]).length + offlineN;
+  // Health cluster
+  bandVal('b-online', fmt(fl.online));
+  document.getElementById('b-total').textContent = fmt(fl.total_machines);
+  document.getElementById('b-online-wrap').style.color = offlineN > 0 ? RED : 'var(--text-bright)';
+  chip('ch-offline', offlineN, offlineN > 0 ? RED : null);
+  chip('ch-stopped', stoppedN, stoppedN > 0 ? RED : null);
+  chip('ch-alerts', alertCount, alertCount > 0 ? RED : null);
+  chip('ch-notsent', notSent, notSent > 0 ? AMBER : null);
+
+  // Production cluster
+  bandVal('b-today-items', fmt(t.total_items));
+  const grTotal = t.total_items > 0 ? (t.good_read / t.total_items * 100) : null;
+  bandVal('b-today-gr', grTotal!=null ? grTotal.toFixed(1)+'%' : '—', grColor(grTotal));
+  chip('ch-noread', noRead, noRead > 0 ? RED : null);
+  chip('ch-hand', t.hand_scanned || 0, (t.hand_scanned||0) > 0 ? AMBER : null);
+
+  // Band state
+  const state = (offlineN > 0 || stoppedN > 0) ? 'bad'
+              : (breachesN > 0 || notSent > 0) ? 'warn'
+              : 'ok';
+  document.getElementById('band').dataset.state = state;
+
+  // Context strip (demoted year/month)
+  document.getElementById('b-month-items').textContent = fmt(y.items_month);
+  document.getElementById('b-month-gr').textContent = y.good_read_pct_month!=null ? y.good_read_pct_month.toFixed(1)+'%' : '—';
+  document.getElementById('b-year-items').textContent = fmt(y.items_year);
+  document.getElementById('b-year-gr').textContent = y.good_read_pct_year!=null ? y.good_read_pct_year.toFixed(1)+'%' : '—';
+
+  // Fleet section note
+  document.getElementById('fleet-note').textContent =
+    fl.total_machines != null ? `${fmt(fl.online)} of ${fmt(fl.total_machines)} online` : '';
+
+  // Topbar alert badge
   const badge = document.getElementById('alert-badge');
-  if(alertCount > 0) {
-    badge.textContent = alertCount;
-    badge.classList.add('visible');
-    badge.classList.remove('zero');
-  } else {
-    badge.textContent = '0';
-    badge.classList.add('visible','zero');
-  }
+  badge.textContent = alertCount;
+  badge.classList.add('visible');
+  badge.classList.toggle('zero', alertCount === 0);
 }
 
+// ─── ALERTS ──────────────────────────────────────────────────────────────────
 function renderAlerts(d) {
   const breaches = d.thresholdBreaches || [];
   const offlineDevices = (d.devices||[]).filter(dv=>dv.status==='offline');
-  const section = document.getElementById('alerts-section');
+  const allClear = document.getElementById('all-clear');
+  const block = document.getElementById('alerts-block');
   const grid = document.getElementById('alerts-grid');
 
   const hasAlerts = breaches.length > 0 || offlineDevices.length > 0;
-  section.style.display = hasAlerts ? '' : 'none';
-  if(!hasAlerts) return;
+  allClear.hidden = hasAlerts;
+  block.hidden = !hasAlerts;
+
+  if(!hasAlerts) {
+    const fl = d.fleet || {};
+    document.getElementById('all-clear-text').textContent =
+      fl.total_machines != null
+        ? `All systems operating normally — ${fmt(fl.online)} of ${fmt(fl.total_machines)} devices reporting, no active alerts.`
+        : 'All systems operating normally — no active alerts.';
+    return;
+  }
+
+  const total = breaches.length + offlineDevices.length;
+  document.getElementById('alerts-count').textContent = `${total} requiring attention`;
 
   let html = '';
 
   breaches.forEach(b => {
     const isBad = b.current_pct < b.bad_value;
-    const cls = isBad ? 'bad' : 'warn';
-    const borderColor = isBad ? RED : AMBER;
+    const cls = isBad ? '' : 'warn';
     const barPct = Math.min(100, Math.max(0, (b.current_pct / b.baseline_mean) * 100));
     html += `
     <div class="alert-card ${cls}">
       <div class="alert-machine">${b.machine_name||'—'}</div>
       <div class="alert-meta">${b.customer||'—'} · ${b.location||'—'}</div>
-      <div class="alert-metric">${(b.metric||'').replace(/_/g,' ')}</div>
-      <div style="display:flex;align-items:flex-end;gap:18px;margin-top:6px;">
+      <div class="alert-metric">${(b.metric||'').replace(/_/g,' ')} below threshold</div>
+      <div class="alert-values">
         <div>
-          <div class="alert-val-current" style="color:${borderColor}">${b.current_pct!=null?b.current_pct.toFixed(1)+'%':'—'}</div>
+          <div class="alert-val-current">${b.current_pct!=null?b.current_pct.toFixed(1)+'%':'—'}</div>
           <div class="alert-val-label">Current</div>
         </div>
         <div style="font-size:11px;">
@@ -1165,7 +1045,7 @@ function renderAlerts(d) {
         </div>
       </div>
       <div class="alert-progress-wrap">
-        <div class="alert-progress-bar" style="width:${barPct.toFixed(1)}%;background:${borderColor}"></div>
+        <div class="alert-progress-bar" style="width:${barPct.toFixed(1)}%"></div>
       </div>
     </div>`;
   });
@@ -1173,13 +1053,15 @@ function renderAlerts(d) {
   offlineDevices.forEach(dv => {
     const age = dv.offline_since ? fmtAge(dv.offline_since) : 'unknown';
     html += `
-    <div class="alert-card bad">
+    <div class="alert-card">
       <div class="alert-machine">${dv.machine_name||'—'}</div>
       <div class="alert-meta">${dv.customer||'—'} · ${dv.location||'—'}</div>
-      <div class="alert-metric">Device Offline</div>
-      <div style="margin-top:6px;">
-        <div class="alert-val-current" style="color:${RED}">OFFLINE</div>
-        <div class="alert-val-label">Since: ${age}</div>
+      <div class="alert-metric">Device offline</div>
+      <div class="alert-values">
+        <div>
+          <div class="alert-val-current">OFFLINE</div>
+          <div class="alert-val-label">Since: ${age}</div>
+        </div>
       </div>
     </div>`;
   });
@@ -1187,6 +1069,7 @@ function renderAlerts(d) {
   grid.innerHTML = html;
 }
 
+// ─── CUSTOMER SUMMARY ────────────────────────────────────────────────────────
 function renderCustomerSummary(d) {
   const rows = [...(d.customerSummary||[])].sort((a,b)=>b.total_items-a.total_items);
   const tbody = document.getElementById('tbody-customer-summary');
@@ -1207,7 +1090,6 @@ function renderCustomerSummary(d) {
     </tr>`;
   }).join('');
 
-  // Fleet total
   const tot = rows.reduce((acc,r)=>({
     machines: acc.machines+(r.machines||0),
     total_items: acc.total_items+(r.total_items||0),
@@ -1231,6 +1113,7 @@ function renderCustomerSummary(d) {
   document.getElementById('ts-custsummary').textContent = 'Updated '+nowTs();
 }
 
+// ─── MACHINE GOOD READ CHART ─────────────────────────────────────────────────
 function renderMachineGoodReadChart(d) {
   const machines = [...(d.machineGoodRead||[])].filter(m=>m.total_items>0).sort((a,b)=>a.good_read_pct-b.good_read_pct);
   const thresholds = d.thresholds||[];
@@ -1285,12 +1168,12 @@ function renderMachineGoodReadChart(d) {
           x: {
             min: 0,
             max: 100,
-            grid: { color: '#21262d' },
+            grid: { color: GRID },
             ticks: { callback: v => v+'%' }
           },
           y: {
             grid: { display: false },
-            ticks: { color: '#94a3b8', font: {size:10} }
+            ticks: { color: '#94a3b8', font: {size: TV ? 12 : 10} }
           }
         },
         animation: false
@@ -1310,7 +1193,6 @@ function renderMachineGoodReadChart(d) {
             ctx.fillText(val.toFixed(1)+'%', bar.x + 4, bar.y);
             ctx.restore();
           });
-          // Draw warn threshold lines
           warnLines.forEach((wl, i) => {
             if(wl == null) return;
             const meta = chart.getDatasetMeta(0);
@@ -1335,6 +1217,7 @@ function renderMachineGoodReadChart(d) {
   document.getElementById('ts-machineperf').textContent = 'Updated '+nowTs();
 }
 
+// ─── HOURLY CHART ────────────────────────────────────────────────────────────
 function renderHourlyChart(d) {
   const hourlyMap = {};
   (d.hourly||[]).forEach(h=>{ hourlyMap[h.hr] = h; });
@@ -1363,20 +1246,20 @@ function renderHourlyChart(d) {
       data: {
         labels,
         datasets: [
-          { label:'Good', data: goodData, backgroundColor: GREEN+'cc', stack:'s' },
-          { label:'No Read', data: noReadData, backgroundColor: RED+'cc', stack:'s' },
-          { label:'Hand Scanned', data: handData, backgroundColor: AMBER+'cc', stack:'s' }
+          { label:'Good', data: goodData, backgroundColor: GREEN+'cc', stack:'s', borderRadius: 2 },
+          { label:'No Read', data: noReadData, backgroundColor: RED+'cc', stack:'s', borderRadius: 2 },
+          { label:'Hand Scanned', data: handData, backgroundColor: AMBER+'cc', stack:'s', borderRadius: 2 }
         ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { position:'top', labels:{boxWidth:12, padding:12} }
+          legend: { position:'top' }
         },
         scales: {
-          x: { stacked:true, grid:{color:'#21262d'}, ticks:{maxRotation:45, minRotation:45, font:{size:9}} },
-          y: { stacked:true, grid:{color:'#21262d'} }
+          x: { stacked:true, grid:{display:false}, ticks:{maxRotation:45, minRotation:45, font:{size: TV ? 11 : 9}} },
+          y: { stacked:true, grid:{color:GRID} }
         },
         animation: false
       },
@@ -1407,6 +1290,7 @@ function renderHourlyChart(d) {
   document.getElementById('ts-hourly').textContent = 'Updated '+nowTs();
 }
 
+// ─── DOUGHNUT ────────────────────────────────────────────────────────────────
 function renderDoughnut(d) {
   const t = d.totals||{};
   const good = t.good_read||0, noRead = t.no_read||0, hand = t.hand_scanned||0;
@@ -1439,7 +1323,7 @@ function renderDoughnut(d) {
         responsive: false,
         cutout: '68%',
         plugins: {
-          legend: { position:'bottom', labels:{boxWidth:10, padding:8, font:{size:10}} }
+          legend: { position:'bottom', labels:{padding:8, font:{size: TV ? 12 : 10}} }
         },
         animation: false
       }
@@ -1447,10 +1331,10 @@ function renderDoughnut(d) {
   }
 }
 
+// ─── FLEET TABLE ─────────────────────────────────────────────────────────────
 function renderFleetTable(d) {
   const devices = (d.devices||[]).slice().sort((a,b)=>(a.machine_name||'').localeCompare(b.machine_name||''));
 
-  // Populate filter dropdown
   const filterSel = document.getElementById('fleet-customer-filter');
   const currentFilter = filterSel.value;
   const customers = [...new Set(devices.map(dv=>dv.customer).filter(Boolean))].sort();
@@ -1468,7 +1352,6 @@ function renderFleetRows(devices) {
 
   const tbody = document.getElementById('tbody-fleet');
   tbody.innerHTML = filtered.map((dv,idx)=>{
-    // Status
     let statusHtml;
     if(dv.status==='online') {
       statusHtml = `<span class="pill pill-green">Online</span>`;
@@ -1478,37 +1361,27 @@ function renderFleetRows(devices) {
       statusHtml = `<span class="pill ${isStale?'pill-amber':'pill-red'}">${isStale?'Stale':'Offline'}</span>`;
     }
 
-    // App
     let appHtml;
     if(dv.application_running) {
-      appHtml = `<span style="color:${GREEN}">● Running</span>`;
+      appHtml = `<span style="color:${GREEN}">Running</span>`;
     } else {
       const age = dv.stopped_since ? fmtAge(dv.stopped_since) : '';
-      appHtml = `<span style="color:${RED}">✕ Stopped${age?' '+age:''}</span>`;
+      appHtml = `<span style="color:${RED};font-weight:600">Stopped${age?' '+age:''}</span>`;
     }
 
-    // OS
     const osInfo = statusOsVersion(dv.os_version);
     const osHtml = `<span style="color:${osInfo.color};font-size:11px">${osInfo.text}</span>`;
 
-    // Good%
     const grP = dv.total_items > 0 ? (dv.good_read/dv.total_items*100) : null;
     const grHtml = grP!=null ? `<span class="pill ${grPillClass(grP)}">${grP.toFixed(1)}%</span>` : '—';
 
-    // Not sent
     const ns = dv.not_sent||0;
     const nsHtml = ns > 0 ? `<span style="color:${RED};font-weight:700">${fmt(ns)}</span>` : '—';
 
-    // CPU
     const cpuHtml = dv.cpu_percent!=null ? `<span style="color:${cpuColor(dv.cpu_percent)}">${dv.cpu_percent.toFixed(1)}%</span>` : '—';
-
-    // Mem
     const memHtml = dv.mem_usage_pct!=null ? `<span style="color:${cpuColor(dv.mem_usage_pct)}">${dv.mem_usage_pct.toFixed(1)}%</span>` : '—';
-
-    // Temp
     const tempHtml = dv.temp_celsius!=null ? `<span style="color:${tempColor(dv.temp_celsius)}">${dv.temp_celsius.toFixed(1)}°C</span>` : '—';
 
-    // Disk
     const diskPct = dv.c_disk_pct;
     const diskHtml = diskPct!=null ? `
       <div class="disk-bar-wrap">
@@ -1517,7 +1390,7 @@ function renderFleetRows(devices) {
       </div>` : '—';
 
     return `<tr>
-      <td style="color:var(--muted)">${idx+1}</td>
+      <td style="color:var(--faint)">${idx+1}</td>
       <td style="font-weight:600">${dv.machine_name||'—'}</td>
       <td>${dv.customer||'—'}</td>
       <td>${dv.location||'—'}</td>
@@ -1543,13 +1416,12 @@ function applyFleetFilter() {
   renderFleetRows(devices);
 }
 
+// ─── CUSTOMER TRENDS ─────────────────────────────────────────────────────────
 function renderCustomerTrends(d) {
   const trend = d.customerTrend||[];
-  // Get last 7 unique days
   const allDays = [...new Set(trend.map(r=>r.day))].sort().slice(-7);
   const customers = [...new Set(trend.map(r=>r.customer))];
 
-  // Build datasets for GR% chart
   const grDatasets = customers.map(cust => {
     const color = CUSTOMER_COLORS[cust] || GREY;
     return {
@@ -1567,7 +1439,6 @@ function renderCustomerTrends(d) {
     };
   });
 
-  // Reference lines
   const ref98 = {
     label: '98% Target',
     data: allDays.map(()=>98),
@@ -1600,18 +1471,17 @@ function renderCustomerTrends(d) {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { position:'top', labels:{boxWidth:12, padding:12} }
+          legend: { position:'top' }
         },
         scales: {
-          x: { grid:{color:'#21262d'} },
-          y: { min:0, max:100, grid:{color:'#21262d'}, ticks:{callback:v=>v+'%'} }
+          x: { grid:{display:false} },
+          y: { min:0, max:100, grid:{color:GRID}, ticks:{callback:v=>v+'%'} }
         },
         animation: false
       }
     });
   }
 
-  // Volume chart
   const volDatasets = customers.map(cust => {
     const color = CUSTOMER_COLORS[cust] || GREY;
     return {
@@ -1638,11 +1508,11 @@ function renderCustomerTrends(d) {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { position:'top', labels:{boxWidth:12, padding:12} }
+          legend: { position:'top' }
         },
         scales: {
-          x: { grid:{color:'#21262d'} },
-          y: { grid:{color:'#21262d'}, ticks:{callback: v=>v>=1000?Math.round(v/1000)+'k':v} }
+          x: { grid:{display:false} },
+          y: { grid:{color:GRID}, ticks:{callback: v=>v>=1000?Math.round(v/1000)+'k':v} }
         },
         animation: false
       }
@@ -1652,6 +1522,7 @@ function renderCustomerTrends(d) {
   document.getElementById('ts-custtrend').textContent = 'Updated '+nowTs();
 }
 
+// ─── DAILY TREND ─────────────────────────────────────────────────────────────
 function renderDailyTrend(d) {
   const daily = [...(d.dailyTrend||[])].sort((a,b)=>a.day.localeCompare(b.day)).slice(-14);
   const labels = daily.map(r=>r.day);
@@ -1659,7 +1530,6 @@ function renderDailyTrend(d) {
   const goodReads = daily.map(r=>r.good_read||0);
   const grPcts = daily.map(r=>r.items>0 ? (r.good_read/r.items*100) : null);
 
-  // Determine GR% color (use last value)
   const lastGrPct = grPcts.filter(v=>v!=null).pop();
   const grLineColor = grColor(lastGrPct);
 
@@ -1718,12 +1588,12 @@ function renderDailyTrend(d) {
         maintainAspectRatio: false,
         interaction: { mode:'index', intersect:false },
         plugins: {
-          legend: { position:'top', labels:{boxWidth:12, padding:12} }
+          legend: { position:'top' }
         },
         scales: {
-          x: { grid:{color:'#21262d'} },
+          x: { grid:{display:false} },
           y: {
-            grid:{color:'#21262d'},
+            grid:{color:GRID},
             ticks:{callback: v=>v>=1000?Math.round(v/1000)+'k':v},
             position:'left'
           },
@@ -1742,6 +1612,7 @@ function renderDailyTrend(d) {
   document.getElementById('ts-dailytrend').textContent = 'Updated '+nowTs();
 }
 
+// ─── STORAGE ─────────────────────────────────────────────────────────────────
 function renderStorage(d) {
   const rows = [...(d.allStorage||[])].sort((a,b)=>b.usage_percent-a.usage_percent);
   const tbody = document.getElementById('tbody-storage');
@@ -1755,7 +1626,7 @@ function renderStorage(d) {
       <td style="font-weight:600">${r.machine_name||'—'}</td>
       <td>${r.customer||'—'}</td>
       <td>${r.location||'—'}</td>
-      <td style="font-family:monospace;font-size:11px">${r.drive||'—'}</td>
+      <td style="font-variant-numeric:tabular-nums;font-size:11px;color:var(--muted)">${r.drive||'—'}</td>
       <td>
         <div class="disk-bar-wrap">
           <div class="disk-bar-track" style="width:80px">
@@ -1764,7 +1635,7 @@ function renderStorage(d) {
           <span style="color:${dc};font-size:11px">${pct.toFixed(1)}%</span>
         </div>
       </td>
-      <td style="text-align:right">${r.total_gb!=null?r.total_gb.toFixed(1):' —'}</td>
+      <td style="text-align:right">${r.total_gb!=null?r.total_gb.toFixed(1):'—'}</td>
       <td style="text-align:right">${r.free_gb!=null?r.free_gb.toFixed(1):'—'}</td>
       <td style="text-align:center"><span class="pill ${statusPill}">${statusText}</span></td>
     </tr>`;
@@ -1773,6 +1644,7 @@ function renderStorage(d) {
   document.getElementById('ts-storage').textContent = 'Updated '+nowTs();
 }
 
+// ─── MQTT BROKER ─────────────────────────────────────────────────────────────
 function renderMqttBroker(d) {
   const b = d.broker||{};
   const ver = (b.version||'').replace('mosquitto version ','');
@@ -1796,6 +1668,7 @@ function renderMqttBroker(d) {
     </div>`).join('');
 }
 
+// ─── PIPELINE ────────────────────────────────────────────────────────────────
 function renderPipeline(d) {
   const pl = d.pipeline||{};
   const container = document.getElementById('pipeline-rows');
@@ -1817,16 +1690,16 @@ function renderPipeline(d) {
 
   container.innerHTML = html || '<div class="no-data">No pipeline data</div>';
 
-  // Dead letter
   const dl = d.deadletter;
   const dlEl = document.getElementById('deadletter-badge');
   if(dl != null && dl > 0) {
     dlEl.innerHTML = `<span class="pill pill-red">${dl}</span>`;
   } else {
-    dlEl.innerHTML = `<span style="color:${GREEN};font-weight:600">✓ 0</span>`;
+    dlEl.innerHTML = `<span class="pill pill-green">0</span>`;
   }
 }
 
+// ─── FLEET INSIGHTS ──────────────────────────────────────────────────────────
 function renderFleetInsights(d) {
   const devices = (d.devices||[]).filter(dv=>dv.status==='online');
   const container = document.getElementById('fleet-insights');
@@ -1873,14 +1746,17 @@ function renderAll(d) {
   renderFleetInsights(d);
 }
 
-// ─── FETCH & POLL ─────────────────────────────────────────────────────────────
+// ─── FETCH & POLL ────────────────────────────────────────────────────────────
 async function fetchDashboard() {
   try {
     const res = await fetch('/api/dashboard');
     if(!res.ok) throw new Error('HTTP '+res.status);
     const data = await res.json();
+    lastSync = Date.now();
+    fetchFailed = false;
     renderAll(data);
   } catch(e) {
+    fetchFailed = true;
     console.error('Dashboard fetch error:', e);
   }
 }

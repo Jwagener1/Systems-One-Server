@@ -35,6 +35,7 @@
     - s1_dashboard
     - role: s1_reporter
       tags: [s1_reporter]
-    - marketing_display
+    - role: marketing_display
+      tags: [marketing_display]
     - role: scan_fleet_dashboard
       tags: [scan_fleet_dashboard]
