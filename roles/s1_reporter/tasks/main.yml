@@ -31,6 +31,14 @@
     group: root
     mode: "0644"
 
+- name: Copy compute_baselines.py
+  copy:
+    src: compute_baselines.py
+    dest: "{{ s1_reporter_dir }}/compute_baselines.py"
+    owner: root
+    group: root
+    mode: "0644"
+
 - name: Copy teams_notifier.py
   copy:
     src: teams_notifier.py

@@ -62,17 +62,23 @@ def compute_stats(values):
     return mean, stddev, p05, p10, p90, p95, n
 
 # ── Threshold derivation ───────────────────────────────────────────────────────
+# The good_read warn line sits a fixed fraction below each device's own baseline
+# mean, so every device is judged against its own normal rather than a fleet-wide
+# floor.
+WARN_BELOW_MEAN = 0.15
+
+
 def derive_thresholds(metric, mean, stddev, p05, p10, p90, p95):
     if metric == "good_read_pct":
-        warn = max(p10, mean - 2 * stddev)
+        # 15% below the mean, relative — not 15 percentage points. No 50.0 floor:
+        # a genuinely weak device gets a correspondingly low warn line instead of
+        # being pinned up at 50 and alerting permanently.
+        warn = mean * (1.0 - WARN_BELOW_MEAN)
         bad  = max(p05, mean - 3 * stddev)
-        warn = max(warn, 50.0)
-        bad  = max(bad,  40.0)
-        # Cap warn below 100 so near-perfect devices don't get absurd thresholds
-        if warn >= 100.0:
-            warn = round(mean - 1.0, 4)
-        if bad >= 100.0 or bad >= warn:
-            bad = round(warn - 1.0, 4)
+        # bad is the hard limit and must stay strictly under warn. With warn now
+        # well below the mean, the statistical bad value usually lands above it.
+        if bad >= warn:
+            bad = max(0.0, warn - 1.0)
         return round(warn, 4), round(bad, 4)
     elif metric == "no_dim_pct":
         warn = (p90 * 1.5) if p90 > 0 else 3.0
